@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>湯布院プライベートサウナ＆温泉 NOGIKU｜ご予約</title>
+<title>湯布院プライベートサウナ＆温泉 NOGIKU｜天照・月読・180分旅館</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -152,6 +152,65 @@
     letter-spacing:.03em;
   }
 
+  /* ---- スクロール演出 ---- */
+  .reveal{
+    opacity:0;
+    transform:translateY(18px);
+    transition:opacity .7s ease, transform .7s ease;
+  }
+  .reveal.in{
+    opacity:1;
+    transform:translateY(0);
+  }
+  .reveal-delay1{transition-delay:.12s;}
+  .reveal-delay2{transition-delay:.24s;}
+
+  /* ---- NOGIKUについて ---- */
+  .about-section{
+    margin-bottom:34px;
+  }
+  .about-photo{
+    width:100%;
+    aspect-ratio:16/10;
+    object-fit:cover;
+    border-radius:18px;
+    margin-bottom:18px;
+    box-shadow:0 3px 14px rgba(43,38,32,.08);
+  }
+  .about-eyebrow{
+    font-size:11px;
+    letter-spacing:.16em;
+    font-weight:700;
+    color:var(--sun-accent);
+    margin-bottom:8px;
+  }
+  .about-section h2{
+    font-family:var(--font-display);
+    font-size:22px;
+    font-weight:700;
+    margin:0 0 12px;
+    letter-spacing:.03em;
+    color:var(--ink);
+  }
+  .about-section p{
+    font-size:14px;
+    color:var(--ink);
+    line-height:1.85;
+    margin:0;
+  }
+  .transition-heading{
+    text-align:center;
+    margin:8px 0 22px;
+  }
+  .transition-heading h2{
+    font-family:var(--font-display);
+    font-size:24px;
+    font-weight:800;
+    margin:0;
+    letter-spacing:.05em;
+    color:var(--ink);
+  }
+
   /* ---- room intro cards ---- */
   .room-intro{
     border-radius:20px;
@@ -198,7 +257,25 @@
     background:repeating-linear-gradient(45deg, #d8c9a0, #d8c9a0 10px, #23242f 10px, #23242f 20px);
     color:var(--sub);
   }
+  .room-photo{
+    width:100%;
+    aspect-ratio:16/9;
+    object-fit:cover;
+    display:block;
+  }
   .room-intro .body{padding:20px 22px 24px;}
+  .rooms-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:20px;
+  }
+  @media (min-width: 860px){
+    .wrap{max-width:1000px;}
+    .rooms-grid{
+      grid-template-columns:repeat(3, 1fr);
+    }
+    .rooms-grid .room-intro{margin-bottom:0;}
+  }
   .room-intro h2{
     font-family:var(--font-display);
     font-size:21px;
@@ -470,9 +547,29 @@
     display:inline-block;
     margin-bottom:12px;
   }
+
+  .fab-reserve{
+    position:fixed;
+    right:20px;
+    bottom:22px;
+    background:var(--ember);
+    color:#fff;
+    text-decoration:none;
+    font-weight:800;
+    font-size:14.5px;
+    padding:15px 22px;
+    border-radius:100px;
+    box-shadow:0 6px 18px rgba(223,87,29,.4);
+    z-index:200;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .fab-reserve:hover{background:var(--ember-hover);}
 </style>
 </head>
 <body>
+<a class="fab-reserve" href="booking.html">予約する</a>
 <div class="wrap">
 
   <header>
@@ -481,8 +578,6 @@
       <span></span><span></span><span></span>
     </div>
     <nav class="menu-panel" id="menuPanel">
-      <button type="button" class="menu-item menu-primary" id="menuReserve">ご予約はこちら</button>
-      <hr>
       <button type="button" class="menu-item menu-jump" data-target="#pricing">料金・プラン一覧</button>
       <button type="button" class="menu-item menu-jump" data-target="#access">アクセス</button>
       <button type="button" class="menu-item menu-jump" data-target="#faq">よくあるご質問</button>
@@ -500,12 +595,23 @@
       <circle cx="50" cy="26" r="7" fill="var(--moon-bg)"/>
       <circle cx="50" cy="74" r="7" fill="var(--sun-accent)"/>
     </svg>
-    <h1>選べる2つのサウナ</h1>
     <p>湯布院プライベートサウナ＆温泉　NOGIKU</p>
   </div>
 
-  <div class="room-intro sun">
-    <div class="photo-placeholder">天照の写真<br>（差し替え予定）</div>
+  <div class="about-section">
+    <img class="about-photo reveal" src="about_main.jpg" alt="外気浴スペースから由布岳を望む景色">
+    <div class="about-eyebrow reveal reveal-delay1">ABOUT NOGIKU</div>
+    <h2 class="reveal reveal-delay1">湯布院旅館の大浴場から、プライベートサウナへ。</h2>
+    <p class="reveal reveal-delay2">NOGIKUは、湯布院旅館の元・大浴場をリノベーションして生まれたプライベートサウナです。湯布院旅館時代の広々とした空間をそのまま活かしているため、他のプライベートサウナと比べても、ゆったりとした造りでお過ごしいただけます。</p>
+  </div>
+
+  <div class="transition-heading">
+    <h2 class="reveal">選べる2つのサウナ</h2>
+  </div>
+
+  <div class="rooms-grid">
+  <div class="room-intro sun reveal">
+    <img class="room-photo" src="amaterasu.jpg" alt="天照 サウナ室内">
     <div class="body">
       <div class="en">AMATERASU ・ 陽</div>
       <h2>天照</h2>
@@ -513,8 +619,8 @@
     </div>
   </div>
 
-  <div class="room-intro moon">
-    <div class="photo-placeholder">月読の写真<br>（差し替え予定）</div>
+  <div class="room-intro moon reveal">
+    <img class="room-photo" src="tsukuyomi.jpg" alt="月読 サウナ室内">
     <div class="body">
       <div class="en">TSUKUYOMI ・ 陰</div>
       <h2>月読</h2>
@@ -522,69 +628,14 @@
     </div>
   </div>
 
-  <div class="room-intro dusk">
-    <div class="photo-placeholder">180分旅館の写真<br>（差し替え予定）</div>
+  <div class="room-intro dusk reveal">
+    <img class="room-photo" src="ryokan180.jpg" alt="180分旅館 外気浴">
     <div class="body">
       <div class="en">180MIN RYOKAN ・ 陽と陰のあわい</div>
       <h2>180分旅館</h2>
       <p class="copy">泊まらない旅館。天照・月読を、いつもより長く、贅沢に。自分らしくくつろぐ180分。</p>
     </div>
   </div>
-
-  <div class="panel" id="planSection">
-    <h3>① ご利用プランを選んでください</h3>
-    <p class="sub">プランによって、料金の決まり方が変わります</p>
-    <div class="plan-cards" id="planCards">
-      <div class="plan-card" data-plan="120min">
-        <div class="plan-title">120分プラン</div>
-        <div class="plan-sub">気軽にサウナ体験</div>
-      </div>
-      <div class="plan-card" data-plan="180min">
-        <div class="plan-title">180分旅館プラン</div>
-        <div class="plan-sub">ゆったり貸切旅館体験</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h3>② ご希望の条件から、空いている時間を調べる</h3>
-    <p class="sub">人数と日付を選ぶと、天照・月読どちらが空いているか一覧で表示します</p>
-
-    <div class="field-label">人数</div>
-    <div class="num-select" id="numSelect">
-      <div class="num-chip" data-n="1">1名</div>
-      <div class="num-chip" data-n="2">2名</div>
-      <div class="num-chip" data-n="3">3名</div>
-      <div class="num-chip" data-n="4">4名</div>
-      <div class="num-chip" data-n="5">5名</div>
-    </div>
-
-    <div class="field-label">ご希望日（本日から14日先まで）</div>
-    <div class="day-grid" id="dayGrid"></div>
-    <p style="font-size:11px;color:var(--sub);margin:6px 0 0;">グレーの日付は休館日のため選べません</p>
-
-    <button class="search-btn" id="searchBtn" disabled>この条件で空き状況を調べる</button>
-  </div>
-
-  <div id="resultArea">
-    <div class="loading" id="loadingMsg">空き状況を確認しています…</div>
-    <div id="resultBody" style="display:none;">
-      <span class="result-tag" id="resultTag"></span>
-
-      <div class="room-result">
-        <h4>天照 AMATERASU</h4>
-        <div class="price-line" id="priceAmaterasu"></div>
-        <div class="slot-row" id="slotsAmaterasu"></div>
-      </div>
-
-      <div class="room-result">
-        <h4>月読 TSUKUYOMI</h4>
-        <div class="price-line" id="priceTsukuyomi"></div>
-        <div class="slot-row" id="slotsTsukuyomi"></div>
-      </div>
-
-      <p class="dummy-note">※ 現在は骨組み段階のため、時間帯は仮の表示です。ボタンを押すと、正しい平日／土日の予約ページへ移動します。</p>
-    </div>
   </div>
 
   <div class="info-section" id="pricing">
@@ -702,74 +753,17 @@
 </div>
 
 <script>
-  // 120分プラン（天照・月読）の料金。3〜5名は期間限定割引（2026-08-31まで）
-  const SALE_UNTIL = "2026-08-31";
-  const PRICING = {
-    weekday: {
-      1: { regular: 5000,  current: 5000  },
-      2: { regular: 8000,  current: 8000  },
-      3: { regular: 10500, current: 10000 },
-      4: { regular: 13000, current: 11000 },
-      5: { regular: 15000, current: 12000 }
-    },
-    weekend: {
-      1: { regular: 6000,  current: 6000  },
-      2: { regular: 9600,  current: 9600  },
-      3: { regular: 12600, current: 12000 },
-      4: { regular: 15600, current: 13000 },
-      5: { regular: 18000, current: 14000 }
-    }
-  };
-
-  const CONFIG = {
-    amaterasu: {
-      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/6LXRATROAVOD6QXXL34DSUW2",
-      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/O3NCUHKOFOWR6RGHX6TFNXFH",
-      plan180: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/QGLJ7W3QVO3WTTULM3TAD3Q5"
-    },
-    tsukuyomi: {
-      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/X6AYINI6H65GZANXSMSY2FL3",
-      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/C4TSXG7QRZVXYASOYSMGDGZT",
-      plan180: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/W6KUMXH6YB3BERXYBUEBAXVN"
-    }
-  };
-  const SLOTS = {
-    amaterasu: ["11:00–13:00","13:30–15:30","16:00–18:00","18:30–20:30"],
-    tsukuyomi: ["9:30–11:30","12:00–14:00","14:30–16:30","17:00–19:00"]
-  };
-  const SLOTS180 = {
-    amaterasu: ["ご希望のお時間で承ります"],
-    tsukuyomi: ["ご希望のお時間で承ります"]
-  };
-
-  const HOLIDAYS_2026 = [
-    "2026-01-01","2026-01-12","2026-02-11","2026-02-23","2026-03-20",
-    "2026-04-29","2026-05-03","2026-05-04","2026-05-05","2026-05-06",
-    "2026-07-20","2026-08-11","2026-09-21","2026-09-22","2026-09-23",
-    "2026-10-12","2026-11-03","2026-11-23"
-  ];
-  const OBON_RANGE = ["2026-08-13","2026-08-14","2026-08-15"];
-  const CLOSED_DAYS = ["2026-08-03","2026-08-04"];
-
-  function judgeType(dateStr){
-    if(OBON_RANGE.includes(dateStr)) return "weekend";
-    if(HOLIDAYS_2026.includes(dateStr)) return "weekend";
-    const d = new Date(dateStr+"T00:00:00");
-    const day = d.getDay();
-    if(day === 0 || day === 6) return "weekend";
-    return "weekday";
-  }
-  function fmtDate(dateStr){
-    const d = new Date(dateStr+"T00:00:00");
-    const w = ["日","月","火","水","木","金","土"][d.getDay()];
-    return `${d.getMonth()+1}月${d.getDate()}日（${w}）`;
-  }
-  function toISO(d){
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,"0");
-    const day = String(d.getDate()).padStart(2,"0");
-    return `${y}-${m}-${day}`;
-  }
+  // ---- スクロール演出 ----
+  const revealEls = document.querySelectorAll(".reveal");
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        entry.target.classList.add("in");
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.2 });
+  revealEls.forEach(el => revealObserver.observe(el));
 
   // ---- ハンバーガーメニュー ----
   const menuBtn = document.getElementById("menuBtn");
@@ -784,10 +778,6 @@
       menuBtn.setAttribute("aria-expanded", "false");
     }
   });
-  document.getElementById("menuReserve").addEventListener("click", () => {
-    menuPanel.classList.remove("open");
-    document.getElementById("planSection").scrollIntoView({behavior:"smooth", block:"start"});
-  });
   document.querySelectorAll(".menu-jump").forEach(link => {
     link.addEventListener("click", (e) => {
       e.preventDefault();
@@ -797,125 +787,6 @@
       if(target) target.scrollIntoView({behavior:"smooth", block:"start"});
     });
   });
-
-  // ---- プラン選択 ----
-  let selectedPlan = null;
-  document.querySelectorAll(".plan-card").forEach(card => {
-    card.addEventListener("click", () => {
-      document.querySelectorAll(".plan-card").forEach(c => c.classList.remove("selected"));
-      card.classList.add("selected");
-      selectedPlan = card.dataset.plan;
-      updateSearchBtn();
-    });
-  });
-
-  // ---- 人数選択 ----
-  let selectedNum = null;
-  document.querySelectorAll(".num-chip").forEach(chip => {
-    chip.addEventListener("click", () => {
-      document.querySelectorAll(".num-chip").forEach(c => c.classList.remove("selected"));
-      chip.classList.add("selected");
-      selectedNum = chip.dataset.n;
-      updateSearchBtn();
-    });
-  });
-
-  // ---- 日付チップ ----
-  let selectedDate = null;
-  const dayGrid = document.getElementById("dayGrid");
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  let lastMonth = null;
-  for(let i=0; i<=14; i++){
-    const d = new Date(today);
-    d.setDate(d.getDate() + i);
-    const iso = toISO(d);
-    const month = d.getMonth()+1;
-    if(month !== lastMonth){
-      const label = document.createElement("div");
-      label.className = "month-label";
-      label.textContent = `${month}月`;
-      dayGrid.appendChild(label);
-      lastMonth = month;
-    }
-    const wd = ["日","月","火","水","木","金","土"][d.getDay()];
-    const chip = document.createElement("div");
-    chip.className = "day-chip";
-    const isClosed = CLOSED_DAYS.includes(iso);
-    if(isClosed) chip.classList.add("closed");
-    chip.innerHTML = `<div class="wd">${wd}</div><div class="num">${d.getDate()}</div>`;
-    chip.addEventListener("click", () => {
-      if(isClosed) return;
-      document.querySelectorAll(".day-chip.selected").forEach(el => el.classList.remove("selected"));
-      chip.classList.add("selected");
-      selectedDate = iso;
-      updateSearchBtn();
-    });
-    dayGrid.appendChild(chip);
-  }
-
-  function updateSearchBtn(){
-    document.getElementById("searchBtn").disabled = !(selectedPlan && selectedNum && selectedDate);
-  }
-
-  document.getElementById("searchBtn").addEventListener("click", () => {
-    const resultArea = document.getElementById("resultArea");
-    const loading = document.getElementById("loadingMsg");
-    const body = document.getElementById("resultBody");
-    resultArea.style.display = "block";
-    loading.style.display = "block";
-    body.style.display = "none";
-    resultArea.scrollIntoView({behavior:"smooth", block:"start"});
-
-    setTimeout(() => {
-      loading.style.display = "none";
-      body.style.display = "block";
-
-      const tag = document.getElementById("resultTag");
-      if(selectedPlan === "180min"){
-        tag.className = "result-tag weekday";
-        tag.textContent = "180分旅館 ・ 曜日にかかわらず同料金 ・ " + fmtDate(selectedDate) + " ・ " + selectedNum + "名";
-        document.getElementById("priceAmaterasu").innerHTML = "";
-        document.getElementById("priceTsukuyomi").innerHTML = "";
-        renderSlots("amaterasu", null, true);
-        renderSlots("tsukuyomi", null, true);
-      } else {
-        const type = judgeType(selectedDate);
-        tag.className = "result-tag " + type;
-        tag.textContent = (type === "weekday" ? "平日料金" : "土日祝料金") + " ・ " + fmtDate(selectedDate) + " ・ " + selectedNum + "名";
-        renderPrice("priceAmaterasu", type);
-        renderPrice("priceTsukuyomi", type);
-        renderSlots("amaterasu", type, false);
-        renderSlots("tsukuyomi", type, false);
-      }
-    }, 700);
-  });
-
-  function renderPrice(elId, type){
-    const p = PRICING[type][selectedNum];
-    const el = document.getElementById(elId);
-    if(!p){ el.innerHTML = ""; return; }
-    if(p.current < p.regular){
-      el.innerHTML = `<span class="now">¥${p.current.toLocaleString()}</span><span class="was">¥${p.regular.toLocaleString()}</span><span class="sale-tag">${SALE_UNTIL.slice(5).replace("-","/")}まで期間限定</span>`;
-    } else {
-      el.innerHTML = `<span class="now">¥${p.current.toLocaleString()}</span>`;
-    }
-  }
-
-  function renderSlots(room, type, isPlan180){
-    const wrap = document.getElementById(room === "amaterasu" ? "slotsAmaterasu" : "slotsTsukuyomi");
-    wrap.innerHTML = "";
-    const list = isPlan180 ? SLOTS180[room] : SLOTS[room];
-    const url = isPlan180 ? CONFIG[room].plan180 : CONFIG[room][type];
-    list.forEach(time => {
-      const a = document.createElement("a");
-      a.className = "slot-btn";
-      a.href = url;
-      a.target = "_blank";
-      a.textContent = isPlan180 ? time : (time + " 空");
-      wrap.appendChild(a);
-    });
-  }
 </script>
 </body>
 </html>
