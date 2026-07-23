@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ご予約｜湯布院プライベートサウナ＆温泉 NOGIKU</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream: #efe8d4;
+    --cream2: #e6ddc4;
+    --ink: #2b2620;
+    --sub: #83795f;
+    --line: #d9cfae;
+    --ember: #df571d;
+    --ember-hover: #e6713f;
+    --ember-soft: #df571d1a;
+    --ok: #3f7d5c;
+    --ok-bg: #e3ede4;
+    --warn-bg: #f5e6d8;
+    --warn-ink: #a8611f;
+
+    /* 天照（陽）*/
+    --sun-bg: #fbf3e0;
+    --sun-ink: #4a3414;
+    --sun-sub: #8a6d3c;
+    --sun-accent: #df571d;
+    --sun-line: #ecd9ab;
+
+    /* 月読（陰）*/
+    --moon-bg: #15151b;
+    --moon-ink: #ece8dd;
+    --moon-sub: #9a9fb0;
+    --moon-accent: #c3cbd9;
+    --moon-line: #2c2d38;
+
+    --font-display: "Shippori Mincho B1", "Hiragino Mincho ProN", serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--cream);
+    color:var(--ink);
+    font-family:"Inter","Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,sans-serif;
+    line-height:1.75;
+  }
+  .btn, button.btn{
+    font-family:"PT Sans","Hiragino Sans","Yu Gothic",sans-serif;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:0 20px 70px;}
+
+  /* ---- header ---- */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    padding:26px 0 10px;
+  }
+  header .mark{
+    width:64px;height:64px;border-radius:50%;
+    background:#fff;
+    border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-size:26px;
+  }
+  .menu-btn{
+    position:fixed;
+    right:20px;
+    top:20px;
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    background:#fff;
+    border:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    cursor:pointer;
+    z-index:200;
+    box-shadow:0 2px 10px rgba(43,38,32,.12);
+  }
+  .menu-btn span{
+    display:block;
+    width:18px;
+    height:2px;
+    background:var(--ink);
+    border-radius:2px;
+  }
+  .menu-btn:hover{border-color:var(--ember);}
+
+  .menu-panel{
+    position:fixed;
+    right:20px;
+    top:72px;
+    width:240px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:0 8px 24px rgba(43,38,32,.16);
+    padding:8px;
+    z-index:200;
+    display:none;
+  }
+  .menu-panel.open{display:block;}
+  .menu-panel a, .menu-panel button.menu-item{
+    display:block;
+    width:100%;
+    text-align:left;
+    padding:12px 14px;
+    border-radius:10px;
+    font-size:13.5px;
+    font-weight:700;
+    color:var(--ink);
+    text-decoration:none;
+    background:none;
+    border:none;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .menu-panel a:hover, .menu-panel button.menu-item:hover{background:var(--cream2);}
+  .menu-panel .menu-primary{color:var(--ember);}
+  .menu-panel hr{border:none;border-top:1px solid var(--line);margin:6px 4px;}
+
+  /* ---- hero ---- */
+  .hero{
+    text-align:center;
+    padding:14px 0 34px;
+  }
+  .yinyang{
+    width:88px;
+    height:88px;
+    margin:0 auto 18px;
+    display:block;
+  }
+  .hero h1{
+    font-family:var(--font-display);
+    font-size:30px;
+    font-weight:800;
+    margin:0 0 10px;
+    letter-spacing:.06em;
+    color:var(--ink);
+  }
+  .hero p{
+    color:var(--sub);
+    font-size:13.5px;
+    margin:0;
+    letter-spacing:.03em;
+  }
+
+  /* ---- room intro cards ---- */
+  .room-intro{
+    border-radius:20px;
+    overflow:hidden;
+    margin-bottom:20px;
+    box-shadow:0 3px 14px rgba(43,38,32,.06);
+    border-top:3px solid transparent;
+  }
+  .room-intro.sun{
+    background:var(--sun-bg);
+    border:1px solid var(--sun-line);
+    border-top:3px solid var(--sun-accent);
+  }
+  .room-intro.moon{
+    background:var(--moon-bg);
+    border:1px solid var(--moon-line);
+    border-top:3px solid var(--moon-accent);
+  }
+  .room-intro.dusk{
+    background:linear-gradient(135deg, var(--sun-bg) 0%, var(--sun-bg) 46%, var(--moon-bg) 54%, var(--moon-bg) 100%);
+    border:1px solid var(--line);
+  }
+  .photo-placeholder{
+    width:100%;
+    aspect-ratio:16/9;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:.05em;
+    text-align:center;
+    padding:10px;
+  }
+  .room-intro.sun .photo-placeholder{
+    background:repeating-linear-gradient(45deg, #f2e4c4, #f2e4c4 10px, #ecd9ab 10px, #ecd9ab 20px);
+    color:var(--sun-sub);
+  }
+  .room-intro.moon .photo-placeholder{
+    background:repeating-linear-gradient(45deg, #1c1d26, #1c1d26 10px, #23242f 10px, #23242f 20px);
+    color:var(--moon-sub);
+  }
+  .room-intro.dusk .photo-placeholder{
+    background:repeating-linear-gradient(45deg, #d8c9a0, #d8c9a0 10px, #23242f 10px, #23242f 20px);
+    color:var(--sub);
+  }
+  .room-intro .body{padding:20px 22px 24px;}
+  .room-intro h2{
+    font-family:var(--font-display);
+    font-size:21px;
+    margin:0 0 6px;
+    font-weight:700;
+    letter-spacing:.04em;
+  }
+  .room-intro.sun h2{color:var(--sun-ink);}
+  .room-intro.moon h2{color:var(--moon-ink);}
+  .room-intro.dusk h2{color:var(--ink);}
+  .room-intro .en{
+    font-size:10.5px;
+    letter-spacing:.16em;
+    font-weight:700;
+    margin-bottom:10px;
+  }
+  .room-intro.sun .en{color:var(--sun-accent);}
+  .room-intro.moon .en{color:var(--moon-accent);}
+  .room-intro.dusk .en{color:var(--sub);}
+  .room-intro p.copy{
+    font-size:13.5px;
+    margin:0;
+  }
+  .room-intro.sun p.copy{color:var(--sun-ink);}
+  .room-intro.moon p.copy{color:var(--moon-ink);}
+  .room-intro.dusk p.copy{color:var(--ink);}
+
+  /* ---- search panel ---- */
+  .panel{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:24px 22px;
+    margin:30px 0 20px;
+    box-shadow:0 3px 14px rgba(43,38,32,.06);
+  }
+  .panel h3{
+    font-family:var(--font-display);
+    font-size:17px;
+    margin:0 0 4px;
+    font-weight:700;
+    letter-spacing:.02em;
+  }
+  .panel .sub{font-size:12.5px;color:var(--sub);margin:0 0 20px;}
+
+  .plan-cards{
+    display:flex;
+    gap:12px;
+  }
+  .plan-card{
+    flex:1;
+    background:var(--cream2);
+    border:2px solid var(--line);
+    border-radius:16px;
+    padding:18px 14px;
+    text-align:center;
+    cursor:pointer;
+  }
+  .plan-card:hover{border-color:var(--ember);}
+  .plan-card.selected{background:var(--ember-soft);border-color:var(--ember);}
+  .plan-card .plan-title{font-size:15px;font-weight:800;color:var(--ink);margin-bottom:4px;}
+  .plan-card .plan-sub{font-size:11.5px;color:var(--sub);}
+  .plan-card.selected .plan-title{color:var(--ember);}
+
+  .field-label{
+    font-size:12.5px;
+    color:var(--sub);
+    font-weight:700;
+    margin-bottom:10px;
+  }
+
+  .num-select{
+    display:flex;
+    gap:8px;
+    margin-bottom:22px;
+    flex-wrap:wrap;
+  }
+  .num-chip{
+    flex:1;
+    min-width:52px;
+    text-align:center;
+    background:var(--cream2);
+    border:2px solid var(--line);
+    border-radius:12px;
+    padding:10px 0;
+    font-weight:800;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .num-chip.selected{background:var(--ember);border-color:var(--ember);color:#fff;}
+
+  .day-grid{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:8px;
+    margin-bottom:6px;
+  }
+  .month-label{
+    grid-column:1 / -1;
+    font-size:11px;
+    color:var(--sub);
+    font-weight:700;
+    margin:2px 0 -2px;
+  }
+  .day-chip{
+    background:var(--cream2);
+    border:2px solid var(--line);
+    border-radius:12px;
+    padding:9px 2px 7px;
+    text-align:center;
+    cursor:pointer;
+  }
+  .day-chip .wd{font-size:10px;color:var(--sub);font-weight:700;}
+  .day-chip .num{font-size:15px;font-weight:800;color:var(--ink);margin-top:1px;}
+  .day-chip:hover{border-color:var(--ember);}
+  .day-chip.selected{background:var(--ember);border-color:var(--ember);}
+  .day-chip.selected .wd,.day-chip.selected .num{color:#fff;}
+  .day-chip.closed{opacity:.45;cursor:not-allowed;}
+
+  button.search-btn{
+    width:100%;
+    background:var(--ember);
+    color:#fff;
+    border:none;
+    border-radius:100px;
+    padding:15px;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    margin-top:20px;
+  }
+  button.search-btn:hover{background:var(--ember-hover);}
+  button.search-btn:disabled{background:var(--line);cursor:not-allowed;}
+
+  /* ---- results ---- */
+  #resultArea{display:none;}
+  .loading{
+    text-align:center;
+    color:var(--sub);
+    font-size:13px;
+    padding:20px 0;
+  }
+  .result-tag{
+    display:inline-block;
+    font-size:11.5px;
+    font-weight:800;
+    padding:3px 11px;
+    border-radius:20px;
+    margin-bottom:14px;
+  }
+  .result-tag.weekday{background:var(--ok-bg);color:var(--ok);}
+  .result-tag.weekend{background:var(--warn-bg);color:var(--warn-ink);}
+
+  .room-result{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:16px 18px;
+    margin-bottom:14px;
+    box-shadow:0 2px 8px rgba(43,38,32,.05);
+  }
+  .room-result h4{margin:0 0 10px;font-size:15px;}
+  .price-line{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    margin-bottom:12px;
+    flex-wrap:wrap;
+  }
+  .price-line .now{font-size:20px;font-weight:800;color:var(--ember);}
+  .price-line .was{font-size:13px;color:var(--sub);text-decoration:line-through;}
+  .price-line .sale-tag{
+    font-size:10.5px;
+    font-weight:800;
+    color:var(--warn-ink);
+    background:var(--warn-bg);
+    border-radius:20px;
+    padding:2px 9px;
+  }
+  .slot-row{display:flex;flex-wrap:wrap;gap:8px;}
+  .slot-btn{
+    flex:1;
+    min-width:120px;
+    text-align:center;
+    background:var(--ok-bg);
+    color:var(--ok);
+    border:1px solid var(--ok);
+    border-radius:10px;
+    padding:10px 6px;
+    font-size:12.5px;
+    font-weight:800;
+    text-decoration:none;
+  }
+  .slot-btn:hover{background:var(--ok);color:#fff;}
+
+  /* ---- 確認モーダル ---- */
+  .confirm-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(20,17,10,.45);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:300;
+    padding:20px;
+  }
+  .confirm-overlay.open{display:flex;}
+  .confirm-box{
+    background:#fff;
+    border-radius:18px;
+    padding:24px 22px;
+    max-width:340px;
+    width:100%;
+    box-shadow:0 12px 32px rgba(43,38,32,.25);
+    text-align:center;
+  }
+  .confirm-box .confirm-title{
+    font-size:12px;
+    color:var(--sub);
+    font-weight:700;
+    margin-bottom:10px;
+  }
+  .confirm-box .confirm-detail{
+    font-size:16px;
+    font-weight:800;
+    color:var(--ink);
+    line-height:1.6;
+    margin-bottom:20px;
+  }
+  .confirm-box .confirm-actions{
+    display:flex;
+    gap:10px;
+  }
+  .confirm-box button{
+    flex:1;
+    padding:13px;
+    border-radius:100px;
+    font-size:13.5px;
+    font-weight:800;
+    cursor:pointer;
+    border:1px solid var(--line);
+  }
+  .confirm-box .btn-back{
+    background:#fff;
+    color:var(--ink);
+  }
+  .confirm-box .btn-go{
+    background:var(--ember);
+    color:#fff;
+    border:none;
+  }
+  .confirm-box .btn-go:hover{background:var(--ember-hover);}
+  .dummy-note{
+    font-size:10.5px;
+    color:var(--sub);
+    margin:10px 0 0;
+  }
+
+  /* ---- footer ---- */
+  .foot{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:20px 22px;
+    margin-top:30px;
+    font-size:12px;
+    color:var(--sub);
+  }
+  .foot p{margin:0 0 10px;}
+  .foot p:last-child{margin-bottom:0;}
+  .foot b{color:var(--ink);}
+  .foot .contact{
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid var(--line);
+    font-size:12px;
+    color:var(--ink);
+  }
+
+  /* ---- 参考情報セクション（アクセス・FAQ・規約など） ---- */
+  .info-section{
+    margin-top:44px;
+    padding-top:6px;
+  }
+  .info-section .section-title{
+    font-family:var(--font-display);
+    font-size:20px;
+    font-weight:700;
+    margin:0 0 16px;
+    padding-top:28px;
+    border-top:1px solid var(--line);
+    scroll-margin-top:20px;
+  }
+  .block{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:20px 20px 18px;
+    margin-bottom:14px;
+    box-shadow:0 2px 10px rgba(43,38,32,.05);
+  }
+  .block h3{font-size:14.5px;margin:0 0 8px;font-weight:800;}
+  .block p{font-size:13px;margin:0 0 8px;color:var(--ink);}
+  .block p:last-child{margin-bottom:0;}
+  .block ul,.block ol{font-size:13px;margin:0 0 8px;padding-left:20px;color:var(--ink);}
+  .block li{margin-bottom:5px;}
+  .tbd{
+    color:var(--warn-ink);
+    background:var(--warn-bg);
+    border-radius:6px;
+    padding:1px 8px;
+    font-size:11px;
+    font-weight:700;
+  }
+  .contact-row{display:flex;align-items:center;gap:10px;font-size:13.5px;margin-bottom:10px;}
+  .contact-row .ic{width:32px;height:32px;border-radius:50%;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+  .maps-link{
+    display:inline-block;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--ember);
+    text-decoration:none;
+    margin-top:4px;
+  }
+  .maps-link:hover{text-decoration:underline;}
+  .privacy-note{
+    display:inline-block;
+    margin-bottom:12px;
+  }
+
+  .cta-main{
+    display:block;
+    text-align:center;
+    background:var(--ember);
+    color:#fff;
+    text-decoration:none;
+    font-weight:800;
+    font-size:16px;
+    padding:17px;
+    border-radius:100px;
+    margin:26px 0;
+  }
+  .cta-main:hover{background:var(--ember-hover);}
+
+  .simple-header{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    padding:26px 0 6px;
+  }
+  .simple-header .mark{
+    width:56px;height:56px;border-radius:50%;
+    background:#fff;
+    border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;
+  }
+  .back-btn{
+    position:absolute;
+    left:0;
+    top:26px;
+    height:40px;
+    padding:0 15px;
+    border-radius:100px;
+    background:#fff;
+    border:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    font-weight:700;
+    color:var(--ink);
+    text-decoration:none;
+  }
+  .back-btn:hover{border-color:var(--ember);}
+  .booking-hero{text-align:center;padding:10px 0 22px;}
+  .booking-hero h1{
+    font-family:var(--font-display);
+    font-size:22px;
+    font-weight:700;
+    margin:0 0 6px;
+  }
+  .booking-hero p{color:var(--sub);font-size:12.5px;margin:0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="simple-header">
+    <a class="back-btn" href="index.html">← トップへ</a>
+    <div class="mark">♨️</div>
+  </header>
+
+  <div class="booking-hero">
+    <h1>ご予約</h1>
+    <p>湯布院プライベートサウナ＆温泉　NOGIKU</p>
+  </div>
+
+  <div class="panel" id="planSection">
+    <h3>① ご利用プランを選んでください</h3>
+    <p class="sub">プランによって、料金の決まり方が変わります</p>
+    <div class="plan-cards" id="planCards">
+      <div class="plan-card" data-plan="120min">
+        <div class="plan-title">120分プラン</div>
+        <div class="plan-sub">120分貸切サウナ</div>
+      </div>
+      <div class="plan-card" data-plan="180min">
+        <div class="plan-title">180分旅館プラン</div>
+        <div class="plan-sub">120分貸切サウナ＋60分旅館休憩</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>② ご希望の条件から、空いている時間を調べる</h3>
+    <p class="sub">人数と日付を選ぶと、天照・月読どちらが空いているか一覧で表示します</p>
+
+    <div class="field-label">人数</div>
+    <div class="num-select" id="numSelect">
+      <div class="num-chip" data-n="1">1名</div>
+      <div class="num-chip" data-n="2">2名</div>
+      <div class="num-chip" data-n="3">3名</div>
+      <div class="num-chip" data-n="4">4名</div>
+      <div class="num-chip" data-n="5">5名</div>
+    </div>
+
+    <div class="field-label">ご希望日（本日から14日先まで）</div>
+    <div class="day-grid" id="dayGrid"></div>
+    <p style="font-size:11px;color:var(--sub);margin:6px 0 0;">グレーの日付は休館日のため選べません。すべて選ぶと、下に自動で空き状況が表示されます。</p>
+  </div>
+
+  <div id="resultArea">
+    <div class="loading" id="loadingMsg">空き状況を確認しています…</div>
+    <div id="resultBody" style="display:none;">
+      <span class="result-tag" id="resultTag"></span>
+
+      <div class="room-result">
+        <h4 id="titleAmaterasu">天照 AMATERASU</h4>
+        <div class="price-line" id="priceAmaterasu"></div>
+        <div class="slot-row" id="slotsAmaterasu"></div>
+      </div>
+
+      <div class="room-result">
+        <h4 id="titleTsukuyomi">月読 TSUKUYOMI</h4>
+        <div class="price-line" id="priceTsukuyomi"></div>
+        <div class="slot-row" id="slotsTsukuyomi"></div>
+      </div>
+
+      <p class="dummy-note">※ 現在は骨組み段階のため、時間帯は仮の表示です。時間を押すと内容の確認が出て、「はい」を押すと正しい平日／土日の予約ページへ移動します。</p>
+    </div>
+  </div>
+
+
+</div>
+
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-title">この内容でよろしいですか</div>
+    <div class="confirm-detail" id="confirmDetail"></div>
+    <div class="confirm-actions">
+      <button type="button" class="btn-back" id="confirmBack">戻る</button>
+      <button type="button" class="btn-go" id="confirmGo">はい、進む</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 120分プラン（天照・月読）の料金。3〜5名は期間限定割引（2026-08-31まで）
+  const SALE_UNTIL = "2026-08-31";
+  const PRICING = {
+    weekday: {
+      1: { regular: 5000,  current: 5000  },
+      2: { regular: 8000,  current: 8000  },
+      3: { regular: 10500, current: 10000 },
+      4: { regular: 13000, current: 11000 },
+      5: { regular: 15000, current: 12000 }
+    },
+    weekend: {
+      1: { regular: 6000,  current: 6000  },
+      2: { regular: 9600,  current: 9600  },
+      3: { regular: 12600, current: 12000 },
+      4: { regular: 15600, current: 13000 },
+      5: { regular: 18000, current: 14000 }
+    }
+  };
+
+  const CONFIG = {
+    amaterasu: {
+      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/6LXRATROAVOD6QXXL34DSUW2",
+      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/O3NCUHKOFOWR6RGHX6TFNXFH",
+      plan180: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/QGLJ7W3QVO3WTTULM3TAD3Q5"
+    },
+    tsukuyomi: {
+      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/X6AYINI6H65GZANXSMSY2FL3",
+      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/C4TSXG7QRZVXYASOYSMGDGZT",
+      plan180: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/W6KUMXH6YB3BERXYBUEBAXVN"
+    }
+  };
+  const SLOTS = {
+    amaterasu: ["11:00–13:00","13:30–15:30","16:00–18:00","18:30–20:30"],
+    tsukuyomi: ["9:30–11:30","12:00–14:00","14:30–16:30","17:00–19:00"]
+  };
+
+  const HOLIDAYS_2026 = [
+    "2026-01-01","2026-01-12","2026-02-11","2026-02-23","2026-03-20",
+    "2026-04-29","2026-05-03","2026-05-04","2026-05-05","2026-05-06",
+    "2026-07-20","2026-08-11","2026-09-21","2026-09-22","2026-09-23",
+    "2026-10-12","2026-11-03","2026-11-23"
+  ];
+  const OBON_RANGE = ["2026-08-13","2026-08-14","2026-08-15"];
+  const CLOSED_DAYS = ["2026-08-03","2026-08-04"];
+
+  function judgeType(dateStr){
+    if(OBON_RANGE.includes(dateStr)) return "weekend";
+    if(HOLIDAYS_2026.includes(dateStr)) return "weekend";
+    const d = new Date(dateStr+"T00:00:00");
+    const day = d.getDay();
+    if(day === 0 || day === 6) return "weekend";
+    return "weekday";
+  }
+  function fmtDate(dateStr){
+    const d = new Date(dateStr+"T00:00:00");
+    const w = ["日","月","火","水","木","金","土"][d.getDay()];
+    return `${d.getMonth()+1}月${d.getDate()}日（${w}）`;
+  }
+  function toISO(d){
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  }
+
+  // ---- プラン選択 ----
+  let selectedPlan = null;
+  document.querySelectorAll(".plan-card").forEach(card => {
+    card.addEventListener("click", () => {
+      document.querySelectorAll(".plan-card").forEach(c => c.classList.remove("selected"));
+      card.classList.add("selected");
+      selectedPlan = card.dataset.plan;
+      runSearch();
+    });
+  });
+
+  // ---- 人数選択 ----
+  let selectedNum = null;
+  document.querySelectorAll(".num-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".num-chip").forEach(c => c.classList.remove("selected"));
+      chip.classList.add("selected");
+      selectedNum = chip.dataset.n;
+      runSearch();
+    });
+  });
+
+  // ---- 日付チップ ----
+  let selectedDate = null;
+  const dayGrid = document.getElementById("dayGrid");
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  let lastMonth = null;
+  for(let i=0; i<=14; i++){
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const iso = toISO(d);
+    const month = d.getMonth()+1;
+    if(month !== lastMonth){
+      const label = document.createElement("div");
+      label.className = "month-label";
+      label.textContent = `${month}月`;
+      dayGrid.appendChild(label);
+      lastMonth = month;
+    }
+    const wd = ["日","月","火","水","木","金","土"][d.getDay()];
+    const chip = document.createElement("div");
+    chip.className = "day-chip";
+    const isClosed = CLOSED_DAYS.includes(iso);
+    if(isClosed) chip.classList.add("closed");
+    chip.innerHTML = `<div class="wd">${wd}</div><div class="num">${d.getDate()}</div>`;
+    chip.addEventListener("click", () => {
+      if(isClosed) return;
+      document.querySelectorAll(".day-chip.selected").forEach(el => el.classList.remove("selected"));
+      chip.classList.add("selected");
+      selectedDate = iso;
+      runSearch();
+    });
+    dayGrid.appendChild(chip);
+  }
+
+  let searchToken = 0;
+  let hasShownOnce = false;
+
+  function runSearch(){
+    const resultArea = document.getElementById("resultArea");
+    const loading = document.getElementById("loadingMsg");
+    const body = document.getElementById("resultBody");
+
+    if(!(selectedPlan && selectedNum && selectedDate)){
+      resultArea.style.display = "none";
+      return;
+    }
+
+    const myToken = ++searchToken;
+    resultArea.style.display = "block";
+    loading.style.display = "block";
+    body.style.display = "none";
+    if(!hasShownOnce){
+      resultArea.scrollIntoView({behavior:"smooth", block:"start"});
+      hasShownOnce = true;
+    }
+
+    // 検索中の演出（実際のAPI連携時は、ここが本物の問い合わせ待ちになります）
+    setTimeout(() => {
+      if(myToken !== searchToken) return; // その間に選択が変わっていたら、古い結果は表示しない
+
+      loading.style.display = "none";
+      body.style.display = "block";
+
+      const tag = document.getElementById("resultTag");
+      if(selectedPlan === "180min"){
+        tag.className = "result-tag weekday";
+        tag.textContent = "180分旅館 ・ 曜日にかかわらず同料金 ・ " + fmtDate(selectedDate) + " ・ " + selectedNum + "名";
+        document.getElementById("priceAmaterasu").innerHTML = "";
+        document.getElementById("priceTsukuyomi").innerHTML = "";
+        renderSlots("amaterasu", null, true);
+        renderSlots("tsukuyomi", null, true);
+      } else {
+        const type = judgeType(selectedDate);
+        tag.className = "result-tag " + type;
+        tag.textContent = (type === "weekday" ? "平日料金" : "土日祝料金") + " ・ " + fmtDate(selectedDate) + " ・ " + selectedNum + "名";
+        renderPrice("priceAmaterasu", type);
+        renderPrice("priceTsukuyomi", type);
+        renderSlots("amaterasu", type, false);
+        renderSlots("tsukuyomi", type, false);
+      }
+    }, 500);
+  }
+
+  function renderPrice(elId, type){
+    const p = PRICING[type][selectedNum];
+    const el = document.getElementById(elId);
+    if(!p){ el.innerHTML = ""; return; }
+    if(p.current < p.regular){
+      el.innerHTML = `<span class="now">¥${p.current.toLocaleString()}</span><span class="was">¥${p.regular.toLocaleString()}</span><span class="sale-tag">${SALE_UNTIL.slice(5).replace("-","/")}まで期間限定</span>`;
+    } else {
+      el.innerHTML = `<span class="now">¥${p.current.toLocaleString()}</span>`;
+    }
+  }
+
+  function renderSlots(room, type, isPlan180){
+    const wrap = document.getElementById(room === "amaterasu" ? "slotsAmaterasu" : "slotsTsukuyomi");
+    const titleEl = document.getElementById(room === "amaterasu" ? "titleAmaterasu" : "titleTsukuyomi");
+    const baseTitle = room === "amaterasu" ? "天照 AMATERASU" : "月読 TSUKUYOMI";
+    titleEl.textContent = isPlan180 ? baseTitle + "（180分旅館）" : baseTitle;
+
+    wrap.innerHTML = "";
+    // 180分旅館も、サウナ＆温泉の時間帯そのものは120分プランと同じ（後半60分の旅館体験が続く）
+    const list = SLOTS[room];
+    const url = isPlan180 ? CONFIG[room].plan180 : CONFIG[room][type];
+    const roomName = room === "amaterasu" ? "天照" : "月読";
+    list.forEach(time => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "slot-btn";
+      btn.textContent = time + " 空";
+      btn.addEventListener("click", () => openConfirm(url, roomName, time, isPlan180));
+      wrap.appendChild(btn);
+    });
+  }
+
+  // ---- 予約前の確認モーダル ----
+  const confirmOverlay = document.getElementById("confirmOverlay");
+  const confirmDetail = document.getElementById("confirmDetail");
+  const confirmGo = document.getElementById("confirmGo");
+  const confirmBack = document.getElementById("confirmBack");
+  let pendingUrl = null;
+
+  function openConfirm(url, roomName, time, isPlan180){
+    pendingUrl = url;
+    const dateLabel = fmtDate(selectedDate);
+    const planLabel = isPlan180 ? "（180分旅館）" : "";
+    confirmDetail.textContent = `${selectedNum}名・${dateLabel}・${roomName}${planLabel}・${time}でよろしいですか？`;
+    confirmOverlay.classList.add("open");
+  }
+  confirmBack.addEventListener("click", () => {
+    confirmOverlay.classList.remove("open");
+    pendingUrl = null;
+  });
+  confirmOverlay.addEventListener("click", (e) => {
+    if(e.target === confirmOverlay){
+      confirmOverlay.classList.remove("open");
+      pendingUrl = null;
+    }
+  });
+  confirmGo.addEventListener("click", () => {
+    if(pendingUrl) window.open(pendingUrl, "_blank");
+    confirmOverlay.classList.remove("open");
+    pendingUrl = null;
+  });
+</script></body>
+</html>
