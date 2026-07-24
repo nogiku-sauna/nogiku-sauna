@@ -126,30 +126,61 @@
   .menu-panel .menu-primary{color:var(--ember);}
   .menu-panel hr{border:none;border-top:1px solid var(--line);margin:6px 4px;}
 
-  /* ---- hero ---- */
-  .hero{
-    text-align:center;
-    padding:14px 0 34px;
+  /* ---- hero photo ---- */
+  .hero-photo-wrap{
+    position:relative;
+    width:100%;
+    aspect-ratio:4/5;
+    border-radius:20px;
+    overflow:hidden;
+    margin-top:8px;
+    box-shadow:0 6px 24px rgba(43,38,32,.14);
   }
-  .yinyang{
-    width:88px;
-    height:88px;
-    margin:0 auto 18px;
+  .hero-photo{
+    width:100%;
+    height:100%;
+    object-fit:cover;
     display:block;
   }
-  .hero h1{
-    font-family:var(--font-display);
-    font-size:30px;
-    font-weight:800;
-    margin:0 0 10px;
-    letter-spacing:.06em;
-    color:var(--ink);
+  .hero-overlay{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    padding:28px 22px 26px;
+    background:linear-gradient(0deg, rgba(15,12,8,.82) 0%, rgba(15,12,8,.45) 55%, rgba(15,12,8,0) 100%);
   }
-  .hero p{
-    color:var(--sub);
-    font-size:13.5px;
+  .hero-eyebrow{
+    font-size:11px;
+    letter-spacing:.18em;
+    font-weight:700;
+    color:#f2c68f;
+    margin-bottom:8px;
+  }
+  .hero-heading{
+    font-family:var(--font-display);
+    font-size:23px;
+    font-weight:800;
+    color:#fff;
     margin:0;
+    line-height:1.5;
+    letter-spacing:.02em;
+  }
+  .hero-sub{
+    text-align:center;
+    color:var(--sub);
+    font-size:12.5px;
     letter-spacing:.03em;
+    margin:14px 0 30px;
+  }
+
+  /* ---- ぽんと現れる演出 ---- */
+  .pop{
+    opacity:0;
+    transform:scale(.92);
+    transition:opacity .6s ease, transform .6s cubic-bezier(.34,1.56,.64,1);
+  }
+  .pop.in{
+    opacity:1;
+    transform:scale(1);
   }
 
   /* ---- スクロール演出 ---- */
@@ -168,29 +199,6 @@
   /* ---- NOGIKUについて ---- */
   .about-section{
     margin-bottom:34px;
-  }
-  .about-photo{
-    width:100%;
-    aspect-ratio:16/10;
-    object-fit:cover;
-    border-radius:18px;
-    margin-bottom:18px;
-    box-shadow:0 3px 14px rgba(43,38,32,.08);
-  }
-  .about-eyebrow{
-    font-size:11px;
-    letter-spacing:.16em;
-    font-weight:700;
-    color:var(--sun-accent);
-    margin-bottom:8px;
-  }
-  .about-section h2{
-    font-family:var(--font-display);
-    font-size:22px;
-    font-weight:700;
-    margin:0 0 12px;
-    letter-spacing:.03em;
-    color:var(--ink);
   }
   .about-section p{
     font-size:14px;
@@ -573,7 +581,6 @@
 <div class="wrap">
 
   <header>
-    <div class="mark">♨️</div>
     <div class="menu-btn" id="menuBtn" role="button" aria-label="メニューを開く" aria-expanded="false">
       <span></span><span></span><span></span>
     </div>
@@ -587,22 +594,17 @@
     </nav>
   </header>
 
-  <div class="hero">
-    <svg class="yinyang" viewBox="0 0 100 100" role="img" aria-label="天照と月読、陽と陰のしるし">
-      <circle cx="50" cy="50" r="48" fill="none" stroke="var(--line)" stroke-width="1"/>
-      <path d="M50,2 A48,48 0 0,1 50,98 A24,24 0 0,1 50,50 A24,24 0 0,0 50,2 Z" fill="var(--sun-accent)"/>
-      <path d="M50,2 A48,48 0 0,0 50,98 A24,24 0 0,1 50,50 A24,24 0 0,0 50,2 Z" fill="var(--moon-bg)"/>
-      <circle cx="50" cy="26" r="7" fill="var(--moon-bg)"/>
-      <circle cx="50" cy="74" r="7" fill="var(--sun-accent)"/>
-    </svg>
-    <p>湯布院プライベートサウナ＆温泉　NOGIKU</p>
+  <div class="hero-photo-wrap">
+    <img class="hero-photo" src="about_main.jpg" alt="外気浴スペースから由布岳を望む景色">
+    <div class="hero-overlay pop">
+      <div class="hero-eyebrow">ABOUT NOGIKU</div>
+      <h1 class="hero-heading">湯布院旅館の大浴場から、<br>プライベートサウナへ。</h1>
+    </div>
   </div>
+  <p class="hero-sub">湯布院プライベートサウナ＆温泉　NOGIKU</p>
 
   <div class="about-section">
-    <img class="about-photo reveal" src="about_main.jpg" alt="外気浴スペースから由布岳を望む景色">
-    <div class="about-eyebrow reveal reveal-delay1">ABOUT NOGIKU</div>
-    <h2 class="reveal reveal-delay1">湯布院旅館の大浴場から、プライベートサウナへ。</h2>
-    <p class="reveal reveal-delay2">NOGIKUは、湯布院旅館の元・大浴場をリノベーションして生まれたプライベートサウナです。湯布院旅館時代の広々とした空間をそのまま活かしているため、他のプライベートサウナと比べても、ゆったりとした造りでお過ごしいただけます。</p>
+    <p class="reveal">NOGIKUは、湯布院旅館の元・大浴場をリノベーションして生まれたプライベートサウナです。湯布院旅館時代の広々とした空間をそのまま活かしているため、他のプライベートサウナと比べても、ゆったりとした造りでお過ごしいただけます。</p>
   </div>
 
   <div class="transition-heading">
@@ -754,7 +756,7 @@
 
 <script>
   // ---- スクロール演出 ----
-  const revealEls = document.querySelectorAll(".reveal");
+  const revealEls = document.querySelectorAll(".reveal, .pop");
   const revealObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if(entry.isIntersecting){
