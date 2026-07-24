@@ -337,6 +337,22 @@
   .room-intro.moon p.copy{color:var(--moon-ink);}
   .room-intro.dusk p.copy{color:var(--ink);}
 
+  .detail-link{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    margin-top:16px;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.03em;
+    text-decoration:none;
+    transition:gap .3s var(--ease-soft), opacity .3s var(--ease-soft);
+  }
+  .detail-link:hover{gap:9px;opacity:.75;}
+  .room-intro.sun .detail-link{color:var(--sun-accent);}
+  .room-intro.moon .detail-link{color:var(--moon-accent);}
+  .room-intro.dusk .detail-link{color:var(--ember);}
+
   /* ---- search panel ---- */
   .panel{
     background:#fff;
@@ -655,6 +671,7 @@
       <div class="en">AMATERASU ・ 陽</div>
       <h2>天照</h2>
       <p class="copy">天照大神をイメージした、光と明るさを楽しむサウナ。</p>
+      <a class="detail-link" href="amaterasu.html">天照を詳しく見る →</a>
     </div>
   </div>
 
@@ -664,6 +681,7 @@
       <div class="en">TSUKUYOMI ・ 陰</div>
       <h2>月読</h2>
       <p class="copy">月夜見尊をイメージした、月と静けさを感じられる空間。</p>
+      <a class="detail-link" href="tsukuyomi.html">月読を詳しく見る →</a>
     </div>
   </div>
   </div>
