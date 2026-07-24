@@ -138,9 +138,13 @@
   /* ---- hero photo ---- */
   .hero-photo-wrap{
     position:relative;
-    width:100%;
+    width:100vw;
+    left:50%;
+    right:50%;
+    margin-left:-50vw;
+    margin-right:-50vw;
     aspect-ratio:16/10;
-    border-radius:26px;
+    border-radius:0;
     overflow:hidden;
     margin-top:8px;
     box-shadow:var(--shadow-lg);
@@ -159,7 +163,7 @@
     justify-content:center;
     text-align:center;
     padding:24px;
-    background:rgba(15,12,8,.38);
+    background:radial-gradient(ellipse 62% 48% at 50% 50%, rgba(15,12,8,.58) 0%, rgba(15,12,8,.32) 42%, rgba(15,12,8,0) 72%);
   }
   .hero-heading{
     font-family:var(--font-display);
