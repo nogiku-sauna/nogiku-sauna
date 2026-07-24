@@ -130,7 +130,7 @@
   .hero-photo-wrap{
     position:relative;
     width:100%;
-    aspect-ratio:4/5;
+    aspect-ratio:16/10;
     border-radius:20px;
     overflow:hidden;
     margin-top:8px;
@@ -144,16 +144,13 @@
   }
   .hero-overlay{
     position:absolute;
-    left:0; right:0; bottom:0;
-    padding:28px 22px 26px;
-    background:linear-gradient(0deg, rgba(15,12,8,.82) 0%, rgba(15,12,8,.45) 55%, rgba(15,12,8,0) 100%);
-  }
-  .hero-eyebrow{
-    font-size:11px;
-    letter-spacing:.18em;
-    font-weight:700;
-    color:#f2c68f;
-    margin-bottom:8px;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:24px;
+    background:rgba(15,12,8,.38);
   }
   .hero-heading{
     font-family:var(--font-display);
@@ -161,8 +158,9 @@
     font-weight:800;
     color:#fff;
     margin:0;
-    line-height:1.5;
+    line-height:1.6;
     letter-spacing:.02em;
+    text-shadow:0 2px 12px rgba(0,0,0,.35);
   }
   .hero-sub{
     text-align:center;
@@ -597,7 +595,6 @@
   <div class="hero-photo-wrap">
     <img class="hero-photo" src="about_main.jpg" alt="外気浴スペースから由布岳を望む景色">
     <div class="hero-overlay pop">
-      <div class="hero-eyebrow">ABOUT NOGIKU</div>
       <h1 class="hero-heading">湯布院旅館の大浴場から、<br>プライベートサウナへ。</h1>
     </div>
   </div>
@@ -755,8 +752,19 @@
 </div>
 
 <script>
-  // ---- スクロール演出 ----
-  const revealEls = document.querySelectorAll(".reveal, .pop");
+  // ---- ヒーロー見出し：ページ読み込み時に確実にフェード＋ポップさせる ----
+  const heroPop = document.querySelector(".hero-overlay.pop");
+  if(heroPop){
+    // 初期状態（透明・少し縮小）を必ず一度描画させてから、次のフレームでアニメーションを開始する
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        heroPop.classList.add("in");
+      });
+    });
+  }
+
+  // ---- スクロール演出（画面外にある要素のみ） ----
+  const revealEls = document.querySelectorAll(".reveal");
   const revealObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if(entry.isIntersecting){
