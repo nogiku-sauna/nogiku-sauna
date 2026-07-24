@@ -22,6 +22,12 @@
     --warn-bg: #f5e6d8;
     --warn-ink: #a8611f;
 
+    --paper: #fffdf9;
+    --shadow-sm: 0 1px 3px rgba(43,38,32,.05);
+    --shadow-md: 0 8px 28px rgba(43,38,32,.07);
+    --shadow-lg: 0 18px 48px rgba(43,38,32,.10);
+    --ease-soft: cubic-bezier(.22,1,.36,1);
+
     /* 天照（陽）*/
     --sun-bg: #fbf3e0;
     --sun-ink: #4a3414;
@@ -44,7 +50,8 @@
     background:var(--cream);
     color:var(--ink);
     font-family:"Inter","Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,sans-serif;
-    line-height:1.75;
+    line-height:1.8;
+    -webkit-font-smoothing:antialiased;
   }
   .btn, button.btn{
     font-family:"PT Sans","Hiragino Sans","Yu Gothic",sans-serif;
@@ -82,16 +89,17 @@
     gap:4px;
     cursor:pointer;
     z-index:200;
-    box-shadow:0 2px 10px rgba(43,38,32,.12);
+    box-shadow:var(--shadow-md);
+    transition:box-shadow .3s var(--ease-soft), border-color .3s var(--ease-soft), transform .3s var(--ease-soft);
   }
   .menu-btn span{
     display:block;
-    width:18px;
-    height:2px;
+    width:16px;
+    height:1.5px;
     background:var(--ink);
     border-radius:2px;
   }
-  .menu-btn:hover{border-color:var(--ember);}
+  .menu-btn:hover{border-color:var(--ember);box-shadow:var(--shadow-lg);transform:translateY(-1px);}
 
   .menu-panel{
     position:fixed;
@@ -100,9 +108,9 @@
     width:240px;
     background:#fff;
     border:1px solid var(--line);
-    border-radius:16px;
-    box-shadow:0 8px 24px rgba(43,38,32,.16);
-    padding:8px;
+    border-radius:18px;
+    box-shadow:var(--shadow-lg);
+    padding:10px;
     z-index:200;
     display:none;
   }
@@ -111,16 +119,17 @@
     display:block;
     width:100%;
     text-align:left;
-    padding:12px 14px;
-    border-radius:10px;
+    padding:13px 15px;
+    border-radius:11px;
     font-size:13.5px;
-    font-weight:700;
+    font-weight:600;
     color:var(--ink);
     text-decoration:none;
     background:none;
     border:none;
     cursor:pointer;
     font-family:inherit;
+    transition:background .2s var(--ease-soft);
   }
   .menu-panel a:hover, .menu-panel button.menu-item:hover{background:var(--cream2);}
   .menu-panel .menu-primary{color:var(--ember);}
@@ -131,10 +140,10 @@
     position:relative;
     width:100%;
     aspect-ratio:16/10;
-    border-radius:20px;
+    border-radius:26px;
     overflow:hidden;
     margin-top:8px;
-    box-shadow:0 6px 24px rgba(43,38,32,.14);
+    box-shadow:var(--shadow-lg);
   }
   .hero-photo{
     width:100%;
@@ -154,20 +163,20 @@
   }
   .hero-heading{
     font-family:var(--font-display);
-    font-size:23px;
-    font-weight:800;
+    font-size:25px;
+    font-weight:700;
     color:#fff;
     margin:0;
-    line-height:1.6;
-    letter-spacing:.02em;
-    text-shadow:0 2px 12px rgba(0,0,0,.35);
+    line-height:1.65;
+    letter-spacing:.03em;
+    text-shadow:0 2px 16px rgba(0,0,0,.4);
   }
   .hero-sub{
     text-align:center;
     color:var(--sub);
-    font-size:12.5px;
-    letter-spacing:.03em;
-    margin:14px 0 30px;
+    font-size:11.5px;
+    letter-spacing:.12em;
+    margin:20px 0 40px;
   }
 
   /* ---- ぽんと現れる演出 ---- */
@@ -184,56 +193,62 @@
   /* ---- スクロール演出 ---- */
   .reveal{
     opacity:0;
-    transform:translateY(18px);
-    transition:opacity .7s ease, transform .7s ease;
+    transform:translateY(14px);
+    transition:opacity .9s var(--ease-soft), transform .9s var(--ease-soft);
   }
   .reveal.in{
     opacity:1;
     transform:translateY(0);
   }
-  .reveal-delay1{transition-delay:.12s;}
-  .reveal-delay2{transition-delay:.24s;}
+  .reveal-delay1{transition-delay:.1s;}
+  .reveal-delay2{transition-delay:.2s;}
 
   /* ---- NOGIKUについて ---- */
   .about-section{
-    margin-bottom:34px;
+    margin:40px 0 56px;
   }
   .about-section p{
-    font-size:14px;
-    color:var(--ink);
-    line-height:1.85;
+    font-size:14.5px;
+    color:var(--sub);
+    line-height:2;
     margin:0;
+    letter-spacing:.01em;
   }
   .transition-heading{
     text-align:center;
-    margin:8px 0 22px;
+    margin:0 0 36px;
   }
   .transition-heading h2{
     font-family:var(--font-display);
-    font-size:24px;
-    font-weight:800;
+    font-size:26px;
+    font-weight:700;
     margin:0;
-    letter-spacing:.05em;
+    letter-spacing:.08em;
     color:var(--ink);
   }
 
   /* ---- room intro cards ---- */
   .room-intro{
-    border-radius:20px;
+    border-radius:24px;
     overflow:hidden;
-    margin-bottom:20px;
-    box-shadow:0 3px 14px rgba(43,38,32,.06);
-    border-top:3px solid transparent;
+    margin-bottom:24px;
+    box-shadow:var(--shadow-md);
+    border-top:2px solid transparent;
+    transition:transform .45s var(--ease-soft), box-shadow .45s var(--ease-soft);
+  }
+  .room-intro:hover{
+    transform:translateY(-5px);
+    box-shadow:var(--shadow-lg);
   }
   .room-intro.sun{
     background:var(--sun-bg);
     border:1px solid var(--sun-line);
-    border-top:3px solid var(--sun-accent);
+    border-top:2px solid var(--sun-accent);
   }
   .room-intro.moon{
     background:var(--moon-bg);
     border:1px solid var(--moon-line);
-    border-top:3px solid var(--moon-accent);
+    border-top:2px solid var(--moon-accent);
   }
   .room-intro.dusk{
     background:linear-gradient(135deg, var(--sun-bg) 0%, var(--sun-bg) 46%, var(--moon-bg) 54%, var(--moon-bg) 100%);
@@ -268,15 +283,17 @@
     aspect-ratio:16/9;
     object-fit:cover;
     display:block;
+    transition:transform .6s var(--ease-soft);
   }
-  .room-intro .body{padding:20px 22px 24px;}
+  .room-intro:hover .room-photo{transform:scale(1.04);}
+  .room-intro .body{padding:26px 26px 30px;}
   .rooms-grid{
     display:grid;
     grid-template-columns:1fr;
-    gap:20px;
+    gap:24px;
   }
   @media (min-width: 860px){
-    .wrap{max-width:1000px;}
+    .wrap{max-width:1040px;}
     .rooms-grid{
       grid-template-columns:repeat(3, 1fr);
     }
@@ -284,19 +301,20 @@
   }
   .room-intro h2{
     font-family:var(--font-display);
-    font-size:21px;
-    margin:0 0 6px;
+    font-size:22px;
+    margin:0 0 8px;
     font-weight:700;
-    letter-spacing:.04em;
+    letter-spacing:.05em;
   }
   .room-intro.sun h2{color:var(--sun-ink);}
   .room-intro.moon h2{color:var(--moon-ink);}
   .room-intro.dusk h2{color:var(--ink);}
   .room-intro .en{
-    font-size:10.5px;
-    letter-spacing:.16em;
+    font-size:10px;
+    letter-spacing:.2em;
     font-weight:700;
-    margin-bottom:10px;
+    margin-bottom:14px;
+    opacity:.85;
   }
   .room-intro.sun .en{color:var(--sun-accent);}
   .room-intro.moon .en{color:var(--moon-accent);}
@@ -304,6 +322,8 @@
   .room-intro p.copy{
     font-size:13.5px;
     margin:0;
+    line-height:1.9;
+    opacity:.9;
   }
   .room-intro.sun p.copy{color:var(--sun-ink);}
   .room-intro.moon p.copy{color:var(--moon-ink);}
@@ -484,71 +504,77 @@
 
   /* ---- footer ---- */
   .foot{
-    background:#fff;
+    background:var(--paper);
     border:1px solid var(--line);
-    border-radius:16px;
-    padding:20px 22px;
-    margin-top:30px;
+    border-radius:20px;
+    padding:26px 24px;
+    margin-top:40px;
     font-size:12px;
     color:var(--sub);
+    box-shadow:var(--shadow-sm);
   }
-  .foot p{margin:0 0 10px;}
+  .foot p{margin:0 0 12px;line-height:1.9;}
   .foot p:last-child{margin-bottom:0;}
   .foot b{color:var(--ink);}
   .foot .contact{
-    margin-top:14px;
-    padding-top:14px;
+    margin-top:16px;
+    padding-top:16px;
     border-top:1px solid var(--line);
     font-size:12px;
     color:var(--ink);
+    line-height:2;
   }
 
   /* ---- 参考情報セクション（アクセス・FAQ・規約など） ---- */
   .info-section{
-    margin-top:44px;
+    margin-top:72px;
     padding-top:6px;
   }
   .info-section .section-title{
     font-family:var(--font-display);
-    font-size:20px;
+    font-size:21px;
     font-weight:700;
-    margin:0 0 16px;
-    padding-top:28px;
+    margin:0 0 22px;
+    padding-top:40px;
     border-top:1px solid var(--line);
-    scroll-margin-top:20px;
+    scroll-margin-top:24px;
+    letter-spacing:.03em;
   }
   .block{
-    background:#fff;
+    background:var(--paper);
     border:1px solid var(--line);
-    border-radius:18px;
-    padding:20px 20px 18px;
-    margin-bottom:14px;
-    box-shadow:0 2px 10px rgba(43,38,32,.05);
+    border-radius:20px;
+    padding:24px 24px 22px;
+    margin-bottom:16px;
+    box-shadow:var(--shadow-sm);
+    transition:box-shadow .35s var(--ease-soft);
   }
-  .block h3{font-size:14.5px;margin:0 0 8px;font-weight:800;}
-  .block p{font-size:13px;margin:0 0 8px;color:var(--ink);}
+  .block:hover{box-shadow:var(--shadow-md);}
+  .block h3{font-size:14.5px;margin:0 0 10px;font-weight:700;letter-spacing:.02em;}
+  .block p{font-size:13px;margin:0 0 8px;color:var(--sub);line-height:1.9;}
   .block p:last-child{margin-bottom:0;}
-  .block ul,.block ol{font-size:13px;margin:0 0 8px;padding-left:20px;color:var(--ink);}
-  .block li{margin-bottom:5px;}
+  .block ul,.block ol{font-size:13px;margin:0 0 8px;padding-left:20px;color:var(--sub);line-height:1.9;}
+  .block li{margin-bottom:7px;}
   .tbd{
     color:var(--warn-ink);
     background:var(--warn-bg);
-    border-radius:6px;
-    padding:1px 8px;
+    border-radius:20px;
+    padding:2px 10px;
     font-size:11px;
     font-weight:700;
   }
-  .contact-row{display:flex;align-items:center;gap:10px;font-size:13.5px;margin-bottom:10px;}
-  .contact-row .ic{width:32px;height:32px;border-radius:50%;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+  .contact-row{display:flex;align-items:center;gap:12px;font-size:13.5px;margin-bottom:13px;}
+  .contact-row .ic{width:34px;height:34px;border-radius:50%;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
   .maps-link{
     display:inline-block;
     font-size:12.5px;
     font-weight:700;
     color:var(--ember);
     text-decoration:none;
-    margin-top:4px;
+    margin-top:6px;
+    transition:opacity .2s var(--ease-soft);
   }
-  .maps-link:hover{text-decoration:underline;}
+  .maps-link:hover{opacity:.7;text-decoration:underline;}
   .privacy-note{
     display:inline-block;
     margin-bottom:12px;
@@ -556,22 +582,28 @@
 
   .fab-reserve{
     position:fixed;
-    right:20px;
-    bottom:22px;
+    right:22px;
+    bottom:24px;
     background:var(--ember);
     color:#fff;
     text-decoration:none;
-    font-weight:800;
+    font-weight:700;
     font-size:14.5px;
-    padding:15px 22px;
+    letter-spacing:.03em;
+    padding:16px 26px;
     border-radius:100px;
-    box-shadow:0 6px 18px rgba(223,87,29,.4);
+    box-shadow:0 10px 28px rgba(223,87,29,.32);
     z-index:200;
     display:flex;
     align-items:center;
     gap:6px;
+    transition:transform .35s var(--ease-soft), box-shadow .35s var(--ease-soft), background .35s var(--ease-soft);
   }
-  .fab-reserve:hover{background:var(--ember-hover);}
+  .fab-reserve:hover{
+    background:var(--ember-hover);
+    transform:translateY(-2px);
+    box-shadow:0 14px 34px rgba(223,87,29,.4);
+  }
 </style>
 </head>
 <body>
