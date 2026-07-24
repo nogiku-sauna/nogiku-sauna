@@ -340,18 +340,23 @@
   .detail-link{
     display:inline-flex;
     align-items:center;
-    gap:5px;
-    margin-top:16px;
-    font-size:12px;
+    gap:6px;
+    margin-top:20px;
+    padding:12px 20px;
+    border-radius:100px;
+    font-size:13.5px;
     font-weight:700;
-    letter-spacing:.03em;
+    letter-spacing:.02em;
     text-decoration:none;
-    transition:gap .3s var(--ease-soft), opacity .3s var(--ease-soft);
+    border:1.5px solid currentColor;
+    transition:gap .3s var(--ease-soft), background .3s var(--ease-soft), color .3s var(--ease-soft);
   }
-  .detail-link:hover{gap:9px;opacity:.75;}
   .room-intro.sun .detail-link{color:var(--sun-accent);}
   .room-intro.moon .detail-link{color:var(--moon-accent);}
   .room-intro.dusk .detail-link{color:var(--ember);}
+  .room-intro.sun .detail-link:hover{background:var(--sun-accent);color:#fff;gap:10px;}
+  .room-intro.moon .detail-link:hover{background:var(--moon-accent);color:var(--moon-bg);gap:10px;}
+  .room-intro.dusk .detail-link:hover{background:var(--ember);color:#fff;gap:10px;}
 
   /* ---- search panel ---- */
   .panel{
