@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>月読 TSUKUYOMI｜湯布院プライベートサウナ＆温泉 NOGIKU</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream: #15151b;
+    --cream2: #20202a;
+    --ink: #ece8dd;
+    --sub: #9a9fb0;
+    --line: #2c2d38;
+    --ember: #c3cbd9;
+    --ember-hover: #d8dee8;
+    --paper: #1b1b23;
+    --sun-bg: #1b1b23;
+    --sun-ink: #ece8dd;
+    --sun-sub: #9a9fb0;
+    --sun-accent: #c3cbd9;
+    --sun-line: #2c2d38;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.25);
+    --shadow-md: 0 8px 28px rgba(0,0,0,.35);
+    --shadow-lg: 0 18px 48px rgba(0,0,0,.45);
+    --ease-soft: cubic-bezier(.22,1,.36,1);
+    --font-display: "Shippori Mincho B1", "Hiragino Mincho ProN", serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--cream);
+    color:var(--ink);
+    font-family:"Inter","Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,sans-serif;
+    line-height:1.8;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:0 20px 90px;}
+
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    padding:26px 0 10px;
+  }
+  .back-btn{
+    position:fixed;
+    left:20px;
+    top:20px;
+    height:44px;
+    padding:0 18px;
+    border-radius:100px;
+    background:var(--cream2);
+    border:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--ink);
+    text-decoration:none;
+    box-shadow:var(--shadow-md);
+    z-index:200;
+    transition:box-shadow .3s var(--ease-soft), transform .3s var(--ease-soft);
+  }
+  .back-btn:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px);}
+
+  .hero-title{
+    text-align:center;
+    padding:70px 0 8px;
+  }
+  .hero-title .en{
+    font-size:11px;
+    letter-spacing:.24em;
+    font-weight:700;
+    color:var(--sun-accent);
+    margin-bottom:10px;
+  }
+  .hero-title h1{
+    font-family:var(--font-display);
+    font-size:34px;
+    font-weight:700;
+    margin:0;
+    letter-spacing:.06em;
+    color:var(--ink);
+  }
+  .hero-title p{
+    color:var(--sub);
+    font-size:13px;
+    margin:16px 0 0;
+    line-height:1.9;
+  }
+
+  .reveal{
+    opacity:0;
+    transform:translateY(20px);
+    transition:opacity 1s var(--ease-soft), transform 1s var(--ease-soft);
+  }
+  .reveal.in{opacity:1;transform:translateY(0);}
+
+  .gallery-item{
+    margin:60px 0;
+  }
+  .gallery-photo{
+    width:100%;
+    aspect-ratio:4/5;
+    object-fit:cover;
+    border-radius:22px;
+    display:block;
+    box-shadow:var(--shadow-lg);
+    background:var(--sun-bg);
+  }
+  .gallery-photo.placeholder{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:repeating-linear-gradient(45deg, #20202a, #20202a 12px, #2a2a36 12px, #2a2a36 24px);
+    color:var(--sun-sub);
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:.05em;
+    text-align:center;
+    padding:20px;
+  }
+  .gallery-caption{
+    text-align:center;
+    margin-top:22px;
+  }
+  .gallery-caption .label{
+    font-size:10.5px;
+    letter-spacing:.18em;
+    font-weight:700;
+    color:var(--sun-accent);
+    margin-bottom:8px;
+  }
+  .gallery-caption p{
+    font-family:var(--font-display);
+    font-size:18px;
+    font-weight:700;
+    color:var(--ink);
+    margin:0;
+    letter-spacing:.03em;
+  }
+
+  .gallery-video-wrap{
+    position:relative;
+    width:100%;
+    aspect-ratio:4/5;
+    border-radius:22px;
+    overflow:hidden;
+    box-shadow:var(--shadow-lg);
+    background:var(--moon-bg,#20180f);
+  }
+  .gallery-video-wrap video{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .gallery-video-wrap.placeholder{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:repeating-linear-gradient(45deg, #23232f, #23232f 12px, #2d2d3a 12px, #2d2d3a 24px);
+    color:#9a9fb0;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:.05em;
+    text-align:center;
+    padding:20px;
+  }
+  .play-badge{
+    position:absolute;
+    top:16px;
+    right:16px;
+    background:rgba(15,12,8,.55);
+    color:#fff;
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.1em;
+    padding:6px 12px;
+    border-radius:100px;
+  }
+
+  .cta-block{
+    text-align:center;
+    margin-top:80px;
+  }
+  .cta-block p{
+    font-size:13px;
+    color:var(--sub);
+    margin:0 0 18px;
+  }
+  .cta-btn{
+    display:inline-block;
+    background:#df571d;
+    color:#fff;
+    text-decoration:none;
+    font-weight:700;
+    font-size:14.5px;
+    letter-spacing:.03em;
+    padding:16px 34px;
+    border-radius:100px;
+    box-shadow:0 10px 28px rgba(223,87,29,.32);
+    transition:transform .35s var(--ease-soft), box-shadow .35s var(--ease-soft);
+  }
+  .cta-btn:hover{
+    background:#e6713f;
+    transform:translateY(-2px);
+    box-shadow:0 14px 34px rgba(223,87,29,.4);
+  }
+
+  .foot{
+    text-align:center;
+    margin-top:60px;
+    padding-top:24px;
+    border-top:1px solid var(--line);
+    font-size:11.5px;
+    color:var(--sub);
+  }
+</style>
+</head>
+<body>
+<a class="back-btn" href="index.html">← トップへ</a>
+<div class="wrap">
+
+  <div class="hero-title">
+    <div class="en reveal">TSUKUYOMI ・ 陰</div>
+    <h1 class="reveal">月読</h1>
+    <p class="reveal">月夜見尊をイメージした、月と静けさを感じられる空間。<br>その空間を、写真と映像でご案内します。</p>
+  </div>
+
+  <div class="gallery-item">
+    <div class="gallery-photo placeholder">月読 サウナ室の写真<br>（差し替え予定）</div>
+    <div class="gallery-caption reveal">
+      <div class="label">SAUNA ROOM</div>
+      <p>静けさに包まれる、月読のサウナ室。</p>
+    </div>
+  </div>
+
+  <div class="gallery-item">
+    <div class="gallery-photo placeholder">月読 水風呂の写真<br>（差し替え予定）</div>
+    <div class="gallery-caption reveal">
+      <div class="label">COLD BATH</div>
+      <p>由布院の水を、そのまま。</p>
+    </div>
+  </div>
+
+  <div class="gallery-item">
+    <div class="gallery-photo placeholder">月読 外気浴スペースの写真<br>（差し替え予定）</div>
+    <div class="gallery-caption reveal">
+      <div class="label">OUTDOOR REST AREA</div>
+      <p>由布岳を眺めながら、ひと息。</p>
+    </div>
+  </div>
+
+  <div class="gallery-item">
+    <div class="gallery-photo placeholder">月読 脱衣所の写真<br>（差し替え予定）</div>
+    <div class="gallery-caption reveal">
+      <div class="label">CHANGING ROOM</div>
+      <p>身支度も、心地よく。</p>
+    </div>
+  </div>
+
+  <div class="gallery-item">
+    <div class="gallery-photo placeholder">月読 アメニティの写真<br>（差し替え予定）</div>
+    <div class="gallery-caption reveal">
+      <div class="label">AMENITIES</div>
+      <p>ドライヤーなど、必要なものはひと通り。</p>
+    </div>
+  </div>
+
+  <div class="gallery-item">
+    <div class="gallery-photo placeholder">月読 ウォーターサーバーの写真<br>（差し替え予定）</div>
+    <div class="gallery-caption reveal">
+      <div class="label">WATER SERVER</div>
+      <p>喉が渇いたら、いつでも冷たいお水を。</p>
+    </div>
+  </div>
+
+  <div class="gallery-item">
+    <div class="gallery-video-wrap placeholder">
+      入り口〜外気浴スペースの動画<br>（差し替え予定）
+      <span class="play-badge">VIDEO</span>
+    </div>
+    <div class="gallery-caption reveal">
+      <div class="label">A MOMENT AT NOGIKU</div>
+      <p>入り口から、外気浴スペースまで。</p>
+    </div>
+  </div>
+
+  <div class="cta-block reveal">
+    <p>月読の雰囲気は、伝わりましたか。</p>
+    <a class="cta-btn" href="booking.html">予約する</a>
+  </div>
+
+  <div class="foot">
+    湯布院プライベートサウナ＆温泉　NOGIKU
+  </div>
+
+</div>
+
+<script>
+  // ---- スクロール演出 ----
+  const revealEls = document.querySelectorAll(".reveal");
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        entry.target.classList.add("in");
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  revealEls.forEach(el => revealObserver.observe(el));
+
+  // ---- 動画：画面内に入ったら自動再生、外れたら停止 ----
+  // 実際の動画ファイルを差し替えたら、.gallery-video-wrap の中身を
+  // <video class="reveal" muted playsinline loop src="amaterasu_video.mp4"></video>
+  // に差し替えてください。以下のコードがそのvideo要素を自動で検知して再生します。
+  const videos = document.querySelectorAll(".gallery-video-wrap video");
+  const videoObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        entry.target.play().catch(()=>{});
+      } else {
+        entry.target.pause();
+      }
+    });
+  }, { threshold: 0.5 });
+  videos.forEach(v => videoObserver.observe(v));
+</script>
+</body>
+</html>
