@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ご予約｜180分旅館</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream: #fdf3f4;
+    --cream2: #fbe6ea;
+    --paper: #ffffff;
+    --ink: #3a2a2c;
+    --sub: #9a7e82;
+    --line: #f3d9dd;
+    --pink: #e8879b;
+    --pink-deep: #d4667e;
+    --pink-soft: #fce4e8;
+    --ok: #3f7d5c;
+    --ok-bg: #e3ede4;
+    --shadow-sm: 0 1px 3px rgba(150,60,80,.06);
+    --shadow-md: 0 8px 28px rgba(150,60,80,.09);
+    --shadow-lg: 0 18px 48px rgba(150,60,80,.16);
+    --ease-soft: cubic-bezier(.22,1,.36,1);
+    --font-display: "Shippori Mincho B1", "Hiragino Mincho ProN", serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--cream);
+    color:var(--ink);
+    font-family:"Inter","Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,sans-serif;
+    line-height:1.8;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:600px;margin:0 auto;padding:0 20px 70px;}
+
+  .simple-header{display:flex;align-items:center;justify-content:center;position:relative;padding:26px 0 6px;}
+  .back-btn{
+    position:fixed;left:20px;top:20px;height:44px;padding:0 18px;border-radius:100px;
+    background:#fff;border:1px solid var(--line);display:flex;align-items:center;gap:6px;
+    font-size:12.5px;font-weight:700;color:var(--ink);text-decoration:none;
+    box-shadow:var(--shadow-md);z-index:200;transition:box-shadow .3s var(--ease-soft), transform .3s var(--ease-soft);
+  }
+  .back-btn:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px);}
+
+  .booking-hero{text-align:center;padding:70px 0 22px;}
+  .booking-hero .en{font-size:11px;letter-spacing:.24em;font-weight:700;color:var(--pink-deep);margin-bottom:8px;}
+  .booking-hero h1{font-family:var(--font-display);font-size:23px;font-weight:700;margin:0;}
+
+  .panel{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:22px;
+    padding:24px 22px;
+    margin:0 0 20px;
+    box-shadow:var(--shadow-sm);
+  }
+  .panel h3{font-family:var(--font-display);font-size:17px;margin:0 0 4px;font-weight:700;}
+  .panel .sub{font-size:12.5px;color:var(--sub);margin:0 0 18px;}
+  .panel.locked{opacity:.5;}
+  .panel.locked .sub{color:var(--pink-deep);font-weight:700;}
+  @keyframes warnPulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(212,102,126,0);}
+    30%{box-shadow:0 0 0 6px rgba(212,102,126,.35);}
+  }
+  .panel.warn{
+    animation:warnPulse .9s ease;
+    opacity:1;
+    border:2px solid #c94b68;
+    box-shadow:0 0 0 3px rgba(201,75,104,.15);
+  }
+  .panel.warn .sub{color:#c94b68;font-weight:700;}
+
+  .num-select{display:flex;gap:8px;flex-wrap:wrap;}
+  .num-chip{
+    flex:1;min-width:52px;text-align:center;background:var(--cream2);
+    border:2px solid var(--line);border-radius:12px;padding:10px 0;
+    font-weight:800;font-size:14px;cursor:pointer;
+  }
+  .num-chip.selected{background:var(--pink-deep);border-color:var(--pink-deep);color:#fff;}
+
+  .room-cards{display:flex;gap:12px;}
+  .room-card{
+    flex:1;background:var(--cream2);border:2px solid var(--line);border-radius:16px;
+    padding:16px 12px;text-align:center;cursor:pointer;
+  }
+  .room-card:hover{border-color:var(--pink-deep);}
+  .room-card.selected{background:var(--pink-soft);border-color:var(--pink-deep);}
+  .room-card .rtitle{font-size:15px;font-weight:800;color:var(--ink);margin-bottom:2px;}
+  .room-card .rsub{font-size:11px;color:var(--sub);}
+
+  .day-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:6px;}
+  .month-label{grid-column:1/-1;font-size:11px;color:var(--sub);font-weight:700;margin:2px 0 -2px;}
+  .day-chip{
+    background:var(--cream2);border:2px solid var(--line);border-radius:12px;
+    padding:9px 2px 7px;text-align:center;cursor:pointer;
+  }
+  .day-chip .wd{font-size:10px;color:var(--sub);font-weight:700;}
+  .day-chip .num{font-size:15px;font-weight:800;color:var(--ink);margin-top:1px;}
+  .day-chip:hover{border-color:var(--pink-deep);}
+  .day-chip.selected{background:var(--pink-deep);border-color:var(--pink-deep);}
+  .day-chip.selected .wd,.day-chip.selected .num{color:#fff;}
+  .day-chip.closed{opacity:.45;cursor:not-allowed;}
+
+  #resultArea{display:none;}
+  .loading{text-align:center;color:var(--sub);font-size:13px;padding:20px 0;}
+  .result-card{
+    background:var(--paper);border:1px solid var(--line);border-radius:20px;
+    padding:22px;box-shadow:var(--shadow-sm);text-align:center;
+  }
+  .result-card .rtag{
+    display:inline-block;font-size:11.5px;font-weight:800;padding:4px 12px;
+    border-radius:20px;background:var(--pink-soft);color:var(--pink-deep);margin-bottom:14px;
+  }
+  .result-card .price{font-size:30px;font-weight:800;color:var(--pink-deep);font-family:var(--font-display);}
+  .result-card .price-note{font-size:11.5px;color:var(--sub);margin:4px 0 20px;}
+  .go-btn{
+    display:block;width:100%;background:var(--pink-deep);color:#fff;border:none;
+    border-radius:100px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;
+    box-shadow:0 10px 26px rgba(212,102,126,.32);
+    transition:transform .3s var(--ease-soft), box-shadow .3s var(--ease-soft);
+  }
+  .go-btn:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(212,102,126,.4);}
+
+  .confirm-overlay{
+    position:fixed;inset:0;background:rgba(58,42,44,.45);display:none;
+    align-items:center;justify-content:center;z-index:300;padding:20px;
+  }
+  .confirm-overlay.open{display:flex;}
+  .confirm-box{
+    background:#fff;border-radius:18px;padding:24px 22px;max-width:340px;width:100%;
+    box-shadow:0 12px 32px rgba(58,42,44,.25);text-align:center;
+  }
+  .confirm-box .confirm-title{font-size:12px;color:var(--sub);font-weight:700;margin-bottom:10px;}
+  .confirm-box .confirm-detail{font-size:16px;font-weight:800;color:var(--ink);line-height:1.6;margin-bottom:20px;}
+  .confirm-box .confirm-actions{display:flex;gap:10px;}
+  .confirm-box button{flex:1;padding:13px;border-radius:100px;font-size:13.5px;font-weight:800;cursor:pointer;border:1px solid var(--line);}
+  .confirm-box .btn-back{background:#fff;color:var(--ink);}
+  .confirm-box .btn-go{background:var(--pink-deep);color:#fff;border:none;}
+  .confirm-box .btn-go:hover{background:var(--pink);}
+
+  .foot{text-align:center;margin-top:40px;padding-top:20px;border-top:1px solid var(--line);font-size:11px;color:var(--sub);}
+</style>
+</head>
+<body>
+<a class="back-btn" href="ryokan180.html">← 180分旅館トップへ</a>
+<div class="wrap">
+
+  <div class="booking-hero">
+    <div class="en">180 MIN RYOKAN</div>
+    <h1>ご予約</h1>
+  </div>
+
+  <div class="panel" id="numSection">
+    <h3>① 人数を選んでください</h3>
+    <p class="sub">人数によって料金が決まります</p>
+    <div class="num-select" id="numSelect">
+      <div class="num-chip" data-n="1">1名</div>
+      <div class="num-chip" data-n="2">2名</div>
+      <div class="num-chip" data-n="3">3名</div>
+      <div class="num-chip" data-n="4">4名</div>
+      <div class="num-chip" data-n="5">5名</div>
+    </div>
+  </div>
+
+  <div class="panel locked" id="roomSection">
+    <h3>② お部屋を選んでください</h3>
+    <p class="sub">まず①で人数を選んでください</p>
+    <div class="room-cards" id="roomCards">
+      <div class="room-card" data-room="amaterasu">
+        <div class="rtitle">天照</div>
+        <div class="rsub">明るい貸切サウナ</div>
+      </div>
+      <div class="room-card" data-room="tsukuyomi">
+        <div class="rtitle">月読</div>
+        <div class="rsub">静かな貸切サウナ</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel locked" id="daySection">
+    <h3>③ ご希望日を選んでください</h3>
+    <p class="sub">まず②でお部屋を選んでください</p>
+    <div class="day-grid" id="dayGrid"></div>
+    <p style="font-size:11px;color:var(--sub);margin:6px 0 0;">グレーの日付は休館日のため選べません。</p>
+  </div>
+
+  <div id="resultArea">
+    <div class="loading" id="loadingMsg">空き状況を確認しています…</div>
+    <div id="resultBody" style="display:none;">
+      <div class="result-card">
+        <div class="rtag" id="resultTag"></div>
+        <div class="price" id="resultPrice"></div>
+        <div class="price-note">120分貸切サウナ＋60分旅館休憩（税込）</div>
+        <button type="button" class="go-btn" id="goBtn">この内容で予約に進む</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    サウナだけの120分プランをお探しの方は、<a href="index.html" style="color:var(--sub);">こちら</a>
+  </div>
+
+</div>
+
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-title">この内容でよろしいですか</div>
+    <div class="confirm-detail" id="confirmDetail"></div>
+    <div class="confirm-actions">
+      <button type="button" class="btn-back" id="confirmBack">戻る</button>
+      <button type="button" class="btn-go" id="confirmGo">はい、進む</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CONFIG = {
+    amaterasu: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/QGLJ7W3QVO3WTTULM3TAD3Q5",
+    tsukuyomi: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/W6KUMXH6YB3BERXYBUEBAXVN"
+  };
+  const ROOM_NAME = { amaterasu: "天照", tsukuyomi: "月読" };
+  const PRICE = { 1: 7000, 2: 11000, 3: 15000, 4: 18000, 5: 20000 };
+
+  const HOLIDAYS_2026 = [
+    "2026-01-01","2026-01-12","2026-02-11","2026-02-23","2026-03-20",
+    "2026-04-29","2026-05-03","2026-05-04","2026-05-05","2026-05-06",
+    "2026-07-20","2026-08-11","2026-09-21","2026-09-22","2026-09-23",
+    "2026-10-12","2026-11-03","2026-11-23"
+  ];
+  const CLOSED_DAYS = ["2026-08-03","2026-08-04"];
+
+  function toISO(d){
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  }
+  function fmtDate(dateStr){
+    const d = new Date(dateStr+"T00:00:00");
+    const w = ["日","月","火","水","木","金","土"][d.getDay()];
+    return `${d.getMonth()+1}月${d.getDate()}日（${w}）`;
+  }
+
+  const roomSectionEl = document.getElementById("roomSection");
+  const daySectionEl = document.getElementById("daySection");
+
+  function warnAndScroll(targetEl){
+    targetEl.scrollIntoView({behavior:"smooth", block:"start"});
+    targetEl.classList.remove("warn");
+    void targetEl.offsetWidth;
+    targetEl.classList.add("warn");
+  }
+  function unlockRoom(){
+    roomSectionEl.classList.remove("locked");
+    roomSectionEl.classList.remove("warn");
+    roomSectionEl.querySelector(".sub").textContent = "天照・月読、どちらかをお選びください";
+  }
+  function unlockDay(){
+    daySectionEl.classList.remove("locked");
+    daySectionEl.classList.remove("warn");
+    daySectionEl.querySelector(".sub").textContent = "本日から14日先まで選べます";
+  }
+
+  // ---- 人数 ----
+  let selectedNum = null;
+  document.querySelectorAll(".num-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".num-chip").forEach(c => c.classList.remove("selected"));
+      chip.classList.add("selected");
+      selectedNum = chip.dataset.n;
+      document.getElementById("numSection").classList.remove("warn");
+      unlockRoom();
+      runSearch();
+    });
+  });
+
+  // ---- 部屋 ----
+  let selectedRoom = null;
+  document.querySelectorAll(".room-card").forEach(card => {
+    card.addEventListener("click", () => {
+      if(!selectedNum){ warnAndScroll(document.getElementById("numSection")); return; }
+      document.querySelectorAll(".room-card").forEach(c => c.classList.remove("selected"));
+      card.classList.add("selected");
+      selectedRoom = card.dataset.room;
+      unlockDay();
+      runSearch();
+    });
+  });
+
+  // ---- 日付 ----
+  let selectedDate = null;
+  const dayGrid = document.getElementById("dayGrid");
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  let lastMonth = null;
+  for(let i=0; i<=14; i++){
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const iso = toISO(d);
+    const month = d.getMonth()+1;
+    if(month !== lastMonth){
+      const label = document.createElement("div");
+      label.className = "month-label";
+      label.textContent = `${month}月`;
+      dayGrid.appendChild(label);
+      lastMonth = month;
+    }
+    const wd = ["日","月","火","水","木","金","土"][d.getDay()];
+    const chip = document.createElement("div");
+    chip.className = "day-chip";
+    const isClosed = CLOSED_DAYS.includes(iso);
+    if(isClosed) chip.classList.add("closed");
+    chip.innerHTML = `<div class="wd">${wd}</div><div class="num">${d.getDate()}</div>`;
+    chip.addEventListener("click", () => {
+      if(isClosed) return;
+      if(!selectedNum){ warnAndScroll(document.getElementById("numSection")); return; }
+      if(!selectedRoom){ warnAndScroll(roomSectionEl); return; }
+      document.querySelectorAll(".day-chip.selected").forEach(el => el.classList.remove("selected"));
+      chip.classList.add("selected");
+      selectedDate = iso;
+      runSearch();
+    });
+    dayGrid.appendChild(chip);
+  }
+
+  let searchToken = 0;
+  let hasShownOnce = false;
+
+  function runSearch(){
+    const resultArea = document.getElementById("resultArea");
+    const loading = document.getElementById("loadingMsg");
+    const body = document.getElementById("resultBody");
+    if(!(selectedNum && selectedRoom && selectedDate)){
+      resultArea.style.display = "none";
+      return;
+    }
+    const myToken = ++searchToken;
+    resultArea.style.display = "block";
+    loading.style.display = "block";
+    body.style.display = "none";
+    if(!hasShownOnce){
+      resultArea.scrollIntoView({behavior:"smooth", block:"start"});
+      hasShownOnce = true;
+    }
+    setTimeout(() => {
+      if(myToken !== searchToken) return;
+      loading.style.display = "none";
+      body.style.display = "block";
+      document.getElementById("resultTag").textContent = `${ROOM_NAME[selectedRoom]} ・ ${fmtDate(selectedDate)} ・ ${selectedNum}名`;
+      document.getElementById("resultPrice").textContent = `¥${PRICE[selectedNum].toLocaleString()}`;
+    }, 500);
+  }
+
+  // ---- 予約前の確認モーダル ----
+  const confirmOverlay = document.getElementById("confirmOverlay");
+  const confirmDetail = document.getElementById("confirmDetail");
+  const confirmGo = document.getElementById("confirmGo");
+  const confirmBack = document.getElementById("confirmBack");
+  let pendingUrl = null;
+
+  document.getElementById("goBtn").addEventListener("click", () => {
+    pendingUrl = CONFIG[selectedRoom];
+    confirmDetail.textContent = `${selectedNum}名・${fmtDate(selectedDate)}・${ROOM_NAME[selectedRoom]}（180分旅館）でよろしいですか？`;
+    confirmOverlay.classList.add("open");
+  });
+  confirmBack.addEventListener("click", () => {
+    confirmOverlay.classList.remove("open");
+    pendingUrl = null;
+  });
+  confirmOverlay.addEventListener("click", (e) => {
+    if(e.target === confirmOverlay){
+      confirmOverlay.classList.remove("open");
+      pendingUrl = null;
+    }
+  });
+  confirmGo.addEventListener("click", () => {
+    if(pendingUrl) window.open(pendingUrl, "_blank");
+    confirmOverlay.classList.remove("open");
+    pendingUrl = null;
+  });
+</script>
+</body>
+</html>
