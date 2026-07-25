@@ -248,9 +248,15 @@
   .panel.locked .sub{color:var(--ember);font-weight:700;}
   @keyframes warnPulse{
     0%,100%{box-shadow:0 0 0 0 rgba(223,87,29,0);}
-    30%{box-shadow:0 0 0 4px rgba(223,87,29,.35);}
+    30%{box-shadow:0 0 0 6px rgba(223,87,29,.35);}
   }
-  .panel.warn{animation:warnPulse .9s ease;}
+  .panel.warn{
+    animation:warnPulse .9s ease;
+    opacity:1;
+    border:2px solid #d0392a;
+    box-shadow:0 0 0 3px rgba(208,57,42,.15);
+  }
+  .panel.warn .sub{color:#d0392a;font-weight:700;}
 
   .plan-cards{
     display:flex;
@@ -751,15 +757,17 @@
     // 再アニメーションのため、一度クラスを外してから付け直す
     void targetEl.offsetWidth;
     targetEl.classList.add("warn");
-    setTimeout(() => targetEl.classList.remove("warn"), 1000);
+    // 選び終わるまで枠は残したままにする（自動では消さない）
   }
 
   function unlockNum(){
     numSectionEl.classList.remove("locked");
+    numSectionEl.classList.remove("warn");
     numSectionEl.querySelector(".sub").textContent = "人数を選んでください";
   }
   function unlockDay(){
     daySectionEl.classList.remove("locked");
+    daySectionEl.classList.remove("warn");
     daySectionEl.querySelector(".sub").textContent = "本日から14日先まで選べます。すべて選ぶと、下に自動で空き状況が表示されます";
   }
 
@@ -770,6 +778,7 @@
       document.querySelectorAll(".plan-card").forEach(c => c.classList.remove("selected"));
       card.classList.add("selected");
       selectedPlan = card.dataset.plan;
+      document.getElementById("planSection").classList.remove("warn");
       unlockNum();
       runSearch();
     });
