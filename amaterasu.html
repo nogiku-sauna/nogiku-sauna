@@ -234,7 +234,10 @@
 
   <div class="gallery-item">
     <div class="gallery-video-wrap">
-      <video class="reveal" muted playsinline loop preload="metadata" src="amaterasu_video.mp4"></video>
+      <video class="reveal" muted playsinline loop preload="metadata">
+        <source src="amaterasu_video.mp4" type="video/mp4">
+        <source src="amaterasu_video.webm" type="video/webm">
+      </video>
       <span class="play-badge">VIDEO</span>
     </div>
     <div class="gallery-caption reveal">
