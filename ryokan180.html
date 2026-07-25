@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>180分旅館｜サウナの後、休憩しませんか</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream: #fdf3f4;
+    --paper: #ffffff;
+    --ink: #3a2a2c;
+    --sub: #9a7e82;
+    --line: #f3d9dd;
+    --pink: #e8879b;
+    --pink-deep: #d4667e;
+    --pink-soft: #fce4e8;
+    --shadow-sm: 0 1px 3px rgba(150,60,80,.06);
+    --shadow-md: 0 8px 28px rgba(150,60,80,.09);
+    --shadow-lg: 0 18px 48px rgba(150,60,80,.14);
+    --ease-soft: cubic-bezier(.22,1,.36,1);
+    --font-display: "Shippori Mincho B1", "Hiragino Mincho ProN", serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--cream);
+    color:var(--ink);
+    font-family:"Inter","Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,sans-serif;
+    line-height:1.85;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:600px;margin:0 auto;padding:0 20px 60px;}
+
+  .reveal{
+    opacity:0;
+    transform:translateY(16px);
+    transition:opacity .9s var(--ease-soft), transform .9s var(--ease-soft);
+  }
+  .reveal.in{opacity:1;transform:translateY(0);}
+
+  /* ---- hero ---- */
+  .hero-photo-wrap{
+    position:relative;
+    width:100vw;
+    left:50%;
+    margin-left:-50vw;
+    aspect-ratio:16/12;
+    overflow:hidden;
+    margin-top:0;
+  }
+  .hero-photo{width:100%;height:100%;object-fit:cover;display:block;}
+  .hero-overlay{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:24px;
+    background:linear-gradient(0deg, rgba(58,42,44,.55) 0%, rgba(58,42,44,.15) 55%, rgba(58,42,44,.35) 100%);
+  }
+  .hero-badge{
+    font-family:var(--font-display);
+    font-size:15px;
+    letter-spacing:.3em;
+    color:#fff;
+    margin-bottom:14px;
+    font-weight:700;
+  }
+  .hero-heading{
+    font-family:var(--font-display);
+    font-size:28px;
+    font-weight:800;
+    color:#fff;
+    margin:0;
+    line-height:1.6;
+    text-shadow:0 2px 14px rgba(0,0,0,.3);
+  }
+
+  /* ---- section ---- */
+  .section{margin:52px 0;}
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:.2em;
+    font-weight:700;
+    color:var(--pink-deep);
+    margin-bottom:10px;
+    text-align:center;
+  }
+  .section h2{
+    font-family:var(--font-display);
+    font-size:23px;
+    font-weight:700;
+    text-align:center;
+    margin:0 0 18px;
+    letter-spacing:.03em;
+  }
+  .section p.lead{
+    font-size:14px;
+    color:var(--sub);
+    text-align:center;
+    margin:0 0 8px;
+  }
+
+  /* ---- flow diagram ---- */
+  .flow{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    margin-top:26px;
+    flex-wrap:wrap;
+  }
+  .flow-item{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:20px 18px;
+    text-align:center;
+    flex:1;
+    min-width:130px;
+    box-shadow:var(--shadow-sm);
+  }
+  .flow-item .num{
+    font-family:var(--font-display);
+    font-size:26px;
+    font-weight:800;
+    color:var(--pink-deep);
+    margin-bottom:4px;
+  }
+  .flow-item .label{font-size:13px;font-weight:700;color:var(--ink);}
+  .flow-plus{
+    font-size:20px;
+    color:var(--pink);
+    font-weight:800;
+  }
+
+  /* ---- amenity cards ---- */
+  .amenity-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:18px;
+    margin-top:26px;
+  }
+  .amenity-card{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:22px;
+    overflow:hidden;
+    box-shadow:var(--shadow-sm);
+    transition:box-shadow .35s var(--ease-soft), transform .35s var(--ease-soft);
+  }
+  .amenity-card:hover{box-shadow:var(--shadow-md);transform:translateY(-3px);}
+  .amenity-photo{
+    width:100%;
+    aspect-ratio:16/10;
+    object-fit:cover;
+    display:block;
+    background:var(--pink-soft);
+  }
+  .amenity-photo.placeholder{
+    display:flex;align-items:center;justify-content:center;
+    background:repeating-linear-gradient(45deg, #fce4e8, #fce4e8 12px, #f6d0d7 12px, #f6d0d7 24px);
+    color:var(--pink-deep);
+    font-size:12.5px;font-weight:700;text-align:center;padding:16px;
+  }
+  .amenity-body{padding:18px 20px 20px;}
+  .amenity-body .tag{
+    font-size:10px;
+    letter-spacing:.14em;
+    font-weight:700;
+    color:var(--pink-deep);
+    margin-bottom:6px;
+  }
+  .amenity-body h3{margin:0 0 6px;font-size:16px;font-weight:700;}
+  .amenity-body p{margin:0;font-size:13px;color:var(--sub);}
+
+  /* ---- CTA ---- */
+  .cta-main{
+    display:block;
+    text-align:center;
+    background:var(--pink-deep);
+    color:#fff;
+    text-decoration:none;
+    font-weight:700;
+    font-size:16px;
+    letter-spacing:.03em;
+    padding:18px;
+    border-radius:100px;
+    box-shadow:0 12px 30px rgba(212,102,126,.35);
+    margin:14px 0;
+    transition:transform .35s var(--ease-soft), box-shadow .35s var(--ease-soft);
+  }
+  .cta-main:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(212,102,126,.45);}
+
+  /* ---- footer ---- */
+  .foot{
+    text-align:center;
+    margin-top:60px;
+    padding-top:22px;
+    border-top:1px solid var(--line);
+    font-size:11px;
+    color:var(--sub);
+  }
+  .foot a{
+    color:var(--sub);
+    text-decoration:underline;
+  }
+</style>
+</head>
+<body>
+
+  <div class="hero-photo-wrap">
+    <img class="hero-photo" src="ryokan180.jpg" alt="180分旅館">
+    <div class="hero-overlay reveal">
+      <div class="hero-badge">180 MIN RYOKAN</div>
+      <h1 class="hero-heading">サウナの後、<br>休憩していませんか？</h1>
+    </div>
+  </div>
+
+<div class="wrap">
+
+  <div class="section">
+    <div class="eyebrow reveal">CONCEPT</div>
+    <h2 class="reveal">貸切サウナ120分＋旅館休憩60分</h2>
+    <p class="lead reveal">サウナだけでなく、そのあとの「余韻」まで。<br>湯布院の旅館体験を、180分まるごと。</p>
+    <div class="flow reveal">
+      <div class="flow-item">
+        <div class="num">120分</div>
+        <div class="label">貸切サウナ</div>
+      </div>
+      <div class="flow-plus">＋</div>
+      <div class="flow-item">
+        <div class="num">60分</div>
+        <div class="label">旅館休憩</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="eyebrow reveal">AMENITY</div>
+    <h2 class="reveal">180分だけの、ゆったりとした時間</h2>
+    <div class="amenity-grid">
+      <div class="amenity-card reveal">
+        <div class="amenity-photo placeholder">パウダールームの写真<br>（差し替え予定）</div>
+        <div class="amenity-body">
+          <div class="tag">POWDER ROOM</div>
+          <h3>ゆったり身支度できる、パウダールーム</h3>
+          <p>サウナのあとも、慌てず身支度を整えられます。</p>
+        </div>
+      </div>
+      <div class="amenity-card reveal">
+        <div class="amenity-photo placeholder">アイスバー・ドリンク・お菓子の写真<br>（差し替え予定）</div>
+        <div class="amenity-body">
+          <div class="tag">TREAT</div>
+          <h3>ほっとひと息つける、旅館休憩</h3>
+          <p>アイスバー、ドリンク（コーヒー・お茶）、お菓子をご自由に。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section reveal">
+    <a class="cta-main" href="ryokan180_booking.html">180分旅館を予約する</a>
+  </div>
+
+  <div class="foot">
+    サウナだけの120分プランをお探しの方は、<a href="index.html">こちら</a>
+  </div>
+
+</div>
+
+<script>
+  const revealEls = document.querySelectorAll(".reveal");
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        entry.target.classList.add("in");
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  revealEls.forEach(el => revealObserver.observe(el));
+</script>
+</body>
+</html>
