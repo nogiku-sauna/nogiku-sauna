@@ -244,6 +244,14 @@
   }
   .panel .sub{font-size:12.5px;color:var(--sub);margin:0 0 20px;}
 
+  .panel.locked{opacity:.5;}
+  .panel.locked .sub{color:var(--ember);font-weight:700;}
+  @keyframes warnPulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(223,87,29,0);}
+    30%{box-shadow:0 0 0 4px rgba(223,87,29,.35);}
+  }
+  .panel.warn{animation:warnPulse .9s ease;}
+
   .plan-cards{
     display:flex;
     gap:12px;
@@ -613,11 +621,9 @@
     </div>
   </div>
 
-  <div class="panel">
-    <h3>② ご希望の条件から、空いている時間を調べる</h3>
-    <p class="sub">人数と日付を選ぶと、天照・月読どちらが空いているか一覧で表示します</p>
-
-    <div class="field-label">人数</div>
+  <div class="panel locked" id="numSection">
+    <h3>② 人数を選んでください</h3>
+    <p class="sub">まず①でプランを選んでください</p>
     <div class="num-select" id="numSelect">
       <div class="num-chip" data-n="1">1名</div>
       <div class="num-chip" data-n="2">2名</div>
@@ -625,10 +631,13 @@
       <div class="num-chip" data-n="4">4名</div>
       <div class="num-chip" data-n="5">5名</div>
     </div>
+  </div>
 
-    <div class="field-label">ご希望日（本日から14日先まで）</div>
+  <div class="panel locked" id="daySection">
+    <h3>③ ご希望日を選んでください</h3>
+    <p class="sub">まず②で人数を選んでください</p>
     <div class="day-grid" id="dayGrid"></div>
-    <p style="font-size:11px;color:var(--sub);margin:6px 0 0;">グレーの日付は休館日のため選べません。すべて選ぶと、下に自動で空き状況が表示されます。</p>
+    <p style="font-size:11px;color:var(--sub);margin:6px 0 0;">グレーの日付は休館日のため選べません。</p>
   </div>
 
   <div id="resultArea">
@@ -732,6 +741,28 @@
     return `${y}-${m}-${day}`;
   }
 
+  // ---- 順番を守らせる仕組み ----
+  const numSectionEl = document.getElementById("numSection");
+  const daySectionEl = document.getElementById("daySection");
+
+  function warnAndScroll(targetEl){
+    targetEl.scrollIntoView({behavior:"smooth", block:"start"});
+    targetEl.classList.remove("warn");
+    // 再アニメーションのため、一度クラスを外してから付け直す
+    void targetEl.offsetWidth;
+    targetEl.classList.add("warn");
+    setTimeout(() => targetEl.classList.remove("warn"), 1000);
+  }
+
+  function unlockNum(){
+    numSectionEl.classList.remove("locked");
+    numSectionEl.querySelector(".sub").textContent = "人数を選んでください";
+  }
+  function unlockDay(){
+    daySectionEl.classList.remove("locked");
+    daySectionEl.querySelector(".sub").textContent = "本日から14日先まで選べます。すべて選ぶと、下に自動で空き状況が表示されます";
+  }
+
   // ---- プラン選択 ----
   let selectedPlan = null;
   document.querySelectorAll(".plan-card").forEach(card => {
@@ -739,6 +770,7 @@
       document.querySelectorAll(".plan-card").forEach(c => c.classList.remove("selected"));
       card.classList.add("selected");
       selectedPlan = card.dataset.plan;
+      unlockNum();
       runSearch();
     });
   });
@@ -747,9 +779,14 @@
   let selectedNum = null;
   document.querySelectorAll(".num-chip").forEach(chip => {
     chip.addEventListener("click", () => {
+      if(!selectedPlan){
+        warnAndScroll(document.getElementById("planSection"));
+        return;
+      }
       document.querySelectorAll(".num-chip").forEach(c => c.classList.remove("selected"));
       chip.classList.add("selected");
       selectedNum = chip.dataset.n;
+      unlockDay();
       runSearch();
     });
   });
@@ -780,6 +817,14 @@
     chip.innerHTML = `<div class="wd">${wd}</div><div class="num">${d.getDate()}</div>`;
     chip.addEventListener("click", () => {
       if(isClosed) return;
+      if(!selectedPlan){
+        warnAndScroll(document.getElementById("planSection"));
+        return;
+      }
+      if(!selectedNum){
+        warnAndScroll(numSectionEl);
+        return;
+      }
       document.querySelectorAll(".day-chip.selected").forEach(el => el.classList.remove("selected"));
       chip.classList.add("selected");
       selectedDate = iso;
