@@ -139,6 +139,18 @@
     font-weight:800;
   }
 
+  /* ---- 画像スライド（そのまま全体を見せる） ---- */
+  .full-image{
+    margin:36px 0;
+    border-radius:22px;
+    overflow:hidden;
+    box-shadow:var(--shadow-md);
+  }
+  .full-image img{
+    width:100%;
+    display:block;
+  }
+
   /* ---- amenity cards ---- */
   .amenity-grid{
     display:grid;
@@ -233,6 +245,11 @@
       </div>
     </div>
   </div>
+
+  <div class="full-image reveal"><img src="ryokan180_dekiru.jpg" alt="180分旅館でできるコト"></div>
+  <div class="full-image reveal"><img src="ryokan180_erabu.jpg" alt="選べる2つのプライベート空間"></div>
+  <div class="full-image reveal"><img src="ryokan180_kissa.jpg" alt="喫茶室で、浴衣を着て、旅館時間を"></div>
+  <div class="full-image reveal"><img src="ryokan180_photo.jpg" alt="旅館フォト"></div>
 
   <div class="section reveal">
     <a class="cta-main" href="ryokan180_booking.html">180分旅館を予約する</a>
