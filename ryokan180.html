@@ -233,6 +233,40 @@
   }
   .cta-main:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(212,102,126,.45);}
 
+  /* ---- 料金・レンタル品 ---- */
+  .price-block{
+    margin:40px 0 0;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:24px 22px;
+    box-shadow:var(--shadow-sm);
+  }
+  .price-block + .price-block{margin-top:16px;}
+  .price-block h3{
+    font-family:var(--font-display);
+    font-size:16px;
+    font-weight:700;
+    margin:0 0 12px;
+    text-align:center;
+  }
+  .price-block .note{
+    font-size:11.5px;
+    color:var(--sub);
+    text-align:center;
+    margin:0 0 14px;
+  }
+  .price-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .price-table th{
+    text-align:left;color:var(--sub);font-weight:700;font-size:10.5px;
+    padding:6px 4px;border-bottom:1px solid var(--line);
+  }
+  .price-table th:last-child, .price-table td:last-child{text-align:right;}
+  .price-table td{padding:9px 4px;border-bottom:1px solid var(--line);}
+  .price-table tr:last-child td{border-bottom:none;}
+  .price-table .now{font-weight:800;}
+  .price-table .was{font-size:10.5px;color:var(--sub);text-decoration:line-through;}
+
   /* ---- footer ---- */
   .foot{
     text-align:center;
@@ -279,6 +313,49 @@
   </div>
   <div class="full-image reveal"><img src="ryokan180_kissa.jpg" alt="喫茶室で、浴衣を着て、旅館時間を"></div>
   <div class="full-image reveal"><img src="ryokan180_photo.jpg" alt="旅館フォト"></div>
+
+  <div class="section">
+    <div class="eyebrow reveal">PRICE</div>
+    <h2 class="reveal">料金・プラン一覧</h2>
+  </div>
+
+  <div class="price-block reveal">
+    <h3>180分旅館プラン</h3>
+    <p class="note">120分貸切＋60分旅館休憩（平日・土日共通）</p>
+    <table class="price-table">
+      <tr><th>人数</th><th>料金</th></tr>
+      <tr><td>1名</td><td class="now">¥7,000</td></tr>
+      <tr><td>2名</td><td class="now">¥11,000</td></tr>
+      <tr><td>3名</td><td class="now">¥15,000</td></tr>
+      <tr><td>4名</td><td class="now">¥18,000</td></tr>
+      <tr><td>5名</td><td class="now">¥20,000</td></tr>
+    </table>
+  </div>
+
+  <div class="price-block reveal">
+    <h3>120分貸切のみ</h3>
+    <p class="note">サウナ・温泉の貸切だけをご希望の方（3〜5名は8/31まで期間限定割引）</p>
+    <table class="price-table">
+      <tr><th>人数</th><th>平日</th><th>土日・祝日</th></tr>
+      <tr><td>1名</td><td class="now">¥5,000</td><td class="now">¥6,000</td></tr>
+      <tr><td>2名</td><td class="now">¥8,000</td><td class="now">¥9,600</td></tr>
+      <tr><td>3名</td><td><span class="now">¥10,000</span><br><span class="was">¥10,500</span></td><td><span class="now">¥12,000</span><br><span class="was">¥12,600</span></td></tr>
+      <tr><td>4名</td><td><span class="now">¥11,000</span><br><span class="was">¥13,000</span></td><td><span class="now">¥13,000</span><br><span class="was">¥15,600</span></td></tr>
+      <tr><td>5名</td><td><span class="now">¥12,000</span><br><span class="was">¥15,000</span></td><td><span class="now">¥14,000</span><br><span class="was">¥18,000</span></td></tr>
+    </table>
+  </div>
+
+  <div class="price-block reveal">
+    <h3>レンタル品</h3>
+    <p class="note">フェイスタオル・バスタオルは、お1人様1枚無料でご利用いただけます。<br>フェイスタオルはお持ち帰りいただけます。</p>
+    <table class="price-table">
+      <tr><td>バスタオル（追加）</td><td class="now">¥200</td></tr>
+      <tr><td>サウナハット</td><td class="now">¥200</td></tr>
+      <tr><td>ポンチョ</td><td class="now">¥500</td></tr>
+      <tr><td>水着</td><td class="now">¥500</td></tr>
+    </table>
+    <p class="note" style="margin:14px 0 0;">自動販売機あり（ポカリスエット、オロナミンC、キレートレモンなど）<br>台湾パインティーも1杯¥800でご用意しています。</p>
+  </div>
 
   <div class="foot">
     サウナだけの120分プランをお探しの方は、<a href="index.html">こちら</a>
