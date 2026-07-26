@@ -141,13 +141,18 @@
 
   /* ---- 画像スライド（そのまま全体を見せる） ---- */
   .full-image{
-    margin:36px 0;
-    border-radius:22px;
-    overflow:hidden;
-    box-shadow:var(--shadow-md);
+    width:100vw;
+    position:relative;
+    left:50%;
+    right:50%;
+    margin-left:-50vw;
+    margin-right:-50vw;
+    margin-top:36px;
+    margin-bottom:36px;
   }
   .full-image img{
     width:100%;
+    height:auto;
     display:block;
   }
   .room-links{
@@ -212,23 +217,21 @@
   /* ---- CTA（画面下いっぱいの固定バー） ---- */
   .cta-main{
     position:fixed;
-    left:0;
-    right:0;
-    bottom:0;
-    display:block;
-    text-align:center;
+    right:22px;
+    bottom:24px;
     background:var(--pink-deep);
     color:#fff;
     text-decoration:none;
     font-weight:700;
-    font-size:15px;
+    font-size:14.5px;
     letter-spacing:.03em;
-    padding:17px;
-    box-shadow:0 -6px 20px rgba(212,102,126,.25);
+    padding:16px 26px;
+    border-radius:100px;
+    box-shadow:0 10px 28px rgba(212,102,126,.35);
     z-index:200;
-    transition:background .3s var(--ease-soft);
+    transition:transform .35s var(--ease-soft), box-shadow .35s var(--ease-soft);
   }
-  .cta-main:hover{background:var(--pink);}
+  .cta-main:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(212,102,126,.45);}
 
   /* ---- footer ---- */
   .foot{
