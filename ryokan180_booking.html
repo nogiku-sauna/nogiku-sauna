@@ -118,23 +118,25 @@
 
   #resultArea{display:none;}
   .loading{text-align:center;color:var(--sub);font-size:13px;padding:20px 0;}
-  .result-card{
-    background:var(--paper);border:1px solid var(--line);border-radius:20px;
-    padding:22px;box-shadow:var(--shadow-sm);text-align:center;
-  }
-  .result-card .rtag{
+  .result-tag{
     display:inline-block;font-size:11.5px;font-weight:800;padding:4px 12px;
     border-radius:20px;background:var(--pink-soft);color:var(--pink-deep);margin-bottom:14px;
   }
-  .result-card .price{font-size:30px;font-weight:800;color:var(--pink-deep);font-family:var(--font-display);}
-  .result-card .price-note{font-size:11.5px;color:var(--sub);margin:4px 0 20px;}
-  .go-btn{
-    display:block;width:100%;background:var(--pink-deep);color:#fff;border:none;
-    border-radius:100px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;
-    box-shadow:0 10px 26px rgba(212,102,126,.32);
-    transition:transform .3s var(--ease-soft), box-shadow .3s var(--ease-soft);
+  .room-result{
+    background:var(--paper);border:1px solid var(--line);border-radius:16px;
+    padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow-sm);
   }
-  .go-btn:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(212,102,126,.4);}
+  .room-result h4{margin:0 0 10px;font-size:15px;font-family:var(--font-display);}
+  .price-line{display:flex;align-items:baseline;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  .price-line .now{font-size:20px;font-weight:800;color:var(--pink-deep);}
+  .price-line .was{font-size:13px;color:var(--sub);text-decoration:line-through;}
+  .slot-row{display:flex;flex-wrap:wrap;gap:8px;}
+  .slot-btn{
+    flex:1;min-width:130px;text-align:center;background:var(--ok-bg);color:var(--ok);
+    border:1px solid var(--ok);border-radius:10px;padding:10px 6px;
+    font-size:12.5px;font-weight:800;text-decoration:none;cursor:pointer;
+  }
+  .slot-btn:hover{background:var(--ok);color:#fff;}
 
   .confirm-overlay{
     position:fixed;inset:0;background:rgba(58,42,44,.45);display:none;
@@ -192,36 +194,28 @@
     </div>
   </div>
 
-  <div class="panel locked" id="roomSection">
-    <h3>③ お部屋を選んでください</h3>
-    <p class="sub">まず②で人数を選んでください</p>
-    <div class="room-cards" id="roomCards">
-      <div class="room-card" data-room="amaterasu">
-        <div class="rtitle">天照</div>
-        <div class="rsub">明るい貸切サウナ</div>
-      </div>
-      <div class="room-card" data-room="tsukuyomi">
-        <div class="rtitle">月読</div>
-        <div class="rsub">静かな貸切サウナ</div>
-      </div>
-    </div>
-  </div>
-
   <div class="panel locked" id="daySection">
-    <h3>④ ご希望日を選んでください</h3>
-    <p class="sub">まず③でお部屋を選んでください</p>
+    <h3>③ ご希望日を選んでください</h3>
+    <p class="sub">まず②で人数を選んでください</p>
     <div class="day-grid" id="dayGrid"></div>
-    <p style="font-size:11px;color:var(--sub);margin:6px 0 0;">グレーの日付は休館日のため選べません。</p>
+    <p style="font-size:11px;color:var(--sub);margin:6px 0 0;">グレーの日付は休館日のため選べません。すべて選ぶと、下に自動で空き状況が表示されます。</p>
   </div>
 
   <div id="resultArea">
     <div class="loading" id="loadingMsg">空き状況を確認しています…</div>
     <div id="resultBody" style="display:none;">
-      <div class="result-card">
-        <div class="rtag" id="resultTag"></div>
-        <div class="price" id="resultPrice"></div>
-        <div class="price-note" id="resultPriceNote">120分貸切サウナ＋60分旅館休憩（税込）</div>
-        <button type="button" class="go-btn" id="goBtn">この内容で予約に進む</button>
+      <div class="result-tag" id="resultTag"></div>
+
+      <div class="room-result">
+        <h4 id="titleAmaterasu">天照 AMATERASU</h4>
+        <div class="price-line" id="priceAmaterasu"></div>
+        <div class="slot-row" id="slotsAmaterasu"></div>
+      </div>
+
+      <div class="room-result">
+        <h4 id="titleTsukuyomi">月読 TSUKUYOMI</h4>
+        <div class="price-line" id="priceTsukuyomi"></div>
+        <div class="slot-row" id="slotsTsukuyomi"></div>
       </div>
     </div>
   </div>
@@ -264,6 +258,11 @@
     weekday: { 1: 5000, 2: 8000, 3: 10000, 4: 11000, 5: 12000 },
     weekend: { 1: 6000, 2: 9600, 3: 12000, 4: 13000, 5: 14000 }
   };
+  // 各部屋の「開始時刻」。120分でも180分でも、この時刻から枠が始まる（終了時刻だけが変わる）
+  const START_TIMES = {
+    amaterasu: ["11:00","13:30","16:00","18:30"],
+    tsukuyomi: ["9:30","12:00","14:30","17:00"]
+  };
 
   const HOLIDAYS_2026 = [
     "2026-01-01","2026-01-12","2026-02-11","2026-02-23","2026-03-20",
@@ -293,10 +292,21 @@
     if(day === 0 || day === 6) return "weekend";
     return "weekday";
   }
+  // "13:30" + 120分 → "13:30–15:30" のような表示を作る
+  function formatSlotRange(startStr, durationMin){
+    const [h, m] = startStr.split(":").map(Number);
+    const startMin = h*60 + m;
+    const endMin = startMin + durationMin;
+    const fmt = (mins) => {
+      const hh = Math.floor(mins/60);
+      const mm = mins%60;
+      return `${hh}:${String(mm).padStart(2,"0")}`;
+    };
+    return `${fmt(startMin)}–${fmt(endMin)}`;
+  }
 
   const planModeSectionEl = document.getElementById("planModeSection");
   const numSectionEl = document.getElementById("numSection");
-  const roomSectionEl = document.getElementById("roomSection");
   const daySectionEl = document.getElementById("daySection");
 
   function warnAndScroll(targetEl){
@@ -310,15 +320,10 @@
     numSectionEl.classList.remove("warn");
     numSectionEl.querySelector(".sub").textContent = "人数によって料金が決まります";
   }
-  function unlockRoom(){
-    roomSectionEl.classList.remove("locked");
-    roomSectionEl.classList.remove("warn");
-    roomSectionEl.querySelector(".sub").textContent = "天照・月読、どちらかをお選びください";
-  }
   function unlockDay(){
     daySectionEl.classList.remove("locked");
     daySectionEl.classList.remove("warn");
-    daySectionEl.querySelector(".sub").textContent = "本日から14日先まで選べます";
+    daySectionEl.querySelector(".sub").textContent = "本日から14日先まで選べます。すべて選ぶと、下に自動で空き状況が表示されます。";
   }
 
   // ---- ① プラン ----
@@ -342,26 +347,12 @@
       document.querySelectorAll(".num-chip").forEach(c => c.classList.remove("selected"));
       chip.classList.add("selected");
       selectedNum = chip.dataset.n;
-      unlockRoom();
-      runSearch();
-    });
-  });
-
-  // ---- ③ 部屋 ----
-  let selectedRoom = null;
-  document.querySelectorAll(".room-card").forEach(card => {
-    card.addEventListener("click", () => {
-      if(!selectedMode){ warnAndScroll(planModeSectionEl); return; }
-      if(!selectedNum){ warnAndScroll(numSectionEl); return; }
-      document.querySelectorAll(".room-card").forEach(c => c.classList.remove("selected"));
-      card.classList.add("selected");
-      selectedRoom = card.dataset.room;
       unlockDay();
       runSearch();
     });
   });
 
-  // ---- ④ 日付 ----
+  // ---- ③ 日付 ----
   let selectedDate = null;
   const dayGrid = document.getElementById("dayGrid");
   const today = new Date();
@@ -389,7 +380,6 @@
       if(isClosed) return;
       if(!selectedMode){ warnAndScroll(planModeSectionEl); return; }
       if(!selectedNum){ warnAndScroll(numSectionEl); return; }
-      if(!selectedRoom){ warnAndScroll(roomSectionEl); return; }
       document.querySelectorAll(".day-chip.selected").forEach(el => el.classList.remove("selected"));
       chip.classList.add("selected");
       selectedDate = iso;
@@ -401,11 +391,43 @@
   let searchToken = 0;
   let hasShownOnce = false;
 
+  function renderPrice(room){
+    const el = document.getElementById(room === "amaterasu" ? "priceAmaterasu" : "priceTsukuyomi");
+    if(selectedMode === "180"){
+      el.innerHTML = `<span class="now">¥${PRICE180[selectedNum].toLocaleString()}</span>`;
+    } else {
+      const type = judgeType(selectedDate);
+      el.innerHTML = `<span class="now">¥${PRICE120[type][selectedNum].toLocaleString()}</span>`;
+    }
+  }
+
+  function renderSlots(room){
+    const wrap = document.getElementById(room === "amaterasu" ? "slotsAmaterasu" : "slotsTsukuyomi");
+    const titleEl = document.getElementById(room === "amaterasu" ? "titleAmaterasu" : "titleTsukuyomi");
+    const baseTitle = room === "amaterasu" ? "天照 AMATERASU" : "月読 TSUKUYOMI";
+    titleEl.textContent = selectedMode === "180" ? baseTitle + "（180分旅館）" : baseTitle;
+
+    wrap.innerHTML = "";
+    const duration = selectedMode === "180" ? 180 : 120;
+    const url = selectedMode === "180" ? CONFIG180[room] : CONFIG120[room][judgeType(selectedDate)];
+    const roomName = ROOM_NAME[room];
+
+    START_TIMES[room].forEach(start => {
+      const label = formatSlotRange(start, duration);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "slot-btn";
+      btn.textContent = label + " 空";
+      btn.addEventListener("click", () => openConfirm(url, roomName, label));
+      wrap.appendChild(btn);
+    });
+  }
+
   function runSearch(){
     const resultArea = document.getElementById("resultArea");
     const loading = document.getElementById("loadingMsg");
     const body = document.getElementById("resultBody");
-    if(!(selectedMode && selectedNum && selectedRoom && selectedDate)){
+    if(!(selectedMode && selectedNum && selectedDate)){
       resultArea.style.display = "none";
       return;
     }
@@ -422,17 +444,15 @@
       loading.style.display = "none";
       body.style.display = "block";
 
-      if(selectedMode === "180"){
-        document.getElementById("resultTag").textContent = `180分旅館プラン ・ ${ROOM_NAME[selectedRoom]} ・ ${fmtDate(selectedDate)} ・ ${selectedNum}名`;
-        document.getElementById("resultPrice").textContent = `¥${PRICE180[selectedNum].toLocaleString()}`;
-        document.getElementById("resultPriceNote").textContent = "120分貸切サウナ＋60分旅館休憩（税込）";
-      } else {
-        const type = judgeType(selectedDate);
-        const typeLabel = type === "weekday" ? "平日料金" : "土日祝料金";
-        document.getElementById("resultTag").textContent = `120分貸切のみ ・ ${typeLabel} ・ ${ROOM_NAME[selectedRoom]} ・ ${fmtDate(selectedDate)} ・ ${selectedNum}名`;
-        document.getElementById("resultPrice").textContent = `¥${PRICE120[type][selectedNum].toLocaleString()}`;
-        document.getElementById("resultPriceNote").textContent = "120分貸切サウナ・温泉のみ（税込）";
-      }
+      const type = judgeType(selectedDate);
+      const typeLabel = type === "weekday" ? "平日" : "土日・祝日";
+      const modeLabel = selectedMode === "180" ? "180分旅館プラン" : "120分貸切のみ";
+      document.getElementById("resultTag").textContent = `${modeLabel} ・ ${typeLabel} ・ ${fmtDate(selectedDate)} ・ ${selectedNum}名`;
+
+      renderPrice("amaterasu");
+      renderPrice("tsukuyomi");
+      renderSlots("amaterasu");
+      renderSlots("tsukuyomi");
     }, 500);
   }
 
@@ -443,17 +463,12 @@
   const confirmBack = document.getElementById("confirmBack");
   let pendingUrl = null;
 
-  document.getElementById("goBtn").addEventListener("click", () => {
-    if(selectedMode === "180"){
-      pendingUrl = CONFIG180[selectedRoom];
-      confirmDetail.textContent = `${selectedNum}名・${fmtDate(selectedDate)}・${ROOM_NAME[selectedRoom]}（180分旅館）でよろしいですか？`;
-    } else {
-      const type = judgeType(selectedDate);
-      pendingUrl = CONFIG120[selectedRoom][type];
-      confirmDetail.textContent = `${selectedNum}名・${fmtDate(selectedDate)}・${ROOM_NAME[selectedRoom]}（120分貸切のみ）でよろしいですか？`;
-    }
+  function openConfirm(url, roomName, time){
+    pendingUrl = url;
+    const modeLabel = selectedMode === "180" ? "（180分旅館）" : "";
+    confirmDetail.textContent = `${selectedNum}名・${fmtDate(selectedDate)}・${roomName}${modeLabel}・${time}でよろしいですか？`;
     confirmOverlay.classList.add("open");
-  });
+  }
   confirmBack.addEventListener("click", () => {
     confirmOverlay.classList.remove("open");
     pendingUrl = null;
