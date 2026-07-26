@@ -185,6 +185,49 @@
     border-radius:100px;
   }
 
+  /* ---- レンタル品 ---- */
+  .rental-block{
+    margin:60px 0;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:26px 24px;
+    box-shadow:var(--shadow-sm);
+  }
+  .rental-block .label{
+    font-size:10.5px;
+    letter-spacing:.18em;
+    font-weight:700;
+    color:var(--sun-accent);
+    margin-bottom:8px;
+    text-align:center;
+  }
+  .rental-block h3{
+    font-family:var(--font-display);
+    font-size:18px;
+    font-weight:700;
+    text-align:center;
+    margin:0 0 20px;
+  }
+  .rental-included{
+    font-size:12.5px;
+    color:var(--sun-sub);
+    text-align:center;
+    margin:0 0 20px;
+    line-height:1.9;
+  }
+  .rental-table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  .rental-table td{padding:10px 4px;border-bottom:1px solid var(--sun-line);}
+  .rental-table td:last-child{text-align:right;font-weight:800;}
+  .rental-table tr:last-child td{border-bottom:none;}
+  .rental-note{
+    font-size:12px;
+    color:var(--sun-sub);
+    text-align:center;
+    margin:18px 0 0;
+    line-height:1.8;
+  }
+
   .cta-block{
     text-align:center;
     margin-top:80px;
@@ -292,6 +335,19 @@
       <div class="label">WATER SERVER</div>
       <p>喉が渇いたら、いつでも冷たいお水を。</p>
     </div>
+  </div>
+
+  <div class="rental-block reveal">
+    <div class="label">RENTAL</div>
+    <h3>レンタル品</h3>
+    <p class="rental-included">フェイスタオル・バスタオルは、お1人様1枚無料でご利用いただけます。<br>フェイスタオルはお持ち帰りいただけます。</p>
+    <table class="rental-table">
+      <tr><td>バスタオル（追加）</td><td>¥200</td></tr>
+      <tr><td>サウナハット</td><td>¥200</td></tr>
+      <tr><td>ポンチョ</td><td>¥500</td></tr>
+      <tr><td>水着</td><td>¥500</td></tr>
+    </table>
+    <p class="rental-note">自動販売機あり（ポカリスエット、オロナミンC、キレートレモンなど）<br>台湾パインティーも1杯¥800でご用意しています。</p>
   </div>
 
   <div class="cta-block reveal">
