@@ -82,6 +82,17 @@
   }
   .num-chip.selected{background:var(--pink-deep);border-color:var(--pink-deep);color:#fff;}
 
+
+  .plan-cards{display:flex;gap:12px;}
+  .plan-card{
+    flex:1;background:var(--cream2);border:2px solid var(--line);border-radius:16px;
+    padding:18px 14px;text-align:center;cursor:pointer;
+  }
+  .plan-card:hover{border-color:var(--pink-deep);}
+  .plan-card.selected{background:var(--pink-soft);border-color:var(--pink-deep);}
+  .plan-card .ptitle{font-size:14.5px;font-weight:800;color:var(--ink);margin-bottom:3px;}
+  .plan-card .psub{font-size:10.5px;color:var(--sub);}
+
   .room-cards{display:flex;gap:12px;}
   .room-card{
     flex:1;background:var(--cream2);border:2px solid var(--line);border-radius:16px;
@@ -154,9 +165,24 @@
     <h1>ご予約</h1>
   </div>
 
-  <div class="panel" id="numSection">
-    <h3>① 人数を選んでください</h3>
-    <p class="sub">人数によって料金が決まります</p>
+  <div class="panel" id="planModeSection">
+    <h3>① プランを選んでください</h3>
+    <p class="sub">180分旅館プラン、または120分貸切のみからお選びいただけます</p>
+    <div class="plan-cards" id="planModeCards">
+      <div class="plan-card" data-mode="180">
+        <div class="ptitle">180分旅館プラン</div>
+        <div class="psub">120分貸切＋60分旅館休憩</div>
+      </div>
+      <div class="plan-card" data-mode="120">
+        <div class="ptitle">120分貸切のみ</div>
+        <div class="psub">サウナ・温泉の貸切だけ</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel locked" id="numSection">
+    <h3>② 人数を選んでください</h3>
+    <p class="sub">まず①でプランを選んでください</p>
     <div class="num-select" id="numSelect">
       <div class="num-chip" data-n="1">1名</div>
       <div class="num-chip" data-n="2">2名</div>
@@ -167,8 +193,8 @@
   </div>
 
   <div class="panel locked" id="roomSection">
-    <h3>② お部屋を選んでください</h3>
-    <p class="sub">まず①で人数を選んでください</p>
+    <h3>③ お部屋を選んでください</h3>
+    <p class="sub">まず②で人数を選んでください</p>
     <div class="room-cards" id="roomCards">
       <div class="room-card" data-room="amaterasu">
         <div class="rtitle">天照</div>
@@ -182,8 +208,8 @@
   </div>
 
   <div class="panel locked" id="daySection">
-    <h3>③ ご希望日を選んでください</h3>
-    <p class="sub">まず②でお部屋を選んでください</p>
+    <h3>④ ご希望日を選んでください</h3>
+    <p class="sub">まず③でお部屋を選んでください</p>
     <div class="day-grid" id="dayGrid"></div>
     <p style="font-size:11px;color:var(--sub);margin:6px 0 0;">グレーの日付は休館日のため選べません。</p>
   </div>
@@ -194,7 +220,7 @@
       <div class="result-card">
         <div class="rtag" id="resultTag"></div>
         <div class="price" id="resultPrice"></div>
-        <div class="price-note">120分貸切サウナ＋60分旅館休憩（税込）</div>
+        <div class="price-note" id="resultPriceNote">120分貸切サウナ＋60分旅館休憩（税込）</div>
         <button type="button" class="go-btn" id="goBtn">この内容で予約に進む</button>
       </div>
     </div>
@@ -218,12 +244,26 @@
 </div>
 
 <script>
-  const CONFIG = {
+  const CONFIG180 = {
     amaterasu: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/QGLJ7W3QVO3WTTULM3TAD3Q5",
     tsukuyomi: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/W6KUMXH6YB3BERXYBUEBAXVN"
   };
+  const CONFIG120 = {
+    amaterasu: {
+      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/6LXRATROAVOD6QXXL34DSUW2",
+      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/O3NCUHKOFOWR6RGHX6TFNXFH"
+    },
+    tsukuyomi: {
+      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/X6AYINI6H65GZANXSMSY2FL3",
+      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/C4TSXG7QRZVXYASOYSMGDGZT"
+    }
+  };
   const ROOM_NAME = { amaterasu: "天照", tsukuyomi: "月読" };
-  const PRICE = { 1: 7000, 2: 11000, 3: 15000, 4: 18000, 5: 20000 };
+  const PRICE180 = { 1: 7000, 2: 11000, 3: 15000, 4: 18000, 5: 20000 };
+  const PRICE120 = {
+    weekday: { 1: 5000, 2: 8000, 3: 10000, 4: 11000, 5: 12000 },
+    weekend: { 1: 6000, 2: 9600, 3: 12000, 4: 13000, 5: 14000 }
+  };
 
   const HOLIDAYS_2026 = [
     "2026-01-01","2026-01-12","2026-02-11","2026-02-23","2026-03-20",
@@ -231,6 +271,7 @@
     "2026-07-20","2026-08-11","2026-09-21","2026-09-22","2026-09-23",
     "2026-10-12","2026-11-03","2026-11-23"
   ];
+  const OBON_RANGE = ["2026-08-13","2026-08-14","2026-08-15"];
   const CLOSED_DAYS = ["2026-08-03","2026-08-04"];
 
   function toISO(d){
@@ -244,7 +285,17 @@
     const w = ["日","月","火","水","木","金","土"][d.getDay()];
     return `${d.getMonth()+1}月${d.getDate()}日（${w}）`;
   }
+  function judgeType(dateStr){
+    if(OBON_RANGE.includes(dateStr)) return "weekend";
+    if(HOLIDAYS_2026.includes(dateStr)) return "weekend";
+    const d = new Date(dateStr+"T00:00:00");
+    const day = d.getDay();
+    if(day === 0 || day === 6) return "weekend";
+    return "weekday";
+  }
 
+  const planModeSectionEl = document.getElementById("planModeSection");
+  const numSectionEl = document.getElementById("numSection");
   const roomSectionEl = document.getElementById("roomSection");
   const daySectionEl = document.getElementById("daySection");
 
@@ -253,6 +304,11 @@
     targetEl.classList.remove("warn");
     void targetEl.offsetWidth;
     targetEl.classList.add("warn");
+  }
+  function unlockNum(){
+    numSectionEl.classList.remove("locked");
+    numSectionEl.classList.remove("warn");
+    numSectionEl.querySelector(".sub").textContent = "人数によって料金が決まります";
   }
   function unlockRoom(){
     roomSectionEl.classList.remove("locked");
@@ -265,24 +321,38 @@
     daySectionEl.querySelector(".sub").textContent = "本日から14日先まで選べます";
   }
 
-  // ---- 人数 ----
+  // ---- ① プラン ----
+  let selectedMode = null;
+  document.querySelectorAll("#planModeCards .plan-card").forEach(card => {
+    card.addEventListener("click", () => {
+      document.querySelectorAll("#planModeCards .plan-card").forEach(c => c.classList.remove("selected"));
+      card.classList.add("selected");
+      selectedMode = card.dataset.mode;
+      planModeSectionEl.classList.remove("warn");
+      unlockNum();
+      runSearch();
+    });
+  });
+
+  // ---- ② 人数 ----
   let selectedNum = null;
   document.querySelectorAll(".num-chip").forEach(chip => {
     chip.addEventListener("click", () => {
+      if(!selectedMode){ warnAndScroll(planModeSectionEl); return; }
       document.querySelectorAll(".num-chip").forEach(c => c.classList.remove("selected"));
       chip.classList.add("selected");
       selectedNum = chip.dataset.n;
-      document.getElementById("numSection").classList.remove("warn");
       unlockRoom();
       runSearch();
     });
   });
 
-  // ---- 部屋 ----
+  // ---- ③ 部屋 ----
   let selectedRoom = null;
   document.querySelectorAll(".room-card").forEach(card => {
     card.addEventListener("click", () => {
-      if(!selectedNum){ warnAndScroll(document.getElementById("numSection")); return; }
+      if(!selectedMode){ warnAndScroll(planModeSectionEl); return; }
+      if(!selectedNum){ warnAndScroll(numSectionEl); return; }
       document.querySelectorAll(".room-card").forEach(c => c.classList.remove("selected"));
       card.classList.add("selected");
       selectedRoom = card.dataset.room;
@@ -291,7 +361,7 @@
     });
   });
 
-  // ---- 日付 ----
+  // ---- ④ 日付 ----
   let selectedDate = null;
   const dayGrid = document.getElementById("dayGrid");
   const today = new Date();
@@ -317,7 +387,8 @@
     chip.innerHTML = `<div class="wd">${wd}</div><div class="num">${d.getDate()}</div>`;
     chip.addEventListener("click", () => {
       if(isClosed) return;
-      if(!selectedNum){ warnAndScroll(document.getElementById("numSection")); return; }
+      if(!selectedMode){ warnAndScroll(planModeSectionEl); return; }
+      if(!selectedNum){ warnAndScroll(numSectionEl); return; }
       if(!selectedRoom){ warnAndScroll(roomSectionEl); return; }
       document.querySelectorAll(".day-chip.selected").forEach(el => el.classList.remove("selected"));
       chip.classList.add("selected");
@@ -334,7 +405,7 @@
     const resultArea = document.getElementById("resultArea");
     const loading = document.getElementById("loadingMsg");
     const body = document.getElementById("resultBody");
-    if(!(selectedNum && selectedRoom && selectedDate)){
+    if(!(selectedMode && selectedNum && selectedRoom && selectedDate)){
       resultArea.style.display = "none";
       return;
     }
@@ -350,8 +421,18 @@
       if(myToken !== searchToken) return;
       loading.style.display = "none";
       body.style.display = "block";
-      document.getElementById("resultTag").textContent = `${ROOM_NAME[selectedRoom]} ・ ${fmtDate(selectedDate)} ・ ${selectedNum}名`;
-      document.getElementById("resultPrice").textContent = `¥${PRICE[selectedNum].toLocaleString()}`;
+
+      if(selectedMode === "180"){
+        document.getElementById("resultTag").textContent = `180分旅館プラン ・ ${ROOM_NAME[selectedRoom]} ・ ${fmtDate(selectedDate)} ・ ${selectedNum}名`;
+        document.getElementById("resultPrice").textContent = `¥${PRICE180[selectedNum].toLocaleString()}`;
+        document.getElementById("resultPriceNote").textContent = "120分貸切サウナ＋60分旅館休憩（税込）";
+      } else {
+        const type = judgeType(selectedDate);
+        const typeLabel = type === "weekday" ? "平日料金" : "土日祝料金";
+        document.getElementById("resultTag").textContent = `120分貸切のみ ・ ${typeLabel} ・ ${ROOM_NAME[selectedRoom]} ・ ${fmtDate(selectedDate)} ・ ${selectedNum}名`;
+        document.getElementById("resultPrice").textContent = `¥${PRICE120[type][selectedNum].toLocaleString()}`;
+        document.getElementById("resultPriceNote").textContent = "120分貸切サウナ・温泉のみ（税込）";
+      }
     }, 500);
   }
 
@@ -363,8 +444,14 @@
   let pendingUrl = null;
 
   document.getElementById("goBtn").addEventListener("click", () => {
-    pendingUrl = CONFIG[selectedRoom];
-    confirmDetail.textContent = `${selectedNum}名・${fmtDate(selectedDate)}・${ROOM_NAME[selectedRoom]}（180分旅館）でよろしいですか？`;
+    if(selectedMode === "180"){
+      pendingUrl = CONFIG180[selectedRoom];
+      confirmDetail.textContent = `${selectedNum}名・${fmtDate(selectedDate)}・${ROOM_NAME[selectedRoom]}（180分旅館）でよろしいですか？`;
+    } else {
+      const type = judgeType(selectedDate);
+      pendingUrl = CONFIG120[selectedRoom][type];
+      confirmDetail.textContent = `${selectedNum}名・${fmtDate(selectedDate)}・${ROOM_NAME[selectedRoom]}（120分貸切のみ）でよろしいですか？`;
+    }
     confirmOverlay.classList.add("open");
   });
   confirmBack.addEventListener("click", () => {
