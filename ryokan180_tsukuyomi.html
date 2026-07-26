@@ -9,22 +9,22 @@
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --cream: #15151b;
-    --cream2: #20202a;
-    --ink: #ece8dd;
-    --sub: #9a9fb0;
-    --line: #2c2d38;
-    --ember: #c3cbd9;
-    --ember-hover: #d8dee8;
-    --paper: #1b1b23;
-    --sun-bg: #1b1b23;
-    --sun-ink: #ece8dd;
-    --sun-sub: #9a9fb0;
-    --sun-accent: #c3cbd9;
-    --sun-line: #2c2d38;
-    --shadow-sm: 0 1px 3px rgba(0,0,0,.25);
-    --shadow-md: 0 8px 28px rgba(0,0,0,.35);
-    --shadow-lg: 0 18px 48px rgba(0,0,0,.45);
+    --cream: #fdf3f4;
+    --cream2: #fbe6ea;
+    --ink: #3a2a2c;
+    --sub: #9a7e82;
+    --line: #f3d9dd;
+    --ember: #d4667e;
+    --ember-hover: #e8879b;
+    --paper: #ffffff;
+    --sun-bg: #fdf3f4;
+    --sun-ink: #3a2a2c;
+    --sun-sub: #9a7e82;
+    --sun-accent: #d4667e;
+    --sun-line: #f3d9dd;
+    --shadow-sm: 0 1px 3px rgba(150,60,80,.06);
+    --shadow-md: 0 8px 28px rgba(150,60,80,.09);
+    --shadow-lg: 0 18px 48px rgba(150,60,80,.16);
     --ease-soft: cubic-bezier(.22,1,.36,1);
     --font-display: "Shippori Mincho B1", "Hiragino Mincho ProN", serif;
   }
@@ -185,33 +185,25 @@
     border-radius:100px;
   }
 
-  .cta-block{
+  .cta-fixed{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    display:block;
     text-align:center;
-    margin-top:80px;
-  }
-  .cta-block p{
-    font-size:13px;
-    color:var(--sub);
-    margin:0 0 18px;
-  }
-  .cta-btn{
-    display:inline-block;
-    background:#df571d;
+    background:var(--ember);
     color:#fff;
     text-decoration:none;
     font-weight:700;
-    font-size:14.5px;
+    font-size:15px;
     letter-spacing:.03em;
-    padding:16px 34px;
-    border-radius:100px;
-    box-shadow:0 10px 28px rgba(223,87,29,.32);
-    transition:transform .35s var(--ease-soft), box-shadow .35s var(--ease-soft);
+    padding:17px;
+    box-shadow:0 -6px 20px rgba(150,60,80,.2);
+    z-index:200;
+    transition:background .3s var(--ease-soft);
   }
-  .cta-btn:hover{
-    background:#e6713f;
-    transform:translateY(-2px);
-    box-shadow:0 14px 34px rgba(223,87,29,.4);
-  }
+  .cta-fixed:hover{background:var(--ember-hover);}
 
   .foot{
     text-align:center;
@@ -224,6 +216,7 @@
 </style>
 </head>
 <body>
+<a class="cta-fixed" href="ryokan180_booking.html">180分旅館予約</a>
 <a class="back-btn" href="ryokan180.html">← 180分旅館トップへ</a>
 <div class="wrap">
 
@@ -295,10 +288,7 @@
     </div>
   </div>
 
-  <div class="cta-block reveal">
-    <p>月読の雰囲気は、伝わりましたか。</p>
-    <a class="cta-btn" href="ryokan180_booking.html">180分旅館予約</a>
-  </div>
+
 
   <div class="foot">
     湯布院プライベートサウナ＆温泉　NOGIKU
