@@ -408,8 +408,12 @@
     const duration = selectedMode === "180" ? 180 : 120;
     const url = selectedMode === "180" ? CONFIG180[room] : CONFIG120[room][judgeType(selectedDate)];
     const roomName = ROOM_NAME[room];
+    const CLOSING_MIN = 21 * 60; // 21:00閉店
 
     START_TIMES[room].forEach(start => {
+      const [h, m] = start.split(":").map(Number);
+      const startMin = h*60 + m;
+      if(startMin + duration > CLOSING_MIN) return; // 閉店時刻を超える枠は表示しない
       const label = formatSlotRange(start, duration);
       const btn = document.createElement("button");
       btn.type = "button";
