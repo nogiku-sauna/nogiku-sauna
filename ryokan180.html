@@ -233,6 +233,58 @@
   }
   .cta-main:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(212,102,126,.45);}
 
+  /* ---- 三本線メニュー ---- */
+  .menu-btn{
+    position:fixed;
+    right:20px;
+    top:20px;
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    background:#fff;
+    border:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    cursor:pointer;
+    z-index:210;
+    box-shadow:var(--shadow-md);
+    transition:box-shadow .3s var(--ease-soft);
+  }
+  .menu-btn:hover{box-shadow:var(--shadow-lg);}
+  .menu-btn span{display:block;width:18px;height:2px;background:var(--ink);border-radius:2px;}
+  .menu-panel{
+    position:fixed;
+    right:20px;
+    top:72px;
+    width:220px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:var(--shadow-lg);
+    padding:8px;
+    z-index:210;
+    display:none;
+  }
+  .menu-panel.open{display:block;}
+  .menu-panel button{
+    display:block;
+    width:100%;
+    text-align:left;
+    padding:12px 14px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+    background:none;
+    border:none;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .menu-panel button:hover{background:var(--cream2);}
+
   /* ---- 料金・レンタル品 ---- */
   .price-block{
     margin:40px 0 0;
@@ -284,6 +336,17 @@
 </head>
 <body>
 <a class="cta-main" href="ryokan180_booking.html">180分旅館予約</a>
+<div class="menu-btn" id="menuBtn" role="button" aria-label="メニューを開く" aria-expanded="false">
+  <span></span><span></span><span></span>
+</div>
+<nav class="menu-panel" id="menuPanel">
+  <button type="button" class="menu-jump" data-target="#pricing">料金・プラン一覧</button>
+  <button type="button" class="menu-jump" data-target="#access">アクセス</button>
+  <button type="button" class="menu-jump" data-target="#faq">よくあるご質問</button>
+  <button type="button" class="menu-jump" data-target="#terms">ご利用規約・キャンセルポリシー</button>
+  <button type="button" class="menu-jump" data-target="#contact">お問い合わせ</button>
+  <button type="button" class="menu-jump" data-target="#privacy">プライバシーポリシー</button>
+</nav>
 
   <div class="hero-photo-wrap">
     <img class="hero-photo reveal" src="ryokan180_hero.jpg" alt="180分旅館 たしなむ程度に旅館する">
@@ -319,7 +382,7 @@
     <h2 class="reveal">料金・プラン一覧</h2>
   </div>
 
-  <div class="price-block reveal">
+  <div class="price-block reveal" id="pricing">
     <h3>180分旅館プラン</h3>
     <p class="note">120分貸切＋60分旅館休憩（平日・土日共通）</p>
     <table class="price-table">
@@ -357,7 +420,7 @@
     <p class="note" style="margin:14px 0 0;">自動販売機あり（ポカリスエット、オロナミンC、キレートレモンなど）<br>台湾パインティーも1杯¥800でご用意しています。</p>
   </div>
 
-  <div class="price-block reveal">
+  <div class="price-block reveal" id="access">
     <h3>アクセス</h3>
     <p class="note" style="text-align:left;">〒879-5102　大分県由布市湯布院町川上2879-1<br>（湯布院プライベートサウナ＆温泉NOGIKU）</p>
     <p class="note" style="text-align:left;">080-3224-3372</p>
@@ -365,7 +428,7 @@
     <a href="https://www.google.com/maps/place/%E6%B9%AF%E5%B8%83%E9%99%A2%E3%83%97%E3%83%A9%E3%82%A4%E3%83%99%E3%83%BC%E3%83%88%E3%82%B5%E3%82%A6%E3%83%8A%26%E6%B8%A9%E6%B3%89+NOGIKU/@33.2602281,131.3586255,17z/data=!3m1!4b1!4m6!3m5!1s0x3546ad58aca8560b:0xd21015452b80427!8m2!3d33.2602281!4d131.3586255!16s%2Fg%2F11vx1hfw9z" target="_blank" style="display:block;text-align:center;margin-top:12px;font-size:12.5px;font-weight:700;color:var(--pink-deep);text-decoration:none;">→ Googleマップで見る</a>
   </div>
 
-  <div class="price-block reveal">
+  <div class="price-block reveal" id="faq">
     <h3>よくあるご質問</h3>
     <div style="text-align:left;">
       <p style="font-weight:700;margin:0 0 4px;">電話予約はできますか？</p>
@@ -400,6 +463,47 @@
     </div>
   </div>
 
+  <div class="price-block reveal" id="terms">
+    <h3>ご利用規約・キャンセルポリシー</h3>
+    <div style="text-align:left;">
+      <p style="font-weight:700;margin:0 0 8px;">ご利用上のご注意</p>
+      <ol class="note" style="text-align:left;padding-left:20px;margin:0 0 16px;">
+        <li>体調がすぐれない時や不安がある場合は医師に相談し、健康状態に応じてご利用ください。</li>
+        <li>携帯電話や電子機器類は自己責任でお持ち込みください。</li>
+        <li>サウナ室は暗めで、段差のある構造です。昇り降りの際は転倒にご注意ください。段差に物を置かないでください。</li>
+        <li>サウナストーブや防護柵に触れたり、タオルをかけないでください。</li>
+        <li>小学生以下（小学生を含む）お子様は、安全面を考慮いたしまして、ご利用をお断りしております。</li>
+        <li>足腰の悪い方、ご高齢の方はご利用をお控えください。</li>
+        <li>設備を故意または過失で破損・汚損した場合、弁償いただきます。</li>
+        <li>盗難・紛失、事故や怪我、体調管理については一切の責任を負いかねますので、ご了承ください。</li>
+        <li>飲酒はお控えください。店内飲酒、到着前飲酒の場合、ご利用をお断りする場合があります。飲酒運転が発覚した場合、通報いたします。</li>
+      </ol>
+      <p style="font-weight:700;margin:0 0 8px;">キャンセルについて</p>
+      <p class="note" style="text-align:left;">キャンセルの場合は2日（48時間）以上前にご連絡ください。キャンセルの場合は下記キャンセル料が発生いたします。</p>
+      <ul class="note" style="text-align:left;padding-left:20px;margin:8px 0 12px;">
+        <li>2日（48時間）以内のキャンセル：50%</li>
+        <li>24時間以内のキャンセル：100%</li>
+      </ul>
+      <p class="note" style="text-align:left;">※予約変更は24時間以内になると、どんな理由でも対応できません。</p>
+    </div>
+  </div>
+
+  <div class="price-block reveal" id="contact">
+    <h3>お問い合わせ</h3>
+    <p class="note" style="text-align:left;">080-3224-3372<br>nogikusauna@gmail.com</p>
+    <p class="note" style="text-align:left;">ご予約に関するお問い合わせは、上記の電話またはメールにて承っております。</p>
+  </div>
+
+  <div class="price-block reveal" id="privacy">
+    <h3>プライバシーポリシー</h3>
+    <div style="text-align:left;">
+      <p class="note" style="text-align:left;margin:0 0 10px;">湯布院プライベートサウナ＆温泉NOGIKU（以下「当施設」）は、お客様よりご提供いただく個人情報（お名前・電話番号・メールアドレス等）を、ご予約の管理およびご連絡の目的にのみ使用いたします。</p>
+      <p class="note" style="text-align:left;margin:0 0 10px;">当施設は、法令に基づく場合を除き、お客様の同意なく第三者に個人情報を提供することはありません。</p>
+      <p class="note" style="text-align:left;margin:0 0 10px;">ご予約データは、Square社が提供する予約システムを通じて管理されます。</p>
+      <p class="note" style="text-align:left;">個人情報の開示・訂正・削除等のご要望は、お問い合わせ先までご連絡ください。</p>
+    </div>
+  </div>
+
   <div class="foot">
     サウナだけの120分プランをお探しの方は、<a href="index.html">こちら</a>
   </div>
@@ -417,6 +521,28 @@
     });
   }, { threshold: 0.15 });
   revealEls.forEach(el => revealObserver.observe(el));
+
+  // ---- ハンバーガーメニュー ----
+  const menuBtn = document.getElementById("menuBtn");
+  const menuPanel = document.getElementById("menuPanel");
+  menuBtn.addEventListener("click", () => {
+    const isOpen = menuPanel.classList.toggle("open");
+    menuBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  });
+  document.addEventListener("click", (e) => {
+    if(!menuBtn.contains(e.target) && !menuPanel.contains(e.target)){
+      menuPanel.classList.remove("open");
+      menuBtn.setAttribute("aria-expanded", "false");
+    }
+  });
+  document.querySelectorAll(".menu-jump").forEach(link => {
+    link.addEventListener("click", () => {
+      menuPanel.classList.remove("open");
+      menuBtn.setAttribute("aria-expanded", "false");
+      const target = document.querySelector(link.dataset.target);
+      if(target) target.scrollIntoView({behavior:"smooth", block:"start"});
+    });
+  });
 </script>
 </body>
 </html>
