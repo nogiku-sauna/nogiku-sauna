@@ -22,12 +22,6 @@
     --warn-bg: #f5e6d8;
     --warn-ink: #a8611f;
 
-    --paper: #fffdf9;
-    --shadow-sm: 0 1px 3px rgba(43,38,32,.05);
-    --shadow-md: 0 8px 28px rgba(43,38,32,.07);
-    --shadow-lg: 0 18px 48px rgba(43,38,32,.10);
-    --ease-soft: cubic-bezier(.22,1,.36,1);
-
     /* 天照（陽）*/
     --sun-bg: #fbf3e0;
     --sun-ink: #4a3414;
@@ -50,8 +44,7 @@
     background:var(--cream);
     color:var(--ink);
     font-family:"Inter","Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,sans-serif;
-    line-height:1.8;
-    -webkit-font-smoothing:antialiased;
+    line-height:1.75;
   }
   .btn, button.btn{
     font-family:"PT Sans","Hiragino Sans","Yu Gothic",sans-serif;
@@ -89,17 +82,16 @@
     gap:4px;
     cursor:pointer;
     z-index:200;
-    box-shadow:var(--shadow-md);
-    transition:box-shadow .3s var(--ease-soft), border-color .3s var(--ease-soft), transform .3s var(--ease-soft);
+    box-shadow:0 2px 10px rgba(43,38,32,.12);
   }
   .menu-btn span{
     display:block;
-    width:16px;
-    height:1.5px;
+    width:18px;
+    height:2px;
     background:var(--ink);
     border-radius:2px;
   }
-  .menu-btn:hover{border-color:var(--ember);box-shadow:var(--shadow-lg);transform:translateY(-1px);}
+  .menu-btn:hover{border-color:var(--ember);}
 
   .menu-panel{
     position:fixed;
@@ -108,9 +100,9 @@
     width:240px;
     background:#fff;
     border:1px solid var(--line);
-    border-radius:18px;
-    box-shadow:var(--shadow-lg);
-    padding:10px;
+    border-radius:16px;
+    box-shadow:0 8px 24px rgba(43,38,32,.16);
+    padding:8px;
     z-index:200;
     display:none;
   }
@@ -119,168 +111,127 @@
     display:block;
     width:100%;
     text-align:left;
-    padding:13px 15px;
-    border-radius:11px;
+    padding:12px 14px;
+    border-radius:10px;
     font-size:13.5px;
-    font-weight:600;
+    font-weight:700;
     color:var(--ink);
     text-decoration:none;
     background:none;
     border:none;
     cursor:pointer;
     font-family:inherit;
-    transition:background .2s var(--ease-soft);
   }
   .menu-panel a:hover, .menu-panel button.menu-item:hover{background:var(--cream2);}
   .menu-panel .menu-primary{color:var(--ember);}
   .menu-panel hr{border:none;border-top:1px solid var(--line);margin:6px 4px;}
 
-  /* ---- hero photo ---- */
-  .hero-photo-wrap{
-    position:relative;
-    width:100vw;
-    left:50%;
-    right:50%;
-    margin-left:-50vw;
-    margin-right:-50vw;
-    aspect-ratio:16/10;
-    border-radius:0;
-    overflow:hidden;
-    margin-top:8px;
-    box-shadow:var(--shadow-lg);
+  /* ---- hero ---- */
+  .hero{
+    text-align:center;
+    padding:14px 0 34px;
   }
-  .hero-photo{
-    width:100%;
-    height:100%;
-    object-fit:cover;
+  .yinyang{
+    width:88px;
+    height:88px;
+    margin:0 auto 18px;
     display:block;
   }
-  .hero-overlay{
-    position:absolute;
-    left:0;
-    right:0;
-    bottom:0;
-    display:flex;
-    flex-direction:column;
-    align-items:flex-start;
-    padding:0 clamp(20px,6vw,56px) clamp(22px,5vw,44px);
-    background:linear-gradient(to top, rgba(20,16,12,.62) 0%, rgba(20,16,12,.34) 45%, rgba(20,16,12,0) 100%);
-  }
-  .hero-rule{
-    width:40px;
-    height:1px;
-    background:rgba(255,255,255,.75);
-    margin-bottom:clamp(12px,2.4vw,18px);
-  }
-  .hero-kicker{
+  .hero h1{
     font-family:var(--font-display);
-    font-size:clamp(11.5px,2.4vw,15px);
-    font-weight:500;
-    color:rgba(255,255,255,.92);
-    letter-spacing:.22em;
-    margin:0 0 clamp(6px,1.4vw,10px);
-    text-shadow:0 1px 10px rgba(0,0,0,.45);
+    font-size:30px;
+    font-weight:800;
+    margin:0 0 10px;
+    letter-spacing:.06em;
+    color:var(--ink);
   }
-  .hero-heading{
-    font-family:var(--font-display);
-    font-size:clamp(23px,5.6vw,40px);
-    font-weight:700;
-    color:#fff;
-    margin:0;
-    line-height:1.35;
-    letter-spacing:.1em;
-    text-shadow:0 2px 18px rgba(0,0,0,.45);
-  }
-  .hero-sub{
-    text-align:center;
+  .hero p{
     color:var(--sub);
-    font-size:11.5px;
-    letter-spacing:.12em;
-    margin:20px 0 40px;
-  }
-
-  /* ---- ぽんと現れる演出 ---- */
-  .pop{
-    opacity:0;
-    transform:translateY(22px);
-    transition:opacity 2.6s ease-out, transform 2.6s cubic-bezier(.16,1,.3,1);
-  }
-  .pop.in{
-    opacity:1;
-    transform:translateY(0);
+    font-size:13.5px;
+    margin:0;
+    letter-spacing:.03em;
   }
 
   /* ---- スクロール演出 ---- */
   .reveal{
     opacity:0;
-    transform:translateY(14px);
-    transition:opacity .9s var(--ease-soft), transform .9s var(--ease-soft);
+    transform:translateY(18px);
+    transition:opacity .7s ease, transform .7s ease;
   }
   .reveal.in{
     opacity:1;
     transform:translateY(0);
   }
-  .reveal-delay1{transition-delay:.1s;}
-  .reveal-delay2{transition-delay:.2s;}
+  .reveal-delay1{transition-delay:.12s;}
+  .reveal-delay2{transition-delay:.24s;}
 
   /* ---- NOGIKUについて ---- */
   .about-section{
-    margin:40px 0 56px;
+    margin-bottom:34px;
+  }
+  .about-photo{
+    width:100%;
+    aspect-ratio:16/10;
+    object-fit:cover;
+    border-radius:18px;
+    margin-bottom:18px;
+    box-shadow:0 3px 14px rgba(43,38,32,.08);
+  }
+  .about-eyebrow{
+    font-size:11px;
+    letter-spacing:.16em;
+    font-weight:700;
+    color:var(--sun-accent);
+    margin-bottom:8px;
+  }
+  .about-section h2{
+    font-family:var(--font-display);
+    font-size:22px;
+    font-weight:700;
+    margin:0 0 12px;
+    letter-spacing:.03em;
+    color:var(--ink);
   }
   .about-section p{
-    font-size:14.5px;
-    color:var(--sub);
-    line-height:2;
+    font-size:14px;
+    color:var(--ink);
+    line-height:1.85;
     margin:0;
-    letter-spacing:.01em;
   }
   .transition-heading{
     text-align:center;
-    margin:0 0 36px;
+    margin:8px 0 22px;
   }
   .transition-heading h2{
     font-family:var(--font-display);
-    font-size:26px;
-    font-weight:700;
+    font-size:24px;
+    font-weight:800;
     margin:0;
-    letter-spacing:.08em;
+    letter-spacing:.05em;
     color:var(--ink);
-  }
-  @media (max-width: 600px){
-    .transition-heading h2.lead-1line{
-      font-size:22px;
-      letter-spacing:.04em;
-      white-space:nowrap;
-    }
   }
 
   /* ---- room intro cards ---- */
   .room-intro{
-    border-radius:24px;
+    border-radius:20px;
     overflow:hidden;
-    margin-bottom:24px;
-    box-shadow:var(--shadow-md);
-    border-top:2px solid transparent;
-    transition:transform .45s var(--ease-soft), box-shadow .45s var(--ease-soft);
-  }
-  .room-intro:hover{
-    transform:translateY(-5px);
-    box-shadow:var(--shadow-lg);
+    margin-bottom:20px;
+    box-shadow:0 3px 14px rgba(43,38,32,.06);
+    border-top:3px solid transparent;
   }
   .room-intro.sun{
     background:var(--sun-bg);
     border:1px solid var(--sun-line);
-    border-top:2px solid var(--sun-accent);
+    border-top:3px solid var(--sun-accent);
   }
   .room-intro.moon{
     background:var(--moon-bg);
     border:1px solid var(--moon-line);
-    border-top:2px solid var(--moon-accent);
+    border-top:3px solid var(--moon-accent);
   }
   .room-intro.dusk{
-    background:#fdeef1;
-    border:1px solid #f6d3da;
-    border-top:2px solid #e8879b;
+    background:linear-gradient(135deg, var(--sun-bg) 0%, var(--sun-bg) 46%, var(--moon-bg) 54%, var(--moon-bg) 100%);
+    border:1px solid var(--line);
   }
   .photo-placeholder{
     width:100%;
@@ -311,42 +262,35 @@
     aspect-ratio:16/9;
     object-fit:cover;
     display:block;
-    transition:transform .6s var(--ease-soft);
   }
-  .room-intro:hover .room-photo{transform:scale(1.04);}
-  .room-intro .body{padding:26px 26px 30px;}
+  .room-intro .body{padding:20px 22px 24px;}
   .rooms-grid{
     display:grid;
     grid-template-columns:1fr;
-    gap:24px;
-  }
-  .single-room-wrap{
-    max-width:460px;
-    margin:0 auto;
+    gap:20px;
   }
   @media (min-width: 860px){
-    .wrap{max-width:1040px;}
+    .wrap{max-width:1000px;}
     .rooms-grid{
-      grid-template-columns:repeat(2, 1fr);
+      grid-template-columns:repeat(3, 1fr);
     }
     .rooms-grid .room-intro{margin-bottom:0;}
   }
   .room-intro h2{
     font-family:var(--font-display);
-    font-size:22px;
-    margin:0 0 8px;
+    font-size:21px;
+    margin:0 0 6px;
     font-weight:700;
-    letter-spacing:.05em;
+    letter-spacing:.04em;
   }
   .room-intro.sun h2{color:var(--sun-ink);}
   .room-intro.moon h2{color:var(--moon-ink);}
   .room-intro.dusk h2{color:var(--ink);}
   .room-intro .en{
-    font-size:10px;
-    letter-spacing:.2em;
+    font-size:10.5px;
+    letter-spacing:.16em;
     font-weight:700;
-    margin-bottom:14px;
-    opacity:.85;
+    margin-bottom:10px;
   }
   .room-intro.sun .en{color:var(--sun-accent);}
   .room-intro.moon .en{color:var(--moon-accent);}
@@ -354,33 +298,10 @@
   .room-intro p.copy{
     font-size:13.5px;
     margin:0;
-    line-height:1.9;
-    opacity:.9;
   }
   .room-intro.sun p.copy{color:var(--sun-ink);}
   .room-intro.moon p.copy{color:var(--moon-ink);}
   .room-intro.dusk p.copy{color:var(--ink);}
-
-  .detail-link{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    margin-top:20px;
-    padding:12px 20px;
-    border-radius:100px;
-    font-size:13.5px;
-    font-weight:700;
-    letter-spacing:.02em;
-    text-decoration:none;
-    border:1.5px solid currentColor;
-    transition:gap .3s var(--ease-soft), background .3s var(--ease-soft), color .3s var(--ease-soft);
-  }
-  .room-intro.sun .detail-link{color:var(--sun-accent);}
-  .room-intro.moon .detail-link{color:var(--moon-accent);}
-  .room-intro.dusk .detail-link{color:var(--ember);}
-  .room-intro.sun .detail-link:hover{background:var(--sun-accent);color:#fff;gap:10px;}
-  .room-intro.moon .detail-link:hover{background:var(--moon-accent);color:var(--moon-bg);gap:10px;}
-  .room-intro.dusk .detail-link:hover{background:var(--ember);color:#fff;gap:10px;}
 
   /* ---- search panel ---- */
   .panel{
@@ -557,77 +478,71 @@
 
   /* ---- footer ---- */
   .foot{
-    background:var(--paper);
+    background:#fff;
     border:1px solid var(--line);
-    border-radius:20px;
-    padding:26px 24px;
-    margin-top:40px;
+    border-radius:16px;
+    padding:20px 22px;
+    margin-top:30px;
     font-size:12px;
     color:var(--sub);
-    box-shadow:var(--shadow-sm);
   }
-  .foot p{margin:0 0 12px;line-height:1.9;}
+  .foot p{margin:0 0 10px;}
   .foot p:last-child{margin-bottom:0;}
   .foot b{color:var(--ink);}
   .foot .contact{
-    margin-top:16px;
-    padding-top:16px;
+    margin-top:14px;
+    padding-top:14px;
     border-top:1px solid var(--line);
     font-size:12px;
     color:var(--ink);
-    line-height:2;
   }
 
   /* ---- 参考情報セクション（アクセス・FAQ・規約など） ---- */
   .info-section{
-    margin-top:72px;
+    margin-top:44px;
     padding-top:6px;
   }
   .info-section .section-title{
     font-family:var(--font-display);
-    font-size:21px;
+    font-size:20px;
     font-weight:700;
-    margin:0 0 22px;
-    padding-top:40px;
+    margin:0 0 16px;
+    padding-top:28px;
     border-top:1px solid var(--line);
-    scroll-margin-top:24px;
-    letter-spacing:.03em;
+    scroll-margin-top:20px;
   }
   .block{
-    background:var(--paper);
+    background:#fff;
     border:1px solid var(--line);
-    border-radius:20px;
-    padding:24px 24px 22px;
-    margin-bottom:16px;
-    box-shadow:var(--shadow-sm);
-    transition:box-shadow .35s var(--ease-soft);
+    border-radius:18px;
+    padding:20px 20px 18px;
+    margin-bottom:14px;
+    box-shadow:0 2px 10px rgba(43,38,32,.05);
   }
-  .block:hover{box-shadow:var(--shadow-md);}
-  .block h3{font-size:14.5px;margin:0 0 10px;font-weight:700;letter-spacing:.02em;}
-  .block p{font-size:13px;margin:0 0 8px;color:var(--sub);line-height:1.9;}
+  .block h3{font-size:14.5px;margin:0 0 8px;font-weight:800;}
+  .block p{font-size:13px;margin:0 0 8px;color:var(--ink);}
   .block p:last-child{margin-bottom:0;}
-  .block ul,.block ol{font-size:13px;margin:0 0 8px;padding-left:20px;color:var(--sub);line-height:1.9;}
-  .block li{margin-bottom:7px;}
+  .block ul,.block ol{font-size:13px;margin:0 0 8px;padding-left:20px;color:var(--ink);}
+  .block li{margin-bottom:5px;}
   .tbd{
     color:var(--warn-ink);
     background:var(--warn-bg);
-    border-radius:20px;
-    padding:2px 10px;
+    border-radius:6px;
+    padding:1px 8px;
     font-size:11px;
     font-weight:700;
   }
-  .contact-row{display:flex;align-items:center;gap:12px;font-size:13.5px;margin-bottom:13px;}
-  .contact-row .ic{width:34px;height:34px;border-radius:50%;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+  .contact-row{display:flex;align-items:center;gap:10px;font-size:13.5px;margin-bottom:10px;}
+  .contact-row .ic{width:32px;height:32px;border-radius:50%;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
   .maps-link{
     display:inline-block;
     font-size:12.5px;
     font-weight:700;
     color:var(--ember);
     text-decoration:none;
-    margin-top:6px;
-    transition:opacity .2s var(--ease-soft);
+    margin-top:4px;
   }
-  .maps-link:hover{opacity:.7;text-decoration:underline;}
+  .maps-link:hover{text-decoration:underline;}
   .privacy-note{
     display:inline-block;
     margin-bottom:12px;
@@ -635,28 +550,22 @@
 
   .fab-reserve{
     position:fixed;
-    right:22px;
-    bottom:24px;
+    right:20px;
+    bottom:22px;
     background:var(--ember);
     color:#fff;
     text-decoration:none;
-    font-weight:700;
+    font-weight:800;
     font-size:14.5px;
-    letter-spacing:.03em;
-    padding:16px 26px;
+    padding:15px 22px;
     border-radius:100px;
-    box-shadow:0 10px 28px rgba(223,87,29,.32);
+    box-shadow:0 6px 18px rgba(223,87,29,.4);
     z-index:200;
     display:flex;
     align-items:center;
     gap:6px;
-    transition:transform .35s var(--ease-soft), box-shadow .35s var(--ease-soft), background .35s var(--ease-soft);
   }
-  .fab-reserve:hover{
-    background:var(--ember-hover);
-    transform:translateY(-2px);
-    box-shadow:0 14px 34px rgba(223,87,29,.4);
-  }
+  .fab-reserve:hover{background:var(--ember-hover);}
 </style>
 </head>
 <body>
@@ -664,6 +573,7 @@
 <div class="wrap">
 
   <header>
+    <div class="mark">♨️</div>
     <div class="menu-btn" id="menuBtn" role="button" aria-label="メニューを開く" aria-expanded="false">
       <span></span><span></span><span></span>
     </div>
@@ -677,20 +587,22 @@
     </nav>
   </header>
 
-  <div class="hero-photo-wrap">
-    <video class="hero-photo" autoplay muted playsinline loop preload="metadata" poster="about_main.jpg">
-      <source src="hero_video.mp4" type="video/mp4">
-    </video>
-    <div class="hero-overlay pop">
-      <div class="hero-rule"></div>
-      <p class="hero-kicker">湯布院旅館の中にある</p>
-      <h1 class="hero-heading">プライベートサウナ</h1>
-    </div>
+  <div class="hero">
+    <svg class="yinyang" viewBox="0 0 100 100" role="img" aria-label="天照と月読、陽と陰のしるし">
+      <circle cx="50" cy="50" r="48" fill="none" stroke="var(--line)" stroke-width="1"/>
+      <path d="M50,2 A48,48 0 0,1 50,98 A24,24 0 0,1 50,50 A24,24 0 0,0 50,2 Z" fill="var(--sun-accent)"/>
+      <path d="M50,2 A48,48 0 0,0 50,98 A24,24 0 0,1 50,50 A24,24 0 0,0 50,2 Z" fill="var(--moon-bg)"/>
+      <circle cx="50" cy="26" r="7" fill="var(--moon-bg)"/>
+      <circle cx="50" cy="74" r="7" fill="var(--sun-accent)"/>
+    </svg>
+    <p>湯布院プライベートサウナ＆温泉　NOGIKU</p>
   </div>
-  <p class="hero-sub">湯布院プライベートサウナ＆温泉　NOGIKU</p>
 
   <div class="about-section">
-    <p class="reveal">NOGIKUは、湯布院旅館の元・大浴場をリノベーションして生まれたプライベートサウナです。元・大浴場の広々とした空間をそのまま活かし、ゆったりとお過ごしいただけます。</p>
+    <img class="about-photo reveal" src="images/about_main.jpg" alt="外気浴スペースから由布岳を望む景色">
+    <div class="about-eyebrow reveal reveal-delay1">ABOUT NOGIKU</div>
+    <h2 class="reveal reveal-delay1">湯布院旅館の大浴場から、プライベートサウナへ。</h2>
+    <p class="reveal reveal-delay2">NOGIKUは、湯布院旅館の元・大浴場をリノベーションして生まれたプライベートサウナです。湯布院旅館時代の広々とした空間をそのまま活かしているため、他のプライベートサウナと比べても、ゆったりとした造りでお過ごしいただけます。</p>
   </div>
 
   <div class="transition-heading">
@@ -699,38 +611,29 @@
 
   <div class="rooms-grid">
   <div class="room-intro sun reveal">
-    <img class="room-photo" src="amaterasu.jpg" alt="天照 サウナ室内">
+    <img class="room-photo" src="images/amaterasu.jpg" alt="天照 サウナ室内">
     <div class="body">
       <div class="en">AMATERASU ・ 陽</div>
       <h2>天照</h2>
       <p class="copy">天照大神をイメージした、光と明るさを楽しむサウナ。</p>
-      <a class="detail-link" href="amaterasu.html">天照を詳しく見る →</a>
     </div>
   </div>
 
   <div class="room-intro moon reveal">
-    <img class="room-photo" src="tsukuyomi.jpg" alt="月読 サウナ室内">
+    <img class="room-photo" src="images/tsukuyomi.jpg" alt="月読 サウナ室内">
     <div class="body">
       <div class="en">TSUKUYOMI ・ 陰</div>
       <h2>月読</h2>
       <p class="copy">月夜見尊をイメージした、月と静けさを感じられる空間。</p>
-      <a class="detail-link" href="tsukuyomi.html">月読を詳しく見る →</a>
     </div>
   </div>
-  </div>
 
-  <div class="transition-heading" style="margin-top:56px;">
-    <h2 class="reveal lead-1line">もっとゆっくり過ごしたい方へ</h2>
-  </div>
-
-  <div class="single-room-wrap">
   <div class="room-intro dusk reveal">
-    <img class="room-photo" src="ryokan180.jpg" alt="180分旅館 外気浴">
+    <img class="room-photo" src="images/ryokan180.jpg" alt="180分旅館 外気浴">
     <div class="body">
-      <div class="en">180MIN RYOKAN</div>
+      <div class="en">180MIN RYOKAN ・ 陽と陰のあわい</div>
       <h2>180分旅館</h2>
       <p class="copy">泊まらない旅館。天照・月読を、いつもより長く、贅沢に。自分らしくくつろぐ180分。</p>
-      <a class="detail-link" href="ryokan180.html">180分旅館を詳しく見る →</a>
     </div>
   </div>
   </div>
@@ -765,17 +668,6 @@
         <tr><td style="padding:9px 4px;">5名</td><td style="padding:9px 4px;text-align:right;font-weight:800;">¥20,000</td></tr>
       </table>
     </div>
-    <div class="block">
-      <h3>レンタル品</h3>
-      <p>フェイスタオル・バスタオルは、お1人様1枚無料でご利用いただけます。フェイスタオルはお持ち帰りいただけます。</p>
-      <table class="price-table" style="width:100%;border-collapse:collapse;font-size:13px;">
-        <tr><td style="padding:9px 4px;border-bottom:1px solid var(--line);">バスタオル（追加）</td><td style="padding:9px 4px;border-bottom:1px solid var(--line);text-align:right;font-weight:800;">¥200</td></tr>
-        <tr><td style="padding:9px 4px;border-bottom:1px solid var(--line);">サウナハット</td><td style="padding:9px 4px;border-bottom:1px solid var(--line);text-align:right;font-weight:800;">¥200</td></tr>
-        <tr><td style="padding:9px 4px;border-bottom:1px solid var(--line);">ポンチョ</td><td style="padding:9px 4px;border-bottom:1px solid var(--line);text-align:right;font-weight:800;">¥500</td></tr>
-        <tr><td style="padding:9px 4px;">水着</td><td style="padding:9px 4px;text-align:right;font-weight:800;">¥500</td></tr>
-      </table>
-      <p style="margin-top:10px;">自動販売機あり（ポカリスエット、オロナミンC、キレートレモンなど）。台湾パインティーも1杯¥800でご用意しています。</p>
-    </div>
   </div>
 
   <div class="info-section" id="access">
@@ -783,24 +675,19 @@
     <div class="block">
       <div class="contact-row"><div class="ic">📍</div><div>〒879-5102　大分県由布市湯布院町川上2879-1</div></div>
       <div class="contact-row"><div class="ic">📞</div><div>080-3224-3372</div></div>
-      <div class="contact-row"><div class="ic">🕒</div><div>営業時間　9:30〜21:00　定休日はありません（休館日は月ごとに異なります）</div></div>
-      <p>由布院駅から徒歩約10〜15分です。</p>
-      <p>専用駐車場：10台分をご用意しています。</p>
-      <a class="maps-link" href="https://www.google.com/maps/place/%E6%B9%AF%E5%B8%83%E9%99%A2%E3%83%97%E3%83%A9%E3%82%A4%E3%83%99%E3%83%BC%E3%83%88%E3%82%B5%E3%82%A6%E3%83%8A%26%E6%B8%A9%E6%B3%89+NOGIKU/@33.2602281,131.3586255,17z/data=!3m1!4b1!4m6!3m5!1s0x3546ad58aca8560b:0xd21015452b80427!8m2!3d33.2602281!4d131.3586255!16s%2Fg%2F11vx1hfw9z" target="_blank">→ Googleマップで見る（口コミ★5.0）</a>
+      <div class="contact-row"><div class="ic">🕒</div><div>営業時間　9:30〜21:00　<span class="tbd">定休日は要確認</span>（8/3・8/4は休館日）</div></div>
+      <p>由布院駅から徒歩約10〜15分です。無料レンタル自転車もご用意しています。</p>
+      <p class="tbd" style="display:inline-block;">駐車場の有無・台数は要確認</p><br>
+      <a class="maps-link" href="https://www.google.com/maps/search/?api=1&query=大分県由布市湯布院町川上2879-1" target="_blank">→ Googleマップで見る</a>
     </div>
   </div>
 
   <div class="info-section" id="faq">
     <h2 class="section-title">よくあるご質問</h2>
-    <div class="block"><h3>電話予約はできますか？</h3><p>大変恐れ入りますが、お電話でのご予約は承っておりません。ご予約は、ウェブサイトからのみとなります。</p></div>
-    <div class="block"><h3>ご予約はいつまでできますか？</h3><p>最大14日先まで承っております。本日の予約可能時刻を過ぎると、その14日後の同じ時間帯が新たに予約可能になります。例えば、8月10日13:30の天照をご希望の場合は、7月27日13:30からご予約が可能になります。</p></div>
+    <div class="block"><h3>ご予約はいつまでできますか？</h3><p>最大14日先まで承っております。本日の予約可能時刻を過ぎると、その14日後の同じ時間帯が新たに予約可能になります。</p></div>
     <div class="block"><h3>キャンセルはできますか？</h3><p>2日（48時間）以上前まででしたらキャンセル料はかかりません。48時間以内は50%、24時間以内は100%のキャンセル料が発生します。予約変更は24時間以内になると理由にかかわらず対応できません。</p></div>
     <div class="block"><h3>子供と一緒に利用できますか？</h3><p>安全面を考慮し、小学生以下（小学生を含む）のお子様のご利用はお断りしております。</p></div>
-    <div class="block"><h3>タオルなどの持ち物は必要ですか？</h3><p>手ぶらでお越しいただけます。タオルのほか、シャンプー・リンス・ボディソープ・洗顔クレンジング・化粧水・乳液（すべて無印良品）をご用意しています。</p></div>
-    <div class="block"><h3>お水は用意されていますか？</h3><p>室内にウォーターサーバーをご用意していますので、いつでも冷たいお水をお楽しみいただけます。</p></div>
-    <div class="block"><h3>駐車場はありますか？</h3><p>専用駐車場を10台分ご用意しています。</p></div>
-    <div class="block"><h3>定休日はありますか？</h3><p>毎週決まった定休日はありません。休館日は月ごとに異なりますので、ご予約の際にカレンダーでご確認ください。</p></div>
-    <div class="block"><h3>サウナ後にドリンクはありますか？</h3><p>台湾パインティー（1杯¥800）などをご用意しています。内容は季節によって変わる可能性があります。自動販売機（ポカリスエット、オロナミンC、キレートレモンなど）もございます。</p></div>
+    <div class="block"><h3>タオルなどの持ち物は必要ですか？</h3><p>手ぶらでお越しいただけるようご用意しています。<span class="tbd">120分プランでの提供物の詳細は要確認</span>です。</p></div>
     <div class="block"><h3>180分旅館プランと120分プランの違いは何ですか？</h3><p>120分プランはサウナ・温泉の貸切のみです。180分旅館プランは、120分の貸切に加えて、60分の旅館体験（喫茶室でのフリードリンク・お菓子、浴衣での撮影など）がセットになっています。</p></div>
   </div>
 
@@ -843,6 +730,7 @@
   <div class="info-section" id="privacy">
     <h2 class="section-title">プライバシーポリシー</h2>
     <div class="block">
+      <span class="tbd privacy-note">この内容は一般的なひな形です。掲載前に必ずご確認・修正をお願いします</span>
       <p>湯布院プライベートサウナ＆温泉NOGIKU（以下「当施設」）は、お客様よりご提供いただく個人情報（お名前・電話番号・メールアドレス等）を、ご予約の管理およびご連絡の目的にのみ使用いたします。</p>
       <p>当施設は、法令に基づく場合を除き、お客様の同意なく第三者に個人情報を提供することはありません。</p>
       <p>ご予約データは、Square社が提供する予約システムを通じて管理されます。</p>
@@ -851,6 +739,9 @@
   </div>
 
   <div class="foot">
+    <p>◎ご予約は、最大14日先までとなっております。</p>
+    <p>◎ご予約完了後、確認メールが届きます。メールが届いていない場合は、ご予約が完了しておりません。</p>
+    <p>◎8/3（月）と8/4（火）は、休館日です。</p>
     <div class="contact">
       〒879-5102　大分県由布市湯布院町川上<br>
       080-3224-3372<br>
@@ -861,18 +752,7 @@
 </div>
 
 <script>
-  // ---- ヒーロー見出し：ページ読み込み時に確実にフェード＋ポップさせる ----
-  const heroPop = document.querySelector(".hero-overlay.pop");
-  if(heroPop){
-    // 初期状態（透明・少し縮小）を必ず一度描画させてから、次のフレームでアニメーションを開始する
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        heroPop.classList.add("in");
-      });
-    });
-  }
-
-  // ---- スクロール演出（画面外にある要素のみ） ----
+  // ---- スクロール演出 ----
   const revealEls = document.querySelectorAll(".reveal");
   const revealObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
