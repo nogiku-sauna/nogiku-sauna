@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOGIKU ご予約案内</title>
+<style>
+  :root{
+    --cream: #f3eee0;
+    --cream2: #ece4d0;
+    --ink: #3a3226;
+    --sub: #8a8070;
+    --line: #ddd3ba;
+    --ember: #df571d;
+    --ember-hover: #e6713f;
+    --ok: #3f7d5c;
+    --ok-bg: #e3ede4;
+    --warn-bg: #f5e6d8;
+    --warn-ink: #a8611f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--cream);
+    color:var(--ink);
+    font-family:"PT Sans","Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,sans-serif;
+    line-height:1.7;
+    padding:30px 18px 60px;
+  }
+  .wrap{max-width:540px;margin:0 auto;}
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:22px;
+  }
+  .brand .mark{
+    width:38px;height:38px;border-radius:50%;
+    background:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;
+  }
+  .brand .name{font-size:13px;letter-spacing:.08em;color:var(--sub);font-weight:700;}
+
+  h1{
+    font-size:24px;
+    margin:0 0 6px;
+    font-weight:800;
+    color:var(--ink);
+  }
+  .lede{color:var(--sub);font-size:13.5px;margin:0 0 10px;}
+  .lede.strong{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px 14px;
+    color:var(--ink);
+    font-weight:700;
+    font-size:13px;
+    margin-bottom:22px;
+  }
+
+  .panel{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:22px;
+    margin-bottom:20px;
+    box-shadow:0 2px 10px rgba(58,50,38,.05);
+  }
+
+  .field-label{
+    font-size:12.5px;
+    color:var(--sub);
+    font-weight:700;
+    margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+
+  .day-grid{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:8px;
+    margin-bottom:4px;
+  }
+  .month-label{
+    grid-column:1 / -1;
+    font-size:11.5px;
+    color:var(--sub);
+    font-weight:700;
+    margin:4px 0 -2px;
+  }
+  .day-chip{
+    background:var(--cream2);
+    border:2px solid var(--line);
+    border-radius:12px;
+    padding:10px 4px 8px;
+    text-align:center;
+    cursor:pointer;
+  }
+  .day-chip .wd{font-size:10.5px;color:var(--sub);font-weight:700;}
+  .day-chip .num{font-size:17px;font-weight:800;color:var(--ink);margin-top:2px;}
+  .day-chip:hover{border-color:var(--ember);}
+  .day-chip.selected{
+    background:var(--ember);
+    border-color:var(--ember);
+  }
+  .day-chip.selected .wd, .day-chip.selected .num{color:#fff;}
+  .day-chip.closed{
+    background:#efece4;
+    border-color:var(--line);
+    cursor:not-allowed;
+    opacity:.5;
+  }
+  .day-chip.closed .num{color:var(--sub);}
+
+  #resultArea{display:none;}
+
+  .judge{
+    margin:22px 0 4px;
+    padding:14px 16px;
+    border-radius:12px;
+    background:#fff;
+    border:1px solid var(--line);
+    font-size:14px;
+  }
+  .judge .tag{
+    display:inline-block;
+    font-size:12px;
+    font-weight:800;
+    padding:3px 11px;
+    border-radius:20px;
+    margin-right:8px;
+  }
+  .tag.weekday{background:var(--ok-bg);color:var(--ok);}
+  .tag.weekend{background:var(--warn-bg);color:var(--warn-ink);}
+
+  .handoff{
+    font-size:12px;
+    color:var(--sub);
+    margin:6px 0 16px;
+  }
+
+  .room-card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:16px 18px;
+    margin-top:14px;
+    box-shadow:0 2px 8px rgba(58,50,38,.04);
+  }
+  .room-card h3{margin:0 0 8px;font-size:16px;color:var(--ink);}
+  .slot-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:10px;
+  }
+  .slot{
+    background:var(--cream2);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:5px 12px;
+    font-size:12px;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .room-card .note{
+    font-size:11.5px;
+    color:var(--warn-ink);
+    background:var(--warn-bg);
+    border-radius:8px;
+    padding:8px 10px;
+    margin-bottom:12px;
+  }
+  .room-card a.go{
+    display:block;
+    text-align:center;
+    background:var(--ember);
+    color:#fff;
+    text-decoration:none;
+    font-weight:800;
+    font-size:14px;
+    padding:12px;
+    border-radius:100px;
+  }
+  .room-card a.go:hover{background:var(--ember-hover);}
+
+  .foot{
+    color:var(--sub);
+    font-size:11.5px;
+    margin-top:26px;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+  }
+  .foot b{color:var(--ink);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <div class="mark">♨️</div>
+    <div class="name">湯布院プライベートサウナ＆温泉　NOGIKU</div>
+  </div>
+
+  <h1>ご希望日の料金を調べる</h1>
+  <p class="lede">120分の貸切サウナは、平日と土日・特日で料金が異なります。まずは行きたい日を選んで、料金と時間帯をご確認ください。</p>
+  <p class="lede strong">※ このページはご予約ページではありません。日付を選ぶと料金が分かり、その下のボタンからSquareのご予約ページへ進めます。</p>
+
+  <div class="panel">
+    <div class="field-label">📅 行きたい日を選んでください（本日から14日先まで）</div>
+    <div class="day-grid" id="dayGrid"></div>
+    <p style="font-size:11.5px;color:var(--sub);margin:6px 0 0;">グレーの日付は休館日のため選べません</p>
+  </div>
+
+  <div id="resultArea">
+    <div class="judge" id="judgeBox"></div>
+    <p class="handoff">↓ ここから先はSquareのご予約ページに移動します</p>
+
+    <div class="room-card">
+      <h3>天照 AMATERASU</h3>
+      <div class="slot-list">
+        <span class="slot">11:00–13:00</span>
+        <span class="slot">13:30–15:30</span>
+        <span class="slot">16:00–18:00</span>
+        <span class="slot">18:30–20:30</span>
+      </div>
+      <p class="note">この時間が満席に見えても、月読はまだ空いている場合があります。あわせてご確認ください。</p>
+      <a class="go" id="a-amaterasu" href="#" target="_blank">天照のご予約へ進む</a>
+    </div>
+
+    <div class="room-card">
+      <h3>月読 TSUKUYOMI</h3>
+      <div class="slot-list">
+        <span class="slot">9:30–11:30</span>
+        <span class="slot">12:00–14:00</span>
+        <span class="slot">14:30–16:30</span>
+        <span class="slot">17:00–19:00</span>
+      </div>
+      <p class="note">この時間が満席に見えても、天照はまだ空いている場合があります。あわせてご確認ください。</p>
+      <a class="go" id="a-tsukuyomi" href="#" target="_blank">月読のご予約へ進む</a>
+    </div>
+  </div>
+
+  <div class="foot">
+    <b>この案内ページについて：</b>日付を選ぶと、平日料金か土日祝料金かを自動で判定し（お盆8/13〜15は土日祝扱い）、天照・月読それぞれの正しいSquare予約ページへのボタンが表示されます。カレンダーは本日から14日先までのみ選択でき、休館日は選べないようにしてあります。このページは120分の貸切サウナ予約専用のご案内です。
+  </div>
+</div>
+
+<script>
+  // 各プランのSquare予約URL設定（2026年7月時点で確認済み）
+  const CONFIG = {
+    amaterasu: {
+      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/6LXRATROAVOD6QXXL34DSUW2",
+      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/O3NCUHKOFOWR6RGHX6TFNXFH"
+    },
+    tsukuyomi: {
+      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/X6AYINI6H65GZANXSMSY2FL3",
+      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/C4TSXG7QRZVXYASOYSMGDGZT"
+    }
+  };
+
+  // 2026年の祝日（年が変わったら更新が必要です）
+  const HOLIDAYS_2026 = [
+    "2026-01-01","2026-01-12","2026-02-11","2026-02-23","2026-03-20",
+    "2026-04-29","2026-05-03","2026-05-04","2026-05-05","2026-05-06",
+    "2026-07-20","2026-08-11","2026-09-21","2026-09-22","2026-09-23",
+    "2026-10-12","2026-11-03","2026-11-23"
+  ];
+  const OBON_RANGE = ["2026-08-13","2026-08-14","2026-08-15"];
+
+  // 休館日（分かっているものをここに追加していきます）
+  const CLOSED_DAYS = ["2026-08-03","2026-08-04"];
+
+  function judgeType(dateStr){
+    if(OBON_RANGE.includes(dateStr)) return "weekend";
+    if(HOLIDAYS_2026.includes(dateStr)) return "weekend";
+    const d = new Date(dateStr+"T00:00:00");
+    const day = d.getDay();
+    if(day === 0 || day === 6) return "weekend";
+    return "weekday";
+  }
+
+  function fmtDate(dateStr){
+    const d = new Date(dateStr+"T00:00:00");
+    const w = ["日","月","火","水","木","金","土"][d.getDay()];
+    return `${d.getMonth()+1}月${d.getDate()}日（${w}）`;
+  }
+
+  function toISO(d){
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  }
+
+  // ---- 日付チップ（本日〜14日後を並べて表示） ----
+  const dayGrid = document.getElementById("dayGrid");
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  let lastMonth = null;
+  for(let i=0; i<=14; i++){
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const iso = toISO(d);
+    const month = d.getMonth()+1;
+
+    if(month !== lastMonth){
+      const label = document.createElement("div");
+      label.className = "month-label";
+      label.textContent = `${month}月`;
+      dayGrid.appendChild(label);
+      lastMonth = month;
+    }
+
+    const wd = ["日","月","火","水","木","金","土"][d.getDay()];
+    const chip = document.createElement("div");
+    chip.className = "day-chip";
+    const isClosed = CLOSED_DAYS.includes(iso);
+    if(isClosed) chip.classList.add("closed");
+    chip.innerHTML = `<div class="wd">${wd}</div><div class="num">${d.getDate()}</div>`;
+
+    chip.addEventListener("click", () => {
+      if(isClosed) return;
+      document.querySelectorAll(".day-chip.selected").forEach(el => el.classList.remove("selected"));
+      chip.classList.add("selected");
+      showResult(iso);
+    });
+
+    dayGrid.appendChild(chip);
+  }
+
+  function showResult(dateStr){
+    const type = judgeType(dateStr);
+    const box = document.getElementById("judgeBox");
+    const tagClass = type === "weekday" ? "weekday" : "weekend";
+    const tagText = type === "weekday" ? "平日料金" : "土日祝料金";
+    let note = "";
+    if(OBON_RANGE.includes(dateStr)) note = "（お盆特日のため土日祝料金です）";
+    box.innerHTML = `<span class="tag ${tagClass}">${tagText}</span>${fmtDate(dateStr)}は${tagText}です ${note}`;
+
+    document.getElementById("a-amaterasu").href = CONFIG.amaterasu[type];
+    document.getElementById("a-tsukuyomi").href = CONFIG.tsukuyomi[type];
+
+    const resultArea = document.getElementById("resultArea");
+    resultArea.style.display = "block";
+    resultArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+</script>
+</body>
+</html>
