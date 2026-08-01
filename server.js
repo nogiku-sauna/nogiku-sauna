@@ -150,6 +150,33 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ---- 空き状況（テスト用） ----
+  if (url === '/availability' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    if (!isConfigured()) { res.statusCode = 400; res.end(JSON.stringify({ error: 'not configured' })); return; }
+    const q = new URLSearchParams((req.url.split('?')[1] || ''));
+    const variation = q.get('variation');
+    const days = Math.min(parseInt(q.get('days') || '7', 10) || 7, 31);
+    if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ error: 'variation required' })); return; }
+    (async () => {
+      const now = new Date();
+      const startAt = new Date(now.getTime() + 60 * 1000).toISOString();
+      const endAt = new Date(now.getTime() + days * 86400000).toISOString();
+      const body = { query: { filter: {
+        start_at_range: { start_at: startAt, end_at: endAt },
+        location_id: config.SQUARE_LOCATION_ID,
+        segment_filters: [{ service_variation_id: variation }]
+      } } };
+      const r = await sq('POST', '/v2/bookings/availability/search', body);
+      const slots = (r.data.availabilities || []).map(a => ({
+        start_at: a.start_at,
+        team: (a.appointment_segments || []).map(s => s.team_member_id)
+      }));
+      res.end(JSON.stringify({ status: r.status, count: slots.length, errors: r.data.errors || null, slots: slots.slice(0, 300) }, null, 2));
+    })();
+    return;
+  }
+
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify({ message: 'NOGIKU booking server is running.' }));
 });
