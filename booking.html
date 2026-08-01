@@ -673,6 +673,10 @@
       <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 6px;">メールアドレス（任意）</label>
       <input type="email" id="confirmEmail" placeholder="例：sample@example.com" autocomplete="email" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;">
 
+      <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 6px;">ご住所（任意）</label>
+      <input type="text" id="confirmAddr" placeholder="例：東京都／福岡県福岡市 など" autocomplete="address-level1" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;">
+      <p style="font-size:11px;color:#9a8f7a;margin:6px 0 0;line-height:1.6;">※ 都道府県だけでも結構です。天候や災害時のご連絡に使わせていただきます。</p>
+
       <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 6px;">ご要望・ご連絡事項（任意）</label>
       <textarea id="confirmNote" rows="3" placeholder="例：18時ごろに到着予定です／浴衣のサイズ相談 など" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
 
@@ -932,6 +936,7 @@
     const name = document.getElementById("confirmName").value.trim();
     const tel = document.getElementById("confirmTel").value.trim();
     const email = document.getElementById("confirmEmail").value.trim();
+    const addr = document.getElementById("confirmAddr").value.trim();
     const note = document.getElementById("confirmNote").value.trim();
     if(!name){ alert("お名前を入力してください"); return; }
     if(!tel){ alert("お電話番号を入力してください"); return; }
@@ -940,7 +945,7 @@
     confirmGo.textContent = "予約枠を確保しています…";
     try {
       const plan = planKey(p.room, p.isPlan180);
-      const r = await fetch(`${API_BASE}/book?plan=${plan}&people=${p.people}&start_at=${encodeURIComponent(p.startIso)}&team=${encodeURIComponent(p.team || "")}&name=${encodeURIComponent(name)}&tel=${encodeURIComponent(tel)}&email=${encodeURIComponent(email)}&note=${encodeURIComponent(note)}`);
+      const r = await fetch(`${API_BASE}/book?plan=${plan}&people=${p.people}&start_at=${encodeURIComponent(p.startIso)}&team=${encodeURIComponent(p.team || "")}&name=${encodeURIComponent(name)}&tel=${encodeURIComponent(tel)}&email=${encodeURIComponent(email)}&addr=${encodeURIComponent(addr)}&note=${encodeURIComponent(note)}`);
       const data = await r.json();
       if(data && data.ok && data.url){
         window.location.href = data.url; // 予約確保済み → Squareの安全な決済ページへ

@@ -354,6 +354,7 @@ const server = http.createServer((req, res) => {
     const tel = (q.get('tel') || '').trim().slice(0, 30);
     const email = (q.get('email') || '').trim().slice(0, 100);
     const note = (q.get('note') || '').trim().slice(0, 500);
+    const addr = (q.get('addr') || '').trim().slice(0, 120);
     if (!plan || !people || !startAt || !team || !name || !tel) {
       res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'お名前と電話番号は必須です' })); return;
     }
@@ -370,9 +371,10 @@ const server = http.createServer((req, res) => {
       const custBody = {
         idempotency_key: 'cus-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
         given_name: name,
-        note: 'Webサイト予約'
+        note: 'Webサイト予約' + (addr ? '／ご住所（お客様申告）：' + addr : '')
       };
       if (telDigits.length >= 10) custBody.phone_number = telDigits.startsWith('0') ? '+81' + telDigits.slice(1) : '+' + telDigits;
+      if (addr) custBody.address = { address_line_1: addr, country: 'JP' };
       if (email) custBody.email_address = email;
       const cr = await sq('POST', '/v2/customers', custBody);
       const customerId = cr.data.customer && cr.data.customer.id;
@@ -381,7 +383,7 @@ const server = http.createServer((req, res) => {
         location_id: locId,
         start_at: startAt,
         customer_note: note,
-        seller_note: 'Webサイト予約 ' + MENU[plan].label + ' ' + people + '名 / ' + name + '様 / TEL:' + tel + (email ? ' / ' + email : '') + '（入金確認待ち）',
+        seller_note: 'Webサイト予約 ' + MENU[plan].label + ' ' + people + '名 / ' + name + '様 / TEL:' + tel + (email ? ' / ' + email : '') + (addr ? ' / ご住所:' + addr : '') + '（入金確認待ち）',
         appointment_segments: [{
           team_member_id: team,
           service_variation_id: variation,
@@ -418,7 +420,20 @@ const server = http.createServer((req, res) => {
         pre_populated_data: Object.keys(prefill).length ? prefill : undefined,
         payment_note: name + '様 ' + MENU[plan].label + ' ' + people + '名 ' + when + '(JST) 予約ID:' + (bookingId || '不明')
       });
-      const link = pr.data.payment_link || {};
+      let link = pr.data.payment_link || {};
+      // プリフィル情報が原因で失敗した場合は、情報なしでもう一度作る（予約を無駄にしない）
+      if (!link.url && Object.keys(prefill).length) {
+        const retry = await sq('POST', '/v2/online-checkout/payment-links', {
+          idempotency_key: 'pl2-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+          order: { location_id: locId, line_items: [{ quantity: '1', catalog_object_id: variation }] },
+          checkout_options: {
+            redirect_url: 'https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1',
+            ask_for_shipping_address: false
+          },
+          payment_note: name + '様 ' + MENU[plan].label + ' ' + people + '名 ' + when + '(JST) 予約ID:' + (bookingId || '不明')
+        });
+        link = retry.data.payment_link || {};
+      }
       if (!link.url) {
         res.end(JSON.stringify({ ok: false, message: '予約は確保しましたが、決済ページの作成に失敗しました。お店にご連絡ください。', booking_id: bookingId, status: pr.status, errors: pr.data.errors || null }));
         return;
