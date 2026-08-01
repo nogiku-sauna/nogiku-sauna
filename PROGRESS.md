@@ -1,81 +1,75 @@
 # NOGIKU 予約サイト｜進捗メモ（引き継ぎ用）
 
-最終更新: 2026-08-01（その2）
+最終更新: 2026-08-01（その4）
 
 新しいチャットで続ける場合は、まずこれを読めば状況をつかめます。
 
 ---
 
 ## 全体像
-- サイト本体: GitHub `nogiku-sauna/nogiku-sauna`、GitHub Pages 公開（`https://nogikusauna.github.io`）。
-- ドメイン: `nogikusauna.com`（取得済み・有効）。ただし **DNS不具合（下記）**。
-- 予約サーバー(VPS): Xserver VPS、Ubuntu 26.04、IP `162.43.28.12`、稼働中。
+- サイト: GitHub `nogiku-sauna/nogiku-sauna` → **https://nogiku-sauna.github.io/nogiku-sauna/**
+- ドメイン: `nogikusauna.com`（取得済み・有効）だが **DNS不具合**（下記）。
+- 予約サーバー: Xserver VPS、Ubuntu 26.04、IP `162.43.28.12`、稼働中。
 
-## サーバー（稼働中）
-- 操作: VPSパネル→シリアルコンソールで root ログイン（コピペ不可）。
-- 反映方法: GitHubにpush → サーバーで `cd ~/app` →（改行）→ `git pull` →（改行）→ `systemctl restart nogiku`。
-  ※ コマンドは必ず1行ずつ別々に。続けて打つと `nogikucd` のようにくっついて失敗する。
-- アプリ: `/root/app/server.js`（Node標準のみ、ポート3000）。systemd `nogiku`。nginx 80/443→3000。
-- スクリプト: `deploy.sh` `tls.sh` `enable-ssh.sh` `nip.sh`。
+## サーバー操作
+- VPSパネル →「シリアルコンソール」で root ログイン（**コピペ不可**）。
+- 反映手順（**必ず1行ずつ別々に**。続けて打つと `nogikucd` のようにくっついて失敗）:
+  `cd ~/app` → `git pull` → `systemctl restart nogiku`
+- アプリ `/root/app/server.js`（Node標準のみ・ポート3000）、systemd `nogiku`、nginx 80/443→3000、ufw 22/80/443。
+- スクリプト: `deploy.sh` `tls.sh` `enable-ssh.sh` `nip.sh`。※SSHはこのPCにsshが無く未使用。
 
-## ⚠️ DNS（対応中）
-- `nogikusauna.com` が lame delegation（ns1-3.xdomain.ne.jp が REFUSED）。**Xserverサポートに問い合わせ済み・返信待ち**。
-- 回避策: 仮住所 **`162-43-28-12.nip.io`**（IPに自動変換）を使用中。https取得済み。
-  作業・確認は全部 `https://162-43-28-12.nip.io/...` で行う。DNSが直ったら `api.nogikusauna.com` に戻す。
+## ⚠️ DNS（未解決・Xserverサポート返信待ち）
+- `nogikusauna.com` が lame delegation（ns1-3.xdomain.ne.jp が REFUSED）。世界から名前解決できない。
+- **回避策**: 仮住所 **`https://162-43-28-12.nip.io`** を使用中（Let's Encrypt取得済み）。
+  フロントの `API_BASE` もこれ。DNS復旧後に `api.nogikusauna.com` へ切替＋証明書取り直し。
 
-## Square 連携（★ここまで動作確認済み）
-- 本番トークン＋Location IDは `/root/app/.env` に保存済み（`/setup`は完了・ロック済み）。
-- **重要**: コードは Location ID をSquareから自動取得（`getLocationId()`）するので、.envのLocation値が誤っていても動く。正しい Location ID = **LZJF4DD421H6K**。
-- server.js のエンドポイント:
-  - `/health` 動作確認（configuredを返す）
-  - `/setup` トークン登録（1回・ロック済み）
-  - `/inspect` Squareのメニュー/スタッフID一覧【一時用・後で撤去】
-  - `/availability?variation=<id>&days=<n>` 空き状況取得【★動作OK・SearchAvailability】
-- Square API: 本番 `https://connect.squareup.com`、`Square-Version: 2025-07-16`、fetchに20秒タイムアウト。
+## ★ 予約システム 完成（本番動作確認済み）
+**流れ**: プラン→人数→日付 → 本当の空き枠表示 → 時間選択 → 名前/電話/メール/住所/メモ入力
+→「はい、進む」で **Square予約を自動登録（10分仮押さえ）** → Square決済ページ（電話・メールはプリフィル済、カード番号のみ入力／Google Pay可）。
 
-## Squareのメニュー構成（/inspect で全ID取得可）
-すべて APPOINTMENTS_SERVICE。人数1〜5名の variation あり（夏割は8/31まで）。
-- 天照 (土日祝＆特日)120分: item `O3NCUHKOFOWR6RGHX6TFNXFH`
-- 天照 (平日)120分: item `6LXRATROAVOD6QXXL34DSUW2`（1名 `YVJRCWQIX4SXB4NEDPCWL6VL` ¥5000 等）
-- 月読 (土日祝＆特日)120分: item `C4TSXG7QRZVXYASOYSMGDGZT`
-- 月読 (平日)120分: item `X6AYINI6H65GZANXSMSY2FL3`
-- 180分旅館【天照】: item `QGLJ7W3QVO3WTTULM3TAD3Q5`（duration 130分）
-- 180分旅館【月読】: item `W6KUMXH6YB3BERXYBUEBAXVN`
-- team member（＝部屋/資源）: 天照=`TMzc9GebpIkMxUb0`(特)/`TMkUyIWqjJLi62G0`(割引)、月読=`TMh6z9yTDHRfPxmH`(特)/`TMJG-4ajKA9GQkZv`(割引)。
-  `TM3buQXp9VXnounF`(木村)は is_bookable:false だが SearchAvailability に出る点に注意。
-- 空き時間はUTCで返る → 表示は JST(+9) に変換。平日/土日祝は同じ枠が出る→料金は「日付で variation を振り分け」。
+### server.js のエンドポイント
+- `/health` 動作確認
+- `/setup` トークン登録（**完了・ロック済み**／最後に撤去する）
+- `/inspect` Squareのメニュー・スタッフID一覧（**一時用・撤去する**）
+- `/slots?plan=&people=&date=` その日の空き枠（**is_bookable な"部屋"のみ**採用）
+- `/quote?plan=&people=&start_at=` 料金確認
+- `/paylink?...` 決済リンクのみ作成（旧・現在フロントは未使用）
+- `/book?plan=&people=&start_at=&team=&name=&tel=&email=&addr=&note=` ★本番用：顧客登録→予約作成→決済リンク
+- `/cancel-booking?id=` 予約キャンセル（**一時用・撤去する**）
 
-## 予約の方針（利用者の理想）
-サイトで ①プラン(天照/月読/180分旅館) ②人数(1〜5) ③日時 を選ぶ → 金額表示 →
-「進む」で **Squareの決済ページ（Payment Link）** に飛んで支払い。空き時間は本当の空きだけ表示（SearchAvailability）。
-枠の開閉はSquare側で行い、サイトは自動で映す。
+### 10分ルール（自動管理）
+- `pending.json` に監視登録。`sweepPending()` が **1分ごと**に確認（`HOLD_MINUTES = 10`）。
+- 支払い確認 → 予約の seller_note に **【決済確認済み】** を追記。
+- 10分未払い → **予約を自動キャンセル**（枠復活）＋決済リンク削除。
 
-## ★ここまで動作確認済み（2026-08-01 その2）
-- `/quote?plan=&people=&start_at=` … 平日/土日祝/特日(HOLIDAYS_2026+SPECIAL_DAYS=8/13-15)を自動判定し、
-  正しいvariationと価格を返す【テストOK: 8/2(日)天照2名→土日祝¥9,600】
-- `/paylink?plan=&people=&start_at=` … CreatePaymentLinkで決済ページ生成【テストOK: square.link発行、
-  ページに「サウナのぎく/天照(土日祝＆特日)120分貸切 ¥9,600」表示確認済み】
-- plan名: amaterasu120 / tsukuyomi120 / ryokan180_amaterasu / ryokan180_tsukuyomi（MENU定数にID表）
+### 重要な実装メモ
+- Location IDは `getLocationId()` でSquareから自動取得（.envの値が誤っていても動く）。正: `LZJF4DD421H6K`
+- **木村達行(`TM3buQXp9VXnounF`, is_bookable:false)の枠は除外必須**。含めると 15:00/17:00 等の実在しない枠が出る。
+  → `getBookableTeam()` で is_bookable のみ採用。部屋: 天照=`TMzc9GebpIkMxUb0`/`TMkUyIWqjJLi62G0`、月読=`TMh6z9yTDHRfPxmH`/`TMJG-4ajKA9GQkZv`
+- 電話番号は **+81形式に変換**して渡す（日本式のままだとエラー）。
+- メールは形式チェック（`test@example.com` 等の架空アドレスはSquareが拒否）。失敗時はプリフィル無しで自動リトライ。
+- Square API: `https://connect.squareup.com`、`Square-Version: 2025-07-16`、fetch 20秒タイムアウト。
+- 空き時間はUTCで返るのでJST(+9)変換して表示。平日/土日祝・特日(8/13-15)で variation を自動振り分け（MENU定数）。
 
-## ★★ booking.html 本連携 完了（2026-08-01 その3・通しテスト成功）
-- 正しいサイトURLは **https://nogiku-sauna.github.io/nogiku-sauna/**（ハイフン入り＋リポジトリ名パス）。
-- server.js に CORS（origin: https://nogiku-sauna.github.io）と `/slots?plan=&people=&date=`（その日の空き枠）を実装。
-- booking.html を全面接続: プラン→人数→日付 → `/slots` で本物の空き表示（JST変換、空なしメッセージ有）
-  → 確認モーダル → `/paylink` → Square決済ページへ遷移。
-- 通しテスト成功: 8/2(日)2名 → 土日祝¥9,600表示 → 13:00枠 → Squareチェックアウト(¥9,600)到達。
-- paylinkのredirect_urlは https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1
+### フロント（両方とも接続完了）
+- `booking.html` … 120分/180分旅館の両方
+- `ryokan180_booking.html` … 180分旅館ページ用（120分貸切のみも選択可）
+- CORS許可 origin: `https://nogiku-sauna.github.io`
+- 決済後のredirect: `https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1`
 
-## 次にやること
-1. `ryokan180_booking.html`（180分旅館ページの予約UI）も同様にAPI接続（booking.htmlは180分旅館も選べるので優先度は要相談）。
-2. ⚠️ 運用上の注意: /paylink は決済のみで **Squareの予約台帳(Bookings)には自動登録されない**。
-   支払いの payment_note に「プラン/人数/日時(JST)」が入るので、当面は店側がSquare注文を見て手動登録。
-   将来は CreateBooking + webhook で自動化。
-3. 動作最終確認（少額の本決済テスト等は店側判断）→ 一般公開の案内。
-4. `/setup` `/inspect` エンドポイントの撤去（安全のため）。
-5. DNS復旧後（Xserverサポート返信待ち）、API_BASE と証明書を `api.nogikusauna.com` に切替。
-6. VPS自動更新オフ設定。
+## 法務・セキュリティ（確認済み）
+- カード情報はサイトを通らずSquare側のみ。全通信https。
+- 予約フォームに利用目的とプライバシーポリシー(`privacy.html`)リンクを明示済み。
+- 住所欄は任意扱い、注記は「※ 市区町村まででOK」のみ（利用目的の説明はプライバシーポリシーに集約）。
+
+## 残タスク
+1. **`/setup` `/inspect` `/cancel-booking` の撤去**（安全のため。本番公開前に必須）
+2. DNS復旧後: `API_BASE` と証明書を `api.nogikusauna.com` へ切替
+3. VPSの**自動更新オフ**設定（1ヶ月お試し契約のため）
+4. 任意: カレンダーで一目で分かるよう、決済済みを顧客名の頭に「済」を付ける等の改善
+5. `nogikusauna.com` 本体をGitHub Pagesに向けて正式公開
 
 ## 進め方メモ
-- 利用者は非エンジニア。中学生に説明するイメージでやさしく、日本語で。
-- コンソールは貼り付け不可。長い秘密情報はブラウザの `/setup` から入れた。
-- VPSは1ヶ月お試し。自動更新オフは未設定（時間あるとき）。
+- 利用者は非エンジニア。**中学生に説明するイメージ**でやさしく日本語で。
+- 変更は必ず GitHub にpush → サーバーで git pull → restart。
+- テスト予約を入れたら **必ず `/cancel-booking` で削除**すること。
