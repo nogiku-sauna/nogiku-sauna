@@ -382,6 +382,28 @@
     border-radius:20px;
     padding:2px 9px;
   }
+  /* 順番どおりに選んでいないときの案内 */
+  .panel.needs-attention{
+    border:2px solid #c0392b;
+    box-shadow:0 0 0 4px rgba(192,57,43,.12);
+    animation:attentionPulse .6s ease;
+  }
+  @keyframes attentionPulse{
+    0%{transform:scale(1);} 40%{transform:scale(1.012);} 100%{transform:scale(1);}
+  }
+  .step-alert{
+    display:none;
+    margin:10px 0 0;
+    padding:10px 12px;
+    background:#fdecea;
+    border-radius:8px;
+    font-size:12.5px;
+    font-weight:700;
+    color:#c0392b;
+    line-height:1.6;
+  }
+  .step-alert.show{display:block;}
+
   .slot-row{display:flex;flex-wrap:wrap;gap:8px;}
   .slot-btn{
     flex:1;
@@ -615,13 +637,12 @@
         <div class="plan-sub">120分貸切サウナ＋60分旅館休憩</div>
       </div>
     </div>
+    <p class="step-alert" id="planAlert">まず、こちらでご利用プランをお選びください。</p>
   </div>
 
-  <div class="panel">
-    <h3>② ご希望の条件から、空いている時間を調べる</h3>
-    <p class="sub">人数と日付を選ぶと、天照・月読どちらが空いているか一覧で表示します</p>
-
-    <div class="field-label">人数</div>
+  <div class="panel" id="numSection">
+    <h3>② ご希望人数を選んでください</h3>
+    <p class="sub" id="numSub">まず①でご利用プランをお選びください</p>
     <div class="num-select" id="numSelect">
       <div class="num-chip" data-n="1">1名</div>
       <div class="num-chip" data-n="2">2名</div>
@@ -629,8 +650,12 @@
       <div class="num-chip" data-n="4">4名</div>
       <div class="num-chip" data-n="5">5名</div>
     </div>
+    <p class="step-alert" id="numAlert">まず、こちらでご希望人数をお選びください。</p>
+  </div>
 
-    <div class="field-label">ご希望日（本日から14日先まで）</div>
+  <div class="panel" id="daySection">
+    <h3>③ 空いている日にちを選んでください</h3>
+    <p class="sub" id="daySub">まず②でご希望人数をお選びください</p>
     <div class="day-grid" id="dayGrid"></div>
     <p style="font-size:11px;color:var(--sub);margin:6px 0 0;">グレーの日付は休館日のため選べません。すべて選ぶと、下に自動で空き状況が表示されます。</p>
   </div>
@@ -746,6 +771,28 @@
     return `${y}-${m}-${day}`;
   }
 
+  // ---- 順番どおりに選んでもらうための案内 ----
+  let alertTimer = null;
+  function warnStep(sectionId, alertId){
+    const section = document.getElementById(sectionId);
+    const alertEl = document.getElementById(alertId);
+    if(alertTimer) clearTimeout(alertTimer);
+    document.querySelectorAll(".panel.needs-attention").forEach(el => el.classList.remove("needs-attention"));
+    document.querySelectorAll(".step-alert.show").forEach(el => el.classList.remove("show"));
+    section.classList.add("needs-attention");
+    alertEl.classList.add("show");
+    section.scrollIntoView({behavior:"smooth", block:"center"});
+    alertTimer = setTimeout(() => {
+      section.classList.remove("needs-attention");
+      alertEl.classList.remove("show");
+    }, 5000);
+  }
+  function clearWarn(){
+    if(alertTimer) clearTimeout(alertTimer);
+    document.querySelectorAll(".panel.needs-attention").forEach(el => el.classList.remove("needs-attention"));
+    document.querySelectorAll(".step-alert.show").forEach(el => el.classList.remove("show"));
+  }
+
   // ---- プラン選択 ----
   let selectedPlan = null;
   document.querySelectorAll(".plan-card").forEach(card => {
@@ -753,6 +800,8 @@
       document.querySelectorAll(".plan-card").forEach(c => c.classList.remove("selected"));
       card.classList.add("selected");
       selectedPlan = card.dataset.plan;
+      clearWarn();
+      document.getElementById("numSub").textContent = "ご利用になる人数をお選びください";
       runSearch();
     });
   });
@@ -761,9 +810,12 @@
   let selectedNum = null;
   document.querySelectorAll(".num-chip").forEach(chip => {
     chip.addEventListener("click", () => {
+      if(!selectedPlan){ warnStep("planSection", "planAlert"); return; }
       document.querySelectorAll(".num-chip").forEach(c => c.classList.remove("selected"));
       chip.classList.add("selected");
       selectedNum = chip.dataset.n;
+      clearWarn();
+      document.getElementById("daySub").textContent = "ご希望の日にちをお選びください（本日から14日先まで）";
       runSearch();
     });
   });
@@ -793,10 +845,13 @@
     if(isClosed) chip.classList.add("closed");
     chip.innerHTML = `<div class="wd">${wd}</div><div class="num">${d.getDate()}</div>`;
     chip.addEventListener("click", () => {
+      if(!selectedPlan){ warnStep("planSection", "planAlert"); return; }
+      if(!selectedNum){ warnStep("numSection", "numAlert"); return; }
       if(isClosed) return;
       document.querySelectorAll(".day-chip.selected").forEach(el => el.classList.remove("selected"));
       chip.classList.add("selected");
       selectedDate = iso;
+      clearWarn();
       runSearch();
     });
     dayGrid.appendChild(chip);

@@ -66,17 +66,22 @@
   .panel .sub{font-size:12.5px;color:var(--sub);margin:0 0 18px;}
   .panel.locked{opacity:.5;}
   .panel.locked .sub{color:var(--pink-deep);font-weight:700;}
-  @keyframes warnPulse{
-    0%,100%{box-shadow:0 0 0 0 rgba(212,102,126,0);}
-    30%{box-shadow:0 0 0 6px rgba(212,102,126,.35);}
-  }
+  /* 順番どおりに選んでいないときの案内 */
   .panel.warn{
-    animation:warnPulse .9s ease;
+    border:2px solid #c0392b;
+    box-shadow:0 0 0 4px rgba(192,57,43,.12);
+    animation:attentionPulse .6s ease;
     opacity:1;
-    border:2px solid #c94b68;
-    box-shadow:0 0 0 3px rgba(201,75,104,.15);
   }
-  .panel.warn .sub{color:#c94b68;font-weight:700;}
+  @keyframes attentionPulse{
+    0%{transform:scale(1);} 40%{transform:scale(1.012);} 100%{transform:scale(1);}
+  }
+  .step-alert{
+    display:none;margin:10px 0 0;padding:10px 12px;background:#fdecea;
+    border-radius:8px;font-size:12.5px;font-weight:700;color:#c0392b;line-height:1.6;
+  }
+  .step-alert.show{display:block;}
+  .panel.warn .sub{color:#c0392b;font-weight:700;}
 
   .num-select{display:flex;gap:8px;flex-wrap:wrap;}
   .num-chip{
@@ -185,6 +190,7 @@
         <div class="psub warn-text">⚠️ 旅館体験は含まれません</div>
       </div>
     </div>
+    <p class="step-alert" id="planAlert">まず、こちらでご利用プランをお選びください。</p>
   </div>
 
   <div class="panel locked" id="numSection">
@@ -197,6 +203,7 @@
       <div class="num-chip" data-n="4">4名</div>
       <div class="num-chip" data-n="5">5名</div>
     </div>
+    <p class="step-alert" id="numAlert">まず、こちらでご希望人数をお選びください。</p>
   </div>
 
   <div class="panel locked" id="daySection">
@@ -321,11 +328,25 @@
   const numSectionEl = document.getElementById("numSection");
   const daySectionEl = document.getElementById("daySection");
 
-  function warnAndScroll(targetEl){
-    targetEl.scrollIntoView({behavior:"smooth", block:"start"});
-    targetEl.classList.remove("warn");
+  let alertTimer = null;
+  function warnAndScroll(targetEl, alertId){
+    if(alertTimer) clearTimeout(alertTimer);
+    document.querySelectorAll(".panel.warn").forEach(el => el.classList.remove("warn"));
+    document.querySelectorAll(".step-alert.show").forEach(el => el.classList.remove("show"));
     void targetEl.offsetWidth;
     targetEl.classList.add("warn");
+    const alertEl = alertId ? document.getElementById(alertId) : null;
+    if(alertEl) alertEl.classList.add("show");
+    targetEl.scrollIntoView({behavior:"smooth", block:"center"});
+    alertTimer = setTimeout(() => {
+      targetEl.classList.remove("warn");
+      if(alertEl) alertEl.classList.remove("show");
+    }, 5000);
+  }
+  function clearWarn(){
+    if(alertTimer) clearTimeout(alertTimer);
+    document.querySelectorAll(".panel.warn").forEach(el => el.classList.remove("warn"));
+    document.querySelectorAll(".step-alert.show").forEach(el => el.classList.remove("show"));
   }
   function unlockNum(){
     numSectionEl.classList.remove("locked");
@@ -345,7 +366,7 @@
       document.querySelectorAll("#planModeCards .plan-card").forEach(c => c.classList.remove("selected"));
       card.classList.add("selected");
       selectedMode = card.dataset.mode;
-      planModeSectionEl.classList.remove("warn");
+      clearWarn();
       unlockNum();
       runSearch();
     });
@@ -355,7 +376,8 @@
   let selectedNum = null;
   document.querySelectorAll(".num-chip").forEach(chip => {
     chip.addEventListener("click", () => {
-      if(!selectedMode){ warnAndScroll(planModeSectionEl); return; }
+      if(!selectedMode){ warnAndScroll(planModeSectionEl, "planAlert"); return; }
+      clearWarn();
       document.querySelectorAll(".num-chip").forEach(c => c.classList.remove("selected"));
       chip.classList.add("selected");
       selectedNum = chip.dataset.n;
@@ -390,8 +412,9 @@
     chip.innerHTML = `<div class="wd">${wd}</div><div class="num">${d.getDate()}</div>`;
     chip.addEventListener("click", () => {
       if(isClosed) return;
-      if(!selectedMode){ warnAndScroll(planModeSectionEl); return; }
-      if(!selectedNum){ warnAndScroll(numSectionEl); return; }
+      if(!selectedMode){ warnAndScroll(planModeSectionEl, "planAlert"); return; }
+      if(!selectedNum){ warnAndScroll(numSectionEl, "numAlert"); return; }
+      clearWarn();
       document.querySelectorAll(".day-chip.selected").forEach(el => el.classList.remove("selected"));
       chip.classList.add("selected");
       selectedDate = iso;
