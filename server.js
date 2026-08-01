@@ -56,6 +56,62 @@ async function sq(method, apiPath, body) {
   }
 }
 
+// ==========================================================================
+// メニュー対応表（/inspect で取得したSquareの実データ）
+//   plan: amaterasu120 / tsukuyomi120 / ryokan180_amaterasu / ryokan180_tsukuyomi
+//   120分は「平日」と「土日祝・特日」で料金メニューが分かれる
+// ==========================================================================
+const MENU = {
+  amaterasu120: {
+    label: '天照 120分貸切',
+    weekday: { 1:'YVJRCWQIX4SXB4NEDPCWL6VL',2:'7LP2A5PUFRRZUI6E2VBRBHID',3:'SEO7DVQQMTNYIKTPBLSY3T53',4:'3X564SXFJ3JER3XMO67AOJ4M',5:'WT7XXVSIS7UMTKTUOEGPDKU2' },
+    holiday: { 1:'T7GNHDJA62UK6BI24GEEBC2B',2:'4QSL5OYITODPQ54CZWZVAKDK',3:'NRLFIOC26QLKDUPWVM6CA7ZI',4:'SP7PHX4ZGMWDTFSWDRZJSRRJ',5:'TKOUU5MSZ2NVMJAIJC4KDYFV' }
+  },
+  tsukuyomi120: {
+    label: '月読 120分貸切',
+    weekday: { 1:'TIJUIW7GE4MXZEXNGUXEAXC6',2:'AIUVFZW34M3Z2NTADXY4I6B4',3:'2WEFEGGZKPL2GWLPL3LKYNK3',4:'UAVFOTCGW62OERW7NPVPJ5JM',5:'MSHYH6EN3TLE7AVG4UC5Q3EE' },
+    holiday: { 1:'6RUMOXUGE7JQLUBFTXXHVIKQ',2:'SR62JOXUEXSQ7SVXB5ZB3YBP',3:'GNPJMNVXCROGY5A3B5QRWEIF',4:'3L72QN23TDOEPVQCEVZUH3R4',5:'WAFI7J47OVOLMUA7ZQTTLSEL' }
+  },
+  ryokan180_amaterasu: {
+    label: '180分旅館【天照】',
+    weekday: { 1:'4CZZJQGB76AA352SLPKRZ4HA',2:'O3MAUOBVO3BTH6VJ3G7IYTAA',3:'W2KMMKTDJMZJEMFIVJPLAIAA',4:'L7WJRIVOSLDT7JH6STGN5XDJ',5:'NQXWVHUPCABZ3KN4LEQJE5Q5' },
+    holiday: null // 曜日にかかわらず同料金
+  },
+  ryokan180_tsukuyomi: {
+    label: '180分旅館【月読】',
+    weekday: { 1:'KULD6NPUA5TF2TPNVADNMOWG',2:'4DPZL6GJUB7TEQQNPHUCGWXN',3:'LE7SJ5JFH3HUVHGGZGOJRNAD',4:'QRWEQ5L4SLIZ3MFBM6XUJHIQ',5:'YY7IJ5LFKR623NG6HDCBG2WP' },
+    holiday: null
+  }
+};
+
+// 2026年の日本の祝日（土日祝・特日の判定用）
+const HOLIDAYS_2026 = new Set([
+  '2026-01-01','2026-01-12','2026-02-11','2026-02-23','2026-03-20',
+  '2026-04-29','2026-05-03','2026-05-04','2026-05-05','2026-05-06',
+  '2026-07-20','2026-08-11','2026-09-21','2026-09-22','2026-09-23',
+  '2026-10-12','2026-11-03','2026-11-23'
+]);
+// 特日（お盆など、お店が「土日祝扱い」にしたい日。必要に応じて追加）
+const SPECIAL_DAYS = new Set([ '2026-08-13','2026-08-14','2026-08-15' ]);
+
+// UTCの日時文字列 → 日本時間の日付(YYYY-MM-DD)と判定
+function jstDateStr(isoUtc) {
+  const d = new Date(new Date(isoUtc).getTime() + 9 * 3600000);
+  return d.toISOString().slice(0, 10);
+}
+function isHolidayJST(isoUtc) {
+  const ds = jstDateStr(isoUtc);
+  const dow = new Date(ds + 'T00:00:00Z').getUTCDay(); // 0=日,6=土
+  return dow === 0 || dow === 6 || HOLIDAYS_2026.has(ds) || SPECIAL_DAYS.has(ds);
+}
+// プラン＋人数＋日時 → 使うメニュー(variation)を決める
+function pickVariation(plan, people, startAtUtc) {
+  const m = MENU[plan];
+  if (!m) return null;
+  const table = (m.holiday && isHolidayJST(startAtUtc)) ? m.holiday : m.weekday;
+  return table[people] || null;
+}
+
 // ---- 正しい Location ID を Square から取得（入力ミス対策・キャッシュ） ----
 let cachedLocationId = null;
 async function getLocationId() {
@@ -157,6 +213,69 @@ const server = http.createServer((req, res) => {
       if (cat.data.errors) out.catalog_errors = cat.data.errors;
       if (team.data.errors) out.team_errors = team.data.errors;
       res.end(JSON.stringify(out, null, 2));
+    })();
+    return;
+  }
+
+  // ---- 料金の確認（プラン・人数・日時 → 金額とメニュー） ----
+  if (url === '/quote' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    if (!isConfigured()) { res.statusCode = 400; res.end(JSON.stringify({ error: 'not configured' })); return; }
+    const q = new URLSearchParams((req.url.split('?')[1] || ''));
+    const plan = q.get('plan');
+    const people = parseInt(q.get('people') || '0', 10);
+    const startAt = q.get('start_at');
+    if (!plan || !people || !startAt) { res.statusCode = 400; res.end(JSON.stringify({ error: 'plan, people, start_at required' })); return; }
+    const variation = pickVariation(plan, people, startAt);
+    if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ error: 'unknown plan/people' })); return; }
+    (async () => {
+      const r = await sq('GET', '/v2/catalog/object/' + variation);
+      const v = r.data.object && r.data.object.item_variation_data;
+      res.end(JSON.stringify({
+        status: r.status,
+        plan, people, start_at: startAt,
+        holiday: isHolidayJST(startAt),
+        variation_id: variation,
+        name: v && v.name,
+        price: v && v.price_money,
+        errors: r.data.errors || null
+      }, null, 2));
+    })();
+    return;
+  }
+
+  // ---- 決済ページ作成（Square Payment Link） ----
+  if (url === '/paylink' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    if (!isConfigured()) { res.statusCode = 400; res.end(JSON.stringify({ error: 'not configured' })); return; }
+    const q = new URLSearchParams((req.url.split('?')[1] || ''));
+    const plan = q.get('plan');
+    const people = parseInt(q.get('people') || '0', 10);
+    const startAt = q.get('start_at');
+    if (!plan || !people || !startAt) { res.statusCode = 400; res.end(JSON.stringify({ error: 'plan, people, start_at required' })); return; }
+    const variation = pickVariation(plan, people, startAt);
+    if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ error: 'unknown plan/people' })); return; }
+    (async () => {
+      const locId = await getLocationId();
+      const jst = new Date(new Date(startAt).getTime() + 9 * 3600000);
+      const when = jst.toISOString().slice(0, 16).replace('T', ' ');
+      const body = {
+        idempotency_key: 'nogiku-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+        order: {
+          location_id: locId,
+          line_items: [{ quantity: '1', catalog_object_id: variation }]
+        },
+        checkout_options: { redirect_url: 'https://nogikusauna.github.io/booking.html?paid=1' },
+        payment_note: MENU[plan].label + ' ' + people + '名 ' + when + '(JST)'
+      };
+      const r = await sq('POST', '/v2/online-checkout/payment-links', body);
+      const link = r.data.payment_link || {};
+      res.end(JSON.stringify({
+        status: r.status,
+        url: link.url || null,
+        order_id: link.order_id || null,
+        errors: r.data.errors || null
+      }, null, 2));
     })();
     return;
   }
