@@ -151,6 +151,18 @@ ${msg}${form}
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
 
+  // ---- CORS: サイトからの呼び出しを許可 ----
+  const origin = req.headers.origin || '';
+  if (origin === 'https://nogikusauna.github.io' || origin === 'https://nogikusauna.com' || origin === 'https://www.nogikusauna.com') {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.statusCode = 204; res.end(); return;
+  }
+
   if (url === '/health') {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({ ok: true, service: 'nogiku-booking', configured: isConfigured(), time: new Date().toISOString() }));
@@ -213,6 +225,49 @@ const server = http.createServer((req, res) => {
       if (cat.data.errors) out.catalog_errors = cat.data.errors;
       if (team.data.errors) out.team_errors = team.data.errors;
       res.end(JSON.stringify(out, null, 2));
+    })();
+    return;
+  }
+
+  // ---- その日の空き枠（サイトの予約画面が使う） ----
+  if (url === '/slots' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    if (!isConfigured()) { res.statusCode = 400; res.end(JSON.stringify({ error: 'not configured' })); return; }
+    const q = new URLSearchParams((req.url.split('?')[1] || ''));
+    const plan = q.get('plan');
+    const people = parseInt(q.get('people') || '0', 10);
+    const date = q.get('date'); // YYYY-MM-DD（日本時間の日付）
+    if (!plan || !people || !date) { res.statusCode = 400; res.end(JSON.stringify({ error: 'plan, people, date required' })); return; }
+    const noonUtc = date + 'T03:00:00Z'; // その日の正午(JST)で平日/休日を判定
+    const variation = pickVariation(plan, people, noonUtc);
+    if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ error: 'unknown plan/people' })); return; }
+    (async () => {
+      const dayStart = new Date(date + 'T00:00:00+09:00').getTime();
+      const dayEnd = new Date(date + 'T23:59:59+09:00').getTime();
+      const now = Date.now();
+      if (dayEnd < now) { res.end(JSON.stringify({ holiday: isHolidayJST(noonUtc), slots: [] })); return; }
+      const startAt = new Date(Math.max(dayStart, now + 60000)).toISOString();
+      const endAt = new Date(dayEnd).toISOString();
+      const locId = await getLocationId();
+      const body = { query: { filter: {
+        start_at_range: { start_at: startAt, end_at: endAt },
+        location_id: locId,
+        segment_filters: [{ service_variation_id: variation }]
+      } } };
+      const r = await sq('POST', '/v2/bookings/availability/search', body);
+      const seen = new Set();
+      const slots = [];
+      (r.data.availabilities || []).forEach(a => {
+        if (!seen.has(a.start_at)) { seen.add(a.start_at); slots.push(a.start_at); }
+      });
+      slots.sort();
+      res.end(JSON.stringify({
+        status: r.status,
+        holiday: isHolidayJST(noonUtc),
+        variation_id: variation,
+        errors: r.data.errors || null,
+        slots
+      }));
     })();
     return;
   }

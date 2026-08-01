@@ -690,22 +690,12 @@
     }
   };
 
-  const CONFIG = {
-    amaterasu: {
-      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/6LXRATROAVOD6QXXL34DSUW2",
-      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/O3NCUHKOFOWR6RGHX6TFNXFH",
-      plan180: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/QGLJ7W3QVO3WTTULM3TAD3Q5"
-    },
-    tsukuyomi: {
-      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/X6AYINI6H65GZANXSMSY2FL3",
-      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/C4TSXG7QRZVXYASOYSMGDGZT",
-      plan180: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/W6KUMXH6YB3BERXYBUEBAXVN"
-    }
-  };
-  const SLOTS = {
-    amaterasu: ["11:00–13:00","13:30–15:30","16:00–18:00","18:30–20:30"],
-    tsukuyomi: ["9:30–11:30","12:00–14:00","14:30–16:30","17:00–19:00"]
-  };
+  // ---- 予約API（本物の空き状況・決済ページ） ----
+  const API_BASE = "https://162-43-28-12.nip.io";
+  const PRICING180 = { 1: 7000, 2: 11000, 3: 15000, 4: 18000, 5: 20000 };
+  function planKey(room, isPlan180){
+    return isPlan180 ? ("ryokan180_" + room) : (room + "120");
+  }
 
   const HOLIDAYS_2026 = [
     "2026-01-01","2026-01-12","2026-02-11","2026-02-23","2026-03-20",
@@ -814,31 +804,46 @@
       hasShownOnce = true;
     }
 
-    // 検索中の演出（実際のAPI連携時は、ここが本物の問い合わせ待ちになります）
-    setTimeout(() => {
+    // 本物の空き状況をAPIに問い合わせる
+    (async () => {
+      const isPlan180 = selectedPlan === "180min";
+      let dataA = { slots: [] }, dataT = { slots: [] };
+      try {
+        const [ra, rt] = await Promise.all([
+          fetch(`${API_BASE}/slots?plan=${planKey("amaterasu", isPlan180)}&people=${selectedNum}&date=${selectedDate}`),
+          fetch(`${API_BASE}/slots?plan=${planKey("tsukuyomi", isPlan180)}&people=${selectedNum}&date=${selectedDate}`)
+        ]);
+        dataA = await ra.json();
+        dataT = await rt.json();
+      } catch (e) {
+        if(myToken !== searchToken) return;
+        loading.textContent = "空き状況を取得できませんでした。時間をおいてもう一度お試しください。";
+        return;
+      }
       if(myToken !== searchToken) return; // その間に選択が変わっていたら、古い結果は表示しない
 
       loading.style.display = "none";
+      loading.textContent = "空き状況を確認しています…";
       body.style.display = "block";
 
       const tag = document.getElementById("resultTag");
-      if(selectedPlan === "180min"){
+      if(isPlan180){
         tag.className = "result-tag weekday";
         tag.textContent = "180分旅館 ・ 曜日にかかわらず同料金 ・ " + fmtDate(selectedDate) + " ・ " + selectedNum + "名";
-        document.getElementById("priceAmaterasu").innerHTML = "";
-        document.getElementById("priceTsukuyomi").innerHTML = "";
-        renderSlots("amaterasu", null, true);
-        renderSlots("tsukuyomi", null, true);
+        const p180 = PRICING180[selectedNum];
+        const html180 = p180 ? `<span class="now">¥${p180.toLocaleString()}</span>` : "";
+        document.getElementById("priceAmaterasu").innerHTML = html180;
+        document.getElementById("priceTsukuyomi").innerHTML = html180;
       } else {
         const type = judgeType(selectedDate);
         tag.className = "result-tag " + type;
         tag.textContent = (type === "weekday" ? "平日料金" : "土日祝料金") + " ・ " + fmtDate(selectedDate) + " ・ " + selectedNum + "名";
         renderPrice("priceAmaterasu", type);
         renderPrice("priceTsukuyomi", type);
-        renderSlots("amaterasu", type, false);
-        renderSlots("tsukuyomi", type, false);
       }
-    }, 500);
+      renderSlots("amaterasu", dataA.slots || [], isPlan180);
+      renderSlots("tsukuyomi", dataT.slots || [], isPlan180);
+    })();
   }
 
   function renderPrice(elId, type){
@@ -852,23 +857,32 @@
     }
   }
 
-  function renderSlots(room, type, isPlan180){
+  function renderSlots(room, slots, isPlan180){
     const wrap = document.getElementById(room === "amaterasu" ? "slotsAmaterasu" : "slotsTsukuyomi");
     const titleEl = document.getElementById(room === "amaterasu" ? "titleAmaterasu" : "titleTsukuyomi");
     const baseTitle = room === "amaterasu" ? "天照 AMATERASU" : "月読 TSUKUYOMI";
     titleEl.textContent = isPlan180 ? baseTitle + "（180分旅館）" : baseTitle;
+    const roomName = room === "amaterasu" ? "天照" : "月読";
 
     wrap.innerHTML = "";
-    // 180分旅館も、サウナ＆温泉の時間帯そのものは120分プランと同じ（後半60分の旅館体験が続く）
-    const list = SLOTS[room];
-    const url = isPlan180 ? CONFIG[room].plan180 : CONFIG[room][type];
-    const roomName = room === "amaterasu" ? "天照" : "月読";
-    list.forEach(time => {
+    if(!slots.length){
+      const none = document.createElement("div");
+      none.style.cssText = "font-size:12.5px;color:var(--sub);";
+      none.textContent = "この日は空きがありません";
+      wrap.appendChild(none);
+      return;
+    }
+    const durMin = isPlan180 ? 180 : 120;
+    const fmt = d => d.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit", timeZone:"Asia/Tokyo"});
+    slots.forEach(startIso => {
+      const s = new Date(startIso);
+      const e = new Date(s.getTime() + durMin * 60000);
+      const label = `${fmt(s)}–${fmt(e)}`;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "slot-btn";
-      btn.textContent = time + " 空";
-      btn.addEventListener("click", () => openConfirm(url, roomName, time, isPlan180));
+      btn.textContent = label + " 空";
+      btn.addEventListener("click", () => openConfirm(room, roomName, startIso, label, isPlan180));
       wrap.appendChild(btn);
     });
   }
@@ -878,29 +892,46 @@
   const confirmDetail = document.getElementById("confirmDetail");
   const confirmGo = document.getElementById("confirmGo");
   const confirmBack = document.getElementById("confirmBack");
-  let pendingUrl = null;
+  let pending = null;
 
-  function openConfirm(url, roomName, time, isPlan180){
-    pendingUrl = url;
+  function openConfirm(room, roomName, startIso, timeLabel, isPlan180){
+    pending = { room, startIso, isPlan180, people: selectedNum };
     const dateLabel = fmtDate(selectedDate);
     const planLabel = isPlan180 ? "（180分旅館）" : "";
-    confirmDetail.textContent = `${selectedNum}名・${dateLabel}・${roomName}${planLabel}・${time}でよろしいですか？`;
+    confirmDetail.textContent = `${selectedNum}名・${dateLabel}・${roomName}${planLabel}・${timeLabel}でよろしいですか？`;
     confirmOverlay.classList.add("open");
   }
   confirmBack.addEventListener("click", () => {
     confirmOverlay.classList.remove("open");
-    pendingUrl = null;
+    pending = null;
   });
   confirmOverlay.addEventListener("click", (e) => {
     if(e.target === confirmOverlay){
       confirmOverlay.classList.remove("open");
-      pendingUrl = null;
+      pending = null;
     }
   });
-  confirmGo.addEventListener("click", () => {
-    if(pendingUrl) window.open(pendingUrl, "_blank");
+  confirmGo.addEventListener("click", async () => {
+    if(!pending) return;
+    const p = pending;
+    confirmGo.disabled = true;
+    confirmGo.textContent = "決済ページを準備中…";
+    try {
+      const plan = planKey(p.room, p.isPlan180);
+      const r = await fetch(`${API_BASE}/paylink?plan=${plan}&people=${p.people}&start_at=${encodeURIComponent(p.startIso)}`);
+      const data = await r.json();
+      if(data && data.url){
+        window.location.href = data.url; // Squareの安全な決済ページへ
+        return;
+      }
+      alert("決済ページを作成できませんでした。時間をおいてもう一度お試しください。");
+    } catch(e){
+      alert("通信エラーが発生しました。時間をおいてもう一度お試しください。");
+    }
+    confirmGo.disabled = false;
+    confirmGo.textContent = "はい、進む";
     confirmOverlay.classList.remove("open");
-    pendingUrl = null;
+    pending = null;
   });
 </script></body>
 </html>
