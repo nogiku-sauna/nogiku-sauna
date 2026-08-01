@@ -153,7 +153,7 @@ const server = http.createServer((req, res) => {
 
   // ---- CORS: サイトからの呼び出しを許可 ----
   const origin = req.headers.origin || '';
-  if (origin === 'https://nogikusauna.github.io' || origin === 'https://nogikusauna.com' || origin === 'https://www.nogikusauna.com') {
+  if (origin === 'https://nogiku-sauna.github.io' || origin === 'https://nogikusauna.com' || origin === 'https://www.nogikusauna.com') {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }
@@ -320,7 +320,7 @@ const server = http.createServer((req, res) => {
           location_id: locId,
           line_items: [{ quantity: '1', catalog_object_id: variation }]
         },
-        checkout_options: { redirect_url: 'https://nogikusauna.github.io/booking.html?paid=1' },
+        checkout_options: { redirect_url: 'https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1' },
         payment_note: MENU[plan].label + ' ' + people + '名 ' + when + '(JST)'
       };
       const r = await sq('POST', '/v2/online-checkout/payment-links', body);
