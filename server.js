@@ -366,12 +366,13 @@ const server = http.createServer((req, res) => {
       const version = co.data.object && co.data.object.version;
       if (!version) { res.end(JSON.stringify({ ok: false, message: 'メニュー情報を取得できませんでした' })); return; }
       // 1) お客様情報を登録（名前・電話・メール）
+      const telDigits = tel.replace(/[^0-9]/g, '');
       const custBody = {
         idempotency_key: 'cus-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
         given_name: name,
-        phone_number: tel,
         note: 'Webサイト予約'
       };
+      if (telDigits.length >= 10) custBody.phone_number = telDigits.startsWith('0') ? '+81' + telDigits.slice(1) : '+' + telDigits;
       if (email) custBody.email_address = email;
       const cr = await sq('POST', '/v2/customers', custBody);
       const customerId = cr.data.customer && cr.data.customer.id;
@@ -401,7 +402,12 @@ const server = http.createServer((req, res) => {
       // 3) 決済ページを作成
       const jst = new Date(new Date(startAt).getTime() + 9 * 3600000);
       const when = jst.toISOString().slice(0, 16).replace('T', ' ');
-      const prefill = { buyer_email: email || undefined, buyer_phone_number: tel || undefined };
+      // 電話番号は数字のみ（国際形式）に整えてから渡す。合わない場合は渡さない
+      const digits = tel.replace(/[^0-9]/g, '');
+      const e164 = digits.startsWith('0') ? '+81' + digits.slice(1) : (digits ? '+' + digits : '');
+      const prefill = {};
+      if (email && /.+@.+\..+/.test(email)) prefill.buyer_email = email;
+      if (/^\+\d{10,15}$/.test(e164)) prefill.buyer_phone_number = e164;
       const pr = await sq('POST', '/v2/online-checkout/payment-links', {
         idempotency_key: 'pl-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
         order: { location_id: locId, line_items: [{ quantity: '1', catalog_object_id: variation }] },
@@ -409,12 +415,12 @@ const server = http.createServer((req, res) => {
           redirect_url: 'https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1',
           ask_for_shipping_address: false
         },
-        pre_populated_data: prefill,
+        pre_populated_data: Object.keys(prefill).length ? prefill : undefined,
         payment_note: name + '様 ' + MENU[plan].label + ' ' + people + '名 ' + when + '(JST) 予約ID:' + (bookingId || '不明')
       });
       const link = pr.data.payment_link || {};
       if (!link.url) {
-        res.end(JSON.stringify({ ok: false, message: '予約は確保しましたが、決済ページの作成に失敗しました。お店にご連絡ください。', booking_id: bookingId }));
+        res.end(JSON.stringify({ ok: false, message: '予約は確保しましたが、決済ページの作成に失敗しました。お店にご連絡ください。', booking_id: bookingId, status: pr.status, errors: pr.data.errors || null }));
         return;
       }
       // 仮押さえの監視リストに登録（10分未払いなら自動キャンセル）
