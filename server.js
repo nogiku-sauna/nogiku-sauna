@@ -258,9 +258,13 @@ const server = http.createServer((req, res) => {
       const seen = new Set();
       const slots = [];
       (r.data.availabilities || []).forEach(a => {
-        if (!seen.has(a.start_at)) { seen.add(a.start_at); slots.push(a.start_at); }
+        if (!seen.has(a.start_at)) {
+          seen.add(a.start_at);
+          const seg = (a.appointment_segments || [])[0] || {};
+          slots.push({ start_at: a.start_at, team: seg.team_member_id || null });
+        }
       });
-      slots.sort();
+      slots.sort((x, y) => (x.start_at < y.start_at ? -1 : 1));
       res.end(JSON.stringify({
         status: r.status,
         holiday: isHolidayJST(noonUtc),
@@ -268,6 +272,76 @@ const server = http.createServer((req, res) => {
         errors: r.data.errors || null,
         slots
       }));
+    })();
+    return;
+  }
+
+  // ---- 予約の確保＋決済ページ（★予約はSquareのカレンダーに自動登録される） ----
+  if (url === '/book' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    if (!isConfigured()) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'not configured' })); return; }
+    const q = new URLSearchParams((req.url.split('?')[1] || ''));
+    const plan = q.get('plan');
+    const people = parseInt(q.get('people') || '0', 10);
+    const startAt = q.get('start_at');
+    const team = q.get('team');
+    const name = (q.get('name') || '').trim().slice(0, 60);
+    if (!plan || !people || !startAt || !team || !name) {
+      res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: '入力が足りません' })); return;
+    }
+    const variation = pickVariation(plan, people, startAt);
+    if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'プランを認識できませんでした' })); return; }
+    (async () => {
+      const locId = await getLocationId();
+      // メニューの最新バージョン番号（予約作成に必要）
+      const co = await sq('GET', '/v2/catalog/object/' + variation);
+      const version = co.data.object && co.data.object.version;
+      if (!version) { res.end(JSON.stringify({ ok: false, message: 'メニュー情報を取得できませんでした' })); return; }
+      // 1) お客様情報を登録
+      const cr = await sq('POST', '/v2/customers', {
+        idempotency_key: 'cus-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+        given_name: name,
+        note: 'Webサイト予約'
+      });
+      const customerId = cr.data.customer && cr.data.customer.id;
+      // 2) 予約をSquareカレンダーに登録（この時点で枠が埋まる）
+      const booking = {
+        location_id: locId,
+        start_at: startAt,
+        customer_note: '',
+        seller_note: 'Webサイト予約 ' + MENU[plan].label + ' ' + people + '名（決済ページ案内済み・入金要確認）',
+        appointment_segments: [{
+          team_member_id: team,
+          service_variation_id: variation,
+          service_variation_version: version
+        }]
+      };
+      if (customerId) booking.customer_id = customerId;
+      const br = await sq('POST', '/v2/bookings', {
+        idempotency_key: 'bk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+        booking
+      });
+      if (!br.ok) {
+        const detail = (br.data.errors || []).map(e => e.detail).join(' / ');
+        res.end(JSON.stringify({ ok: false, message: 'この枠は確保できませんでした。別の時間をお試しください。', errors: br.data.errors || null, detail }));
+        return;
+      }
+      const bookingId = br.data.booking && br.data.booking.id;
+      // 3) 決済ページを作成
+      const jst = new Date(new Date(startAt).getTime() + 9 * 3600000);
+      const when = jst.toISOString().slice(0, 16).replace('T', ' ');
+      const pr = await sq('POST', '/v2/online-checkout/payment-links', {
+        idempotency_key: 'pl-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+        order: { location_id: locId, line_items: [{ quantity: '1', catalog_object_id: variation }] },
+        checkout_options: { redirect_url: 'https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1' },
+        payment_note: name + '様 ' + MENU[plan].label + ' ' + people + '名 ' + when + '(JST) 予約ID:' + (bookingId || '不明')
+      });
+      const link = pr.data.payment_link || {};
+      if (!link.url) {
+        res.end(JSON.stringify({ ok: false, message: '予約は確保しましたが、決済ページの作成に失敗しました。お店にご連絡ください。', booking_id: bookingId }));
+        return;
+      }
+      res.end(JSON.stringify({ ok: true, booking_id: bookingId, url: link.url }));
     })();
     return;
   }
