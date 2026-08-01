@@ -112,6 +112,19 @@ function pickVariation(plan, people, startAtUtc) {
   return table[people] || null;
 }
 
+// ---- 予約可能な「部屋」(スタッフ)だけを使う（オーナー等の個人カレンダーを除外） ----
+let bookableTeamCache = null;
+async function getBookableTeam() {
+  if (bookableTeamCache) return bookableTeamCache;
+  const r = await sq('GET', '/v2/bookings/team-member-booking-profiles');
+  const set = new Set();
+  (r.data.team_member_booking_profiles || []).forEach(t => {
+    if (t.is_bookable) set.add(t.team_member_id);
+  });
+  if (set.size) bookableTeamCache = set;
+  return set;
+}
+
 // ---- 正しい Location ID を Square から取得（入力ミス対策・キャッシュ） ----
 let cachedLocationId = null;
 async function getLocationId() {
@@ -255,13 +268,15 @@ const server = http.createServer((req, res) => {
         segment_filters: [{ service_variation_id: variation }]
       } } };
       const r = await sq('POST', '/v2/bookings/availability/search', body);
+      const bookable = await getBookableTeam();
       const seen = new Set();
       const slots = [];
       (r.data.availabilities || []).forEach(a => {
-        if (!seen.has(a.start_at)) {
+        // 「部屋」(予約可能スタッフ)の枠だけを採用。個人カレンダー由来の枠は除外
+        const seg = (a.appointment_segments || []).find(s => bookable.has(s.team_member_id));
+        if (seg && !seen.has(a.start_at)) {
           seen.add(a.start_at);
-          const seg = (a.appointment_segments || [])[0] || {};
-          slots.push({ start_at: a.start_at, team: seg.team_member_id || null });
+          slots.push({ start_at: a.start_at, team: seg.team_member_id });
         }
       });
       slots.sort((x, y) => (x.start_at < y.start_at ? -1 : 1));
