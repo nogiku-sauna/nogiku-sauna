@@ -57,15 +57,23 @@
   ページに「サウナのぎく/天照(土日祝＆特日)120分貸切 ¥9,600」表示確認済み】
 - plan名: amaterasu120 / tsukuyomi120 / ryokan180_amaterasu / ryokan180_tsukuyomi（MENU定数にID表）
 
-## 次にやること（最後の大物）
-1. フロント（`booking.html` / `ryokan180_booking.html`）を改修:
-   プラン→人数→日付→時間の選択UIを `/availability` `/quote` `/paylink` につなぐ。
-   API先は当面 `https://162-43-28-12.nip.io`。server.jsにCORSヘッダ追加が必要
-   （Access-Control-Allow-Origin: https://nogikusauna.github.io）。
-2. 注意: /paylink は決済のみで Square予約(Booking) は作らない。決済後の予約登録は
-   手動確認 or 将来CreateBooking/webhookで自動化（要相談）。redirect_urlはbooking.html?paid=1。
-3. 動作確認→本番公開。最後に `/setup` `/inspect` を撤去。
-4. DNS復旧後（Xserverサポート返信待ち）、`api.nogikusauna.com` に切替。
+## ★★ booking.html 本連携 完了（2026-08-01 その3・通しテスト成功）
+- 正しいサイトURLは **https://nogiku-sauna.github.io/nogiku-sauna/**（ハイフン入り＋リポジトリ名パス）。
+- server.js に CORS（origin: https://nogiku-sauna.github.io）と `/slots?plan=&people=&date=`（その日の空き枠）を実装。
+- booking.html を全面接続: プラン→人数→日付 → `/slots` で本物の空き表示（JST変換、空なしメッセージ有）
+  → 確認モーダル → `/paylink` → Square決済ページへ遷移。
+- 通しテスト成功: 8/2(日)2名 → 土日祝¥9,600表示 → 13:00枠 → Squareチェックアウト(¥9,600)到達。
+- paylinkのredirect_urlは https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1
+
+## 次にやること
+1. `ryokan180_booking.html`（180分旅館ページの予約UI）も同様にAPI接続（booking.htmlは180分旅館も選べるので優先度は要相談）。
+2. ⚠️ 運用上の注意: /paylink は決済のみで **Squareの予約台帳(Bookings)には自動登録されない**。
+   支払いの payment_note に「プラン/人数/日時(JST)」が入るので、当面は店側がSquare注文を見て手動登録。
+   将来は CreateBooking + webhook で自動化。
+3. 動作最終確認（少額の本決済テスト等は店側判断）→ 一般公開の案内。
+4. `/setup` `/inspect` エンドポイントの撤去（安全のため）。
+5. DNS復旧後（Xserverサポート返信待ち）、API_BASE と証明書を `api.nogikusauna.com` に切替。
+6. VPS自動更新オフ設定。
 
 ## 進め方メモ
 - 利用者は非エンジニア。中学生に説明するイメージでやさしく、日本語で。
