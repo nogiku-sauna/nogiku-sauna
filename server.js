@@ -55,6 +55,16 @@ async function sq(method, apiPath, body) {
   }
 }
 
+// ---- 正しい Location ID を Square から取得（入力ミス対策・キャッシュ） ----
+let cachedLocationId = null;
+async function getLocationId() {
+  if (cachedLocationId) return cachedLocationId;
+  const r = await sq('GET', '/v2/locations');
+  const locs = (r.data.locations || []);
+  if (locs.length) { cachedLocationId = locs[0].id; return cachedLocationId; }
+  return config.SQUARE_LOCATION_ID;
+}
+
 // ---- 設定ページHTML ----
 function setupPage(message, color) {
   const msg = message ? `<div class="msg" style="color:${color || '#2b2620'}">${message}</div>` : '';
@@ -162,9 +172,10 @@ const server = http.createServer((req, res) => {
       const now = new Date();
       const startAt = new Date(now.getTime() + 60 * 1000).toISOString();
       const endAt = new Date(now.getTime() + days * 86400000).toISOString();
+      const locId = await getLocationId();
       const body = { query: { filter: {
         start_at_range: { start_at: startAt, end_at: endAt },
-        location_id: config.SQUARE_LOCATION_ID,
+        location_id: locId,
         segment_filters: [{ service_variation_id: variation }]
       } } };
       const r = await sq('POST', '/v2/bookings/availability/search', body);
