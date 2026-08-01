@@ -46,12 +46,13 @@ async function sq(method, apiPath, body) {
         'Content-Type': 'application/json',
         'Square-Version': '2025-07-16'
       },
-      body: body ? JSON.stringify(body) : undefined
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(20000)
     });
     const data = await res.json().catch(() => ({}));
     return { ok: res.ok, status: res.status, data };
   } catch (e) {
-    return { ok: false, status: 0, data: { error: String(e) } };
+    return { ok: false, status: 0, data: { error: String(e && e.message ? e.message : e) } };
   }
 }
 
