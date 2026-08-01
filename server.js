@@ -351,8 +351,11 @@ const server = http.createServer((req, res) => {
     const startAt = q.get('start_at');
     const team = q.get('team');
     const name = (q.get('name') || '').trim().slice(0, 60);
-    if (!plan || !people || !startAt || !team || !name) {
-      res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: '入力が足りません' })); return;
+    const tel = (q.get('tel') || '').trim().slice(0, 30);
+    const email = (q.get('email') || '').trim().slice(0, 100);
+    const note = (q.get('note') || '').trim().slice(0, 500);
+    if (!plan || !people || !startAt || !team || !name || !tel) {
+      res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'お名前と電話番号は必須です' })); return;
     }
     const variation = pickVariation(plan, people, startAt);
     if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'プランを認識できませんでした' })); return; }
@@ -362,19 +365,22 @@ const server = http.createServer((req, res) => {
       const co = await sq('GET', '/v2/catalog/object/' + variation);
       const version = co.data.object && co.data.object.version;
       if (!version) { res.end(JSON.stringify({ ok: false, message: 'メニュー情報を取得できませんでした' })); return; }
-      // 1) お客様情報を登録
-      const cr = await sq('POST', '/v2/customers', {
+      // 1) お客様情報を登録（名前・電話・メール）
+      const custBody = {
         idempotency_key: 'cus-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
         given_name: name,
+        phone_number: tel,
         note: 'Webサイト予約'
-      });
+      };
+      if (email) custBody.email_address = email;
+      const cr = await sq('POST', '/v2/customers', custBody);
       const customerId = cr.data.customer && cr.data.customer.id;
       // 2) 予約をSquareカレンダーに登録（この時点で枠が埋まる）
       const booking = {
         location_id: locId,
         start_at: startAt,
-        customer_note: '',
-        seller_note: 'Webサイト予約 ' + MENU[plan].label + ' ' + people + '名（決済ページ案内済み・入金要確認）',
+        customer_note: note,
+        seller_note: 'Webサイト予約 ' + MENU[plan].label + ' ' + people + '名 / ' + name + '様 / TEL:' + tel + (email ? ' / ' + email : '') + '（入金確認待ち）',
         appointment_segments: [{
           team_member_id: team,
           service_variation_id: variation,
