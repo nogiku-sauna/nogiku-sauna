@@ -135,6 +135,56 @@ async function getLocationId() {
   return config.SQUARE_LOCATION_ID;
 }
 
+// ==========================================================================
+// 未決済予約の自動管理（30分ルール）
+//  - 支払い確認 → 予約メモに【決済確認済み】を追記
+//  - 30分未払い → 予約を自動キャンセルして枠を解放（決済リンクも無効化）
+// ==========================================================================
+const PENDING_PATH = path.join(__dirname, 'pending.json');
+const HOLD_MINUTES = 10; // 仮押さえの有効時間（分）
+function loadPending() { try { return JSON.parse(fs.readFileSync(PENDING_PATH, 'utf8')); } catch (e) { return []; } }
+function savePending(list) { try { fs.writeFileSync(PENDING_PATH, JSON.stringify(list)); } catch (e) {} }
+async function sweepPending() {
+  let list = loadPending();
+  if (!list.length) return;
+  const keep = [];
+  for (const p of list) {
+    try {
+      const or = await sq('GET', '/v2/orders/' + p.order_id);
+      const order = or.data.order || {};
+      const paid = (order.tenders && order.tenders.length > 0) || order.state === 'COMPLETED';
+      if (paid) {
+        try {
+          const br = await sq('GET', '/v2/bookings/' + p.booking_id);
+          const bk = br.data.booking;
+          if (bk && bk.status && !String(bk.status).startsWith('CANCELLED')) {
+            await sq('PUT', '/v2/bookings/' + p.booking_id, {
+              booking: { version: bk.version, seller_note: ((bk.seller_note || '') + '【決済確認済み】').slice(0, 4000) }
+            });
+          }
+        } catch (e) {}
+        continue; // 支払い済み → 監視終了
+      }
+      const ageMin = (Date.now() - p.created_at) / 60000;
+      if (ageMin >= HOLD_MINUTES) {
+        try {
+          const br = await sq('GET', '/v2/bookings/' + p.booking_id);
+          const bk = br.data.booking;
+          if (bk && bk.status && !String(bk.status).startsWith('CANCELLED')) {
+            await sq('POST', '/v2/bookings/' + p.booking_id + '/cancel', { booking_version: bk.version });
+          }
+        } catch (e) {}
+        try { await sq('DELETE', '/v2/online-checkout/payment-links/' + p.link_id); } catch (e) {}
+        continue; // 期限切れ → キャンセルして監視終了
+      }
+      keep.push(p); // まだ30分以内 → 監視続行
+    } catch (e) { keep.push(p); }
+  }
+  savePending(keep);
+}
+setInterval(sweepPending, 60 * 1000); // 1分ごとに見回り
+setTimeout(sweepPending, 15 * 1000);  // 起動直後にも1回
+
 // ---- 設定ページHTML ----
 function setupPage(message, color) {
   const msg = message ? `<div class="msg" style="color:${color || '#2b2620'}">${message}</div>` : '';
@@ -356,7 +406,28 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: false, message: '予約は確保しましたが、決済ページの作成に失敗しました。お店にご連絡ください。', booking_id: bookingId }));
         return;
       }
+      // 仮押さえの監視リストに登録（10分未払いなら自動キャンセル）
+      const plist = loadPending();
+      plist.push({ booking_id: bookingId, order_id: link.order_id, link_id: link.id, created_at: Date.now() });
+      savePending(plist);
       res.end(JSON.stringify({ ok: true, booking_id: bookingId, url: link.url }));
+    })();
+    return;
+  }
+
+  // ---- 予約のキャンセル（テスト予約の削除用・一時的） ----
+  if (url === '/cancel-booking' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    if (!isConfigured()) { res.statusCode = 400; res.end(JSON.stringify({ ok: false })); return; }
+    const q = new URLSearchParams((req.url.split('?')[1] || ''));
+    const id = q.get('id');
+    if (!id) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'id required' })); return; }
+    (async () => {
+      const br = await sq('GET', '/v2/bookings/' + id);
+      const bk = br.data.booking;
+      if (!bk) { res.end(JSON.stringify({ ok: false, message: '予約が見つかりません', errors: br.data.errors || null })); return; }
+      const cr = await sq('POST', '/v2/bookings/' + id + '/cancel', { booking_version: bk.version });
+      res.end(JSON.stringify({ ok: cr.ok, status: cr.status, booking_status: cr.data.booking && cr.data.booking.status, errors: cr.data.errors || null }));
     })();
     return;
   }
