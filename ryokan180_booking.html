@@ -231,6 +231,26 @@
   <div class="confirm-box">
     <div class="confirm-title">この内容でよろしいですか</div>
     <div class="confirm-detail" id="confirmDetail"></div>
+    <div style="margin:14px 0 4px;text-align:left;max-height:46vh;overflow-y:auto;">
+      <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;">お名前（代表者）<span style="color:#c0392b;">必須</span></label>
+      <input type="text" id="confirmName" placeholder="例：山田 太郎" autocomplete="name" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;">
+
+      <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 6px;">お電話番号 <span style="color:#c0392b;">必須</span></label>
+      <input type="tel" id="confirmTel" placeholder="例：090-1234-5678" autocomplete="tel" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;">
+
+      <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 6px;">メールアドレス（任意）</label>
+      <input type="email" id="confirmEmail" placeholder="例：sample@example.com" autocomplete="email" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;">
+
+      <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 6px;">ご住所</label>
+      <input type="text" id="confirmAddr" placeholder="例：福岡県福岡市中央区" autocomplete="address-level2" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;">
+      <p style="font-size:11px;color:#9a8f7a;margin:6px 0 0;line-height:1.6;">※ 市区町村まででOK</p>
+
+      <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 6px;">ご要望・ご連絡事項（任意）</label>
+      <textarea id="confirmNote" rows="3" placeholder="例：18時ごろに到着予定です／浴衣のサイズ相談 など" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+
+      <p style="font-size:11px;color:#9a8f7a;margin:10px 0 0;line-height:1.7;">「はい、進む」を押すと予約枠を <b>10分間</b> お取りして、お支払いページへ進みます。<br>10分以内にお支払いが完了しない場合、お席は自動的に解除されますのでご了承ください。</p>
+      <p style="font-size:11px;color:#9a8f7a;margin:8px 0 0;line-height:1.7;">ご入力いただいた情報は、ご予約の管理とご連絡にのみ使用します（<a href="privacy.html" target="_blank" rel="noopener" style="color:#7a6a4f;text-decoration:underline;">プライバシーポリシー</a>）。<br>お支払い情報は Square の安全なページで入力され、当サイトでは保持しません。</p>
+    </div>
     <div class="confirm-actions">
       <button type="button" class="btn-back" id="confirmBack">戻る</button>
       <button type="button" class="btn-go" id="confirmGo">はい、進む</button>
@@ -239,20 +259,11 @@
 </div>
 
 <script>
-  const CONFIG180 = {
-    amaterasu: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/QGLJ7W3QVO3WTTULM3TAD3Q5",
-    tsukuyomi: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/W6KUMXH6YB3BERXYBUEBAXVN"
-  };
-  const CONFIG120 = {
-    amaterasu: {
-      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/6LXRATROAVOD6QXXL34DSUW2",
-      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/O3NCUHKOFOWR6RGHX6TFNXFH"
-    },
-    tsukuyomi: {
-      weekday: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/X6AYINI6H65GZANXSMSY2FL3",
-      weekend: "https://book.squareup.com/appointments/nuxnyqggr1rmz7/location/LZJF4DD421H6K/services/C4TSXG7QRZVXYASOYSMGDGZT"
-    }
-  };
+  // ---- 予約API（本物の空き状況・予約確保・決済ページ） ----
+  const API_BASE = "https://162-43-28-12.nip.io";
+  function planKey(room, isPlan180){
+    return isPlan180 ? ("ryokan180_" + room) : (room + "120");
+  }
   const ROOM_NAME = { amaterasu: "天照", tsukuyomi: "月読" };
   const PRICE180 = { 1: 7000, 2: 11000, 3: 15000, 4: 18000, 5: 20000 };
   const PRICE120 = {
@@ -402,28 +413,33 @@
     }
   }
 
-  function renderSlots(room){
+  function renderSlots(room, slots){
     const wrap = document.getElementById(room === "amaterasu" ? "slotsAmaterasu" : "slotsTsukuyomi");
     const titleEl = document.getElementById(room === "amaterasu" ? "titleAmaterasu" : "titleTsukuyomi");
     const baseTitle = room === "amaterasu" ? "天照 AMATERASU" : "月読 TSUKUYOMI";
-    titleEl.textContent = selectedMode === "180" ? baseTitle + "（180分旅館）" : baseTitle;
+    const isPlan180 = selectedMode === "180";
+    titleEl.textContent = isPlan180 ? baseTitle + "（180分旅館）" : baseTitle;
+    const roomName = ROOM_NAME[room];
 
     wrap.innerHTML = "";
-    const duration = selectedMode === "180" ? 180 : 120;
-    const url = selectedMode === "180" ? CONFIG180[room] : CONFIG120[room][judgeType(selectedDate)];
-    const roomName = ROOM_NAME[room];
-    const CLOSING_MIN = 21 * 60; // 21:00閉店
-
-    START_TIMES[room].forEach(start => {
-      const [h, m] = start.split(":").map(Number);
-      const startMin = h*60 + m;
-      if(startMin + duration > CLOSING_MIN) return; // 閉店時刻を超える枠は表示しない
-      const label = formatSlotRange(start, duration);
+    if(!slots.length){
+      const none = document.createElement("div");
+      none.style.cssText = "font-size:12.5px;color:var(--sub);";
+      none.textContent = "この日は空きがありません";
+      wrap.appendChild(none);
+      return;
+    }
+    const durMin = isPlan180 ? 180 : 120;
+    const fmt = d => d.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit", timeZone:"Asia/Tokyo"});
+    slots.forEach(slot => {
+      const s = new Date(slot.start_at);
+      const e = new Date(s.getTime() + durMin * 60000);
+      const label = `${fmt(s)}–${fmt(e)}`;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "slot-btn";
       btn.textContent = label + " 空";
-      btn.addEventListener("click", () => openConfirm(url, roomName, label));
+      btn.addEventListener("click", () => openConfirm(room, roomName, slot.start_at, slot.team, label));
       wrap.appendChild(btn);
     });
   }
@@ -444,21 +460,37 @@
       resultArea.scrollIntoView({behavior:"smooth", block:"start"});
       hasShownOnce = true;
     }
-    setTimeout(() => {
+    // 本物の空き状況をAPIに問い合わせる
+    (async () => {
+      const isPlan180 = selectedMode === "180";
+      let dataA = { slots: [] }, dataT = { slots: [] };
+      try {
+        const [ra, rt] = await Promise.all([
+          fetch(`${API_BASE}/slots?plan=${planKey("amaterasu", isPlan180)}&people=${selectedNum}&date=${selectedDate}`),
+          fetch(`${API_BASE}/slots?plan=${planKey("tsukuyomi", isPlan180)}&people=${selectedNum}&date=${selectedDate}`)
+        ]);
+        dataA = await ra.json();
+        dataT = await rt.json();
+      } catch(e){
+        if(myToken !== searchToken) return;
+        loading.textContent = "空き状況を取得できませんでした。時間をおいてもう一度お試しください。";
+        return;
+      }
       if(myToken !== searchToken) return;
       loading.style.display = "none";
+      loading.textContent = "空き状況を確認しています…";
       body.style.display = "block";
 
       const type = judgeType(selectedDate);
       const typeLabel = type === "weekday" ? "平日" : "土日・祝日";
-      const modeLabel = selectedMode === "180" ? "180分旅館プラン" : "120分貸切のみ";
+      const modeLabel = isPlan180 ? "180分旅館プラン" : "120分貸切のみ";
       document.getElementById("resultTag").textContent = `${modeLabel} ・ ${typeLabel} ・ ${fmtDate(selectedDate)} ・ ${selectedNum}名`;
 
       renderPrice("amaterasu");
       renderPrice("tsukuyomi");
-      renderSlots("amaterasu");
-      renderSlots("tsukuyomi");
-    }, 500);
+      renderSlots("amaterasu", dataA.slots || []);
+      renderSlots("tsukuyomi", dataT.slots || []);
+    })();
   }
 
   // ---- 予約前の確認モーダル ----
@@ -466,28 +498,52 @@
   const confirmDetail = document.getElementById("confirmDetail");
   const confirmGo = document.getElementById("confirmGo");
   const confirmBack = document.getElementById("confirmBack");
-  let pendingUrl = null;
+  let pending = null;
 
-  function openConfirm(url, roomName, time){
-    pendingUrl = url;
+  function openConfirm(room, roomName, startIso, team, timeLabel){
+    pending = { room, startIso, team, isPlan180: selectedMode === "180", people: selectedNum };
     const modeLabel = selectedMode === "180" ? "（180分旅館）" : "";
-    confirmDetail.textContent = `${selectedNum}名・${fmtDate(selectedDate)}・${roomName}${modeLabel}・${time}でよろしいですか？`;
+    confirmDetail.textContent = `${selectedNum}名・${fmtDate(selectedDate)}・${roomName}${modeLabel}・${timeLabel}でよろしいですか？`;
     confirmOverlay.classList.add("open");
   }
   confirmBack.addEventListener("click", () => {
     confirmOverlay.classList.remove("open");
-    pendingUrl = null;
+    pending = null;
   });
   confirmOverlay.addEventListener("click", (e) => {
     if(e.target === confirmOverlay){
       confirmOverlay.classList.remove("open");
-      pendingUrl = null;
+      pending = null;
     }
   });
-  confirmGo.addEventListener("click", () => {
-    if(pendingUrl) window.open(pendingUrl, "_blank");
+  confirmGo.addEventListener("click", async () => {
+    if(!pending) return;
+    const name = document.getElementById("confirmName").value.trim();
+    const tel = document.getElementById("confirmTel").value.trim();
+    const email = document.getElementById("confirmEmail").value.trim();
+    const addr = document.getElementById("confirmAddr").value.trim();
+    const note = document.getElementById("confirmNote").value.trim();
+    if(!name){ alert("お名前を入力してください"); return; }
+    if(!tel){ alert("お電話番号を入力してください"); return; }
+    const p = pending;
+    confirmGo.disabled = true;
+    confirmGo.textContent = "予約枠を確保しています…";
+    try {
+      const plan = planKey(p.room, p.isPlan180);
+      const r = await fetch(`${API_BASE}/book?plan=${plan}&people=${p.people}&start_at=${encodeURIComponent(p.startIso)}&team=${encodeURIComponent(p.team || "")}&name=${encodeURIComponent(name)}&tel=${encodeURIComponent(tel)}&email=${encodeURIComponent(email)}&addr=${encodeURIComponent(addr)}&note=${encodeURIComponent(note)}`);
+      const data = await r.json();
+      if(data && data.ok && data.url){
+        window.location.href = data.url;
+        return;
+      }
+      alert(data && data.message ? data.message : "予約枠を確保できませんでした。別の時間でお試しください。");
+    } catch(e){
+      alert("通信エラーが発生しました。時間をおいてもう一度お試しください。");
+    }
+    confirmGo.disabled = false;
+    confirmGo.textContent = "はい、進む";
     confirmOverlay.classList.remove("open");
-    pendingUrl = null;
+    pending = null;
   });
 </script>
 </body>
