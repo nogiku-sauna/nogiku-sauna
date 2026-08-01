@@ -401,10 +401,15 @@ const server = http.createServer((req, res) => {
       // 3) 決済ページを作成
       const jst = new Date(new Date(startAt).getTime() + 9 * 3600000);
       const when = jst.toISOString().slice(0, 16).replace('T', ' ');
+      const prefill = { buyer_email: email || undefined, buyer_phone_number: tel || undefined };
       const pr = await sq('POST', '/v2/online-checkout/payment-links', {
         idempotency_key: 'pl-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
         order: { location_id: locId, line_items: [{ quantity: '1', catalog_object_id: variation }] },
-        checkout_options: { redirect_url: 'https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1' },
+        checkout_options: {
+          redirect_url: 'https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1',
+          ask_for_shipping_address: false
+        },
+        pre_populated_data: prefill,
         payment_note: name + '様 ' + MENU[plan].label + ' ' + people + '名 ' + when + '(JST) 予約ID:' + (bookingId || '不明')
       });
       const link = pr.data.payment_link || {};
