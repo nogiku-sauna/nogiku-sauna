@@ -355,6 +355,7 @@ const server = http.createServer((req, res) => {
     const email = (q.get('email') || '').trim().slice(0, 100);
     const note = (q.get('note') || '').trim().slice(0, 500);
     const addr = (q.get('addr') || '').trim().slice(0, 120);
+    const zip = (q.get('zip') || '').trim().slice(0, 12);
     if (!plan || !people || !startAt || !team || !name || !tel) {
       res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'お名前と電話番号は必須です' })); return;
     }
@@ -366,18 +367,41 @@ const server = http.createServer((req, res) => {
       const co = await sq('GET', '/v2/catalog/object/' + variation);
       const version = co.data.object && co.data.object.version;
       if (!version) { res.end(JSON.stringify({ ok: false, message: 'メニュー情報を取得できませんでした' })); return; }
-      // 1) お客様情報を登録（名前・電話・メール）
+      // 1) お客様情報（リピーターなら既存のお客様に紐づける）
       const telDigits = tel.replace(/[^0-9]/g, '');
-      const custBody = {
-        idempotency_key: 'cus-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
-        given_name: name,
-        note: 'Webサイト予約' + (addr ? '／ご住所（お客様申告）：' + addr : '')
-      };
-      if (telDigits.length >= 10) custBody.phone_number = telDigits.startsWith('0') ? '+81' + telDigits.slice(1) : '+' + telDigits;
-      if (addr) custBody.address = { address_line_1: addr, country: 'JP' };
-      if (email) custBody.email_address = email;
-      const cr = await sq('POST', '/v2/customers', custBody);
-      const customerId = cr.data.customer && cr.data.customer.id;
+      const telE164 = telDigits.length >= 10
+        ? (telDigits.startsWith('0') ? '+81' + telDigits.slice(1) : '+' + telDigits)
+        : '';
+      const address = addr ? { address_line_1: addr, country: 'JP' } : undefined;
+      if (address && zip) address.postal_code = zip;
+
+      let customerId = null;
+      if (telE164) {
+        const search = await sq('POST', '/v2/customers/search', {
+          limit: 1,
+          query: { filter: { phone_number: { exact: telE164 } } }
+        });
+        const found = (search.data.customers || [])[0];
+        if (found) {
+          customerId = found.id;
+          const upd = { given_name: name };
+          if (email) upd.email_address = email;
+          if (address) upd.address = address;
+          await sq('PUT', '/v2/customers/' + customerId, upd);
+        }
+      }
+      if (!customerId) {
+        const custBody = {
+          idempotency_key: 'cus-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+          given_name: name,
+          note: 'Webサイト予約'
+        };
+        if (telE164) custBody.phone_number = telE164;
+        if (email) custBody.email_address = email;
+        if (address) custBody.address = address;
+        const cr = await sq('POST', '/v2/customers', custBody);
+        customerId = cr.data.customer && cr.data.customer.id;
+      }
       // 2) 予約をSquareカレンダーに登録（この時点で枠が埋まる）
       const booking = {
         location_id: locId,
