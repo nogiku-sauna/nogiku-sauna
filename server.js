@@ -221,7 +221,9 @@ async function createBookingFromHold(h) {
       const found = (search.data.customers || [])[0];
       if (found) {
         customerId = found.id;
-        const upd = { given_name: h.name };
+        const upd = (h.lastName || h.firstName)
+          ? { family_name: h.lastName || '', given_name: h.firstName || '' }
+          : { given_name: h.name };
         if (h.email) upd.email_address = h.email;
         if (address) upd.address = address;
         await sq('PUT', '/v2/customers/' + customerId, upd);
@@ -230,9 +232,14 @@ async function createBookingFromHold(h) {
     if (!customerId) {
       const custBody = {
         idempotency_key: 'cus-' + h.id,
-        given_name: h.name,
         note: 'Webサイト予約'
       };
+      if (h.lastName || h.firstName) {
+        custBody.family_name = h.lastName || '';
+        custBody.given_name = h.firstName || '';
+      } else {
+        custBody.given_name = h.name;
+      }
       if (h.telE164) custBody.phone_number = h.telE164;
       if (h.email) custBody.email_address = h.email;
       if (address) custBody.address = address;
@@ -554,6 +561,8 @@ const server = http.createServer((req, res) => {
     const startAt = q.get('start_at');
     const team = q.get('team');
     const name = (q.get('name') || '').trim().slice(0, 60);
+    const lastName = (q.get('last_name') || '').trim().slice(0, 30);
+    const firstName = (q.get('first_name') || '').trim().slice(0, 30);
     const tel = (q.get('tel') || '').trim().slice(0, 30);
     const email = (q.get('email') || '').trim().slice(0, 100);
     const note = (q.get('note') || '').trim().slice(0, 500);
@@ -618,6 +627,12 @@ const server = http.createServer((req, res) => {
       const prefill = {};
       if (email && /.+@.+\..+/.test(email)) prefill.buyer_email = email;
       if (/^\+\d{10,15}$/.test(telE164)) prefill.buyer_phone_number = telE164;
+      // 決済ページの「姓」「名」も先に埋めておく
+      if (lastName || firstName) {
+        prefill.buyer_address = { country: 'JP' };
+        if (lastName) prefill.buyer_address.last_name = lastName;
+        if (firstName) prefill.buyer_address.first_name = firstName;
+      }
 
       const linkBody = {
         idempotency_key: 'pl-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
@@ -651,7 +666,7 @@ const server = http.createServer((req, res) => {
         order_id: link.order_id, link_id: link.id,
         plan, people, start_at: startAt, team, variation,
         label: MENU[plan].label,
-        name, tel, telE164, email, addr, zip, note
+        name, lastName, firstName, tel, telE164, email, addr, zip, note
       });
       savePending(plist);
 

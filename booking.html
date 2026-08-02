@@ -1189,7 +1189,7 @@
       const plan = planKey(p.room, p.isPlan180);
       const q = new URLSearchParams({
         plan, people: p.people, start_at: p.startIso, team: p.team || "",
-        name, tel, email, addr, note, zip, hold: holdId || ""
+        name, last_name: lastName, first_name: firstName, tel, email, addr, note, zip, hold: holdId || ""
       });
       const r = await fetch(`${API_BASE}/book?${q.toString()}`);
       const data = await r.json();
