@@ -264,6 +264,9 @@ async function createBookingFromHold(h) {
       idempotency_key: 'bk-' + h.id,   // 同じ仮押さえから二重に作らないための鍵
       booking
     });
+    if (br.ok) {
+      notifyStore(h);   // お店へ予約通知（Squareは API 経由だと通知を送らないため）
+    }
     if (!br.ok) {
       // ★万一この枠が埋まっていた場合（要対応：返金や別時間のご案内）
       console.error('[要対応] 決済済みだが予約作成に失敗:', h.name, h.tel, h.start_at,
@@ -311,6 +314,50 @@ function prefOnly(addr) {
   if (!addr) return '';
   const m = String(addr).match(/^(北海道|東京都|京都府|大阪府|.{2,3}[県])/);
   return m ? m[1] : '';
+}
+
+// ==========================================================================
+// お店への予約通知
+//   SquareはAPI経由の予約だとお店に通知を送らないため、こちらから知らせる
+//   （サーバーの mail コマンドを使用。届かない場合は notifications.json に残る）
+// ==========================================================================
+const STORE_EMAIL = 'nogikusauna@gmail.com';
+const NOTIFY_PATH = path.join(__dirname, 'notifications.json');
+function notifyStore(h) {
+  const jp = jstParts(h.start_at);
+  const wd = ['日','月','火','水','木','金','土'][new Date(jp.date + 'T00:00:00Z').getUTCDay()];
+  const body = [
+    '【NOGIKU】新しいご予約が入りました',
+    '',
+    'プラン : ' + h.label,
+    '人数   : ' + h.people + '名',
+    '日時   : ' + jp.date + '（' + wd + '）' + jp.time + '〜',
+    '',
+    'お名前 : ' + (h.name || '') + ' 様',
+    'お電話 : ' + (h.tel || ''),
+    'メール : ' + (h.email || '（未入力）'),
+    'ご住所 : ' + (h.addr || '（未入力）'),
+    'ご要望 : ' + (h.note || 'なし'),
+    '',
+    '※ お支払いは完了しています。',
+    '※ Squareの予約カレンダーにも登録済みです。'
+  ].join('\n');
+
+  try {
+    const { execFile } = require('child_process');
+    execFile('/bin/sh', ['-c',
+      'printf %s ' + JSON.stringify(body) + ' | mail -s "【NOGIKU】新しいご予約（' + jp.date + ' ' + jp.time + '）" ' + STORE_EMAIL
+    ], (err) => { if (err) console.error('通知メール送信エラー:', err.message); });
+  } catch (e) { console.error('通知エラー:', String(e)); }
+
+  // 送信できなかった場合に備えて記録も残す
+  try {
+    let list = [];
+    try { list = JSON.parse(fs.readFileSync(NOTIFY_PATH, 'utf8')); } catch (e) {}
+    list.push({ at: jstNow(), body });
+    if (list.length > 200) list = list.slice(-200);
+    fs.writeFileSync(NOTIFY_PATH, JSON.stringify(list, null, 2));
+  } catch (e) {}
 }
 
 // 決済済みなのに予約が作れなかったケースの記録（お店が確認するため）
@@ -530,6 +577,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ---- 予約通知の履歴（新しい順に表示） ----
+  if (url === '/notifications' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    try {
+      const list = JSON.parse(fs.readFileSync(NOTIFY_PATH, 'utf8'));
+      res.end(list.slice().reverse().map(n => '━━━━━━ ' + n.at + ' ━━━━━━\n' + n.body).join('\n\n'));
+    } catch (e) { res.end('まだ予約通知はありません。'); }
+    return;
+  }
+
   // ---- 統計データの表示（ブラウザで中身を確認する用） ----
   if (url === '/analytics' && req.method === 'GET') {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -628,10 +685,11 @@ const server = http.createServer((req, res) => {
       if (email && /.+@.+\..+/.test(email)) prefill.buyer_email = email;
       if (/^\+\d{10,15}$/.test(telE164)) prefill.buyer_phone_number = telE164;
       // 決済ページの「姓」「名」も先に埋めておく
+      // Squareの決済ページは左が「姓」、右が「名」なので、first/last を入れ替えて渡す
       if (lastName || firstName) {
         prefill.buyer_address = { country: 'JP' };
-        if (lastName) prefill.buyer_address.last_name = lastName;
-        if (firstName) prefill.buyer_address.first_name = firstName;
+        if (lastName) prefill.buyer_address.first_name = lastName;
+        if (firstName) prefill.buyer_address.last_name = firstName;
       }
 
       const linkBody = {
