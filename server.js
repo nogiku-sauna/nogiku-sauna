@@ -523,6 +523,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ---- 統計データの表示（ブラウザで中身を確認する用） ----
+  if (url === '/analytics' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    try { res.end(fs.readFileSync(LOG_PATH, 'utf8')); }
+    catch (e) { res.end('まだデータがありません。'); }
+    return;
+  }
+
   // ---- 統計データのダウンロード（CSV） ----
   if (url === '/analytics.csv' && req.method === 'GET') {
     try {
