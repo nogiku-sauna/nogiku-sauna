@@ -622,10 +622,12 @@ const server = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     (async () => {
       const locId = await getLocationId();
+      const q2 = new URLSearchParams((req.url.split('?')[1] || ''));
+      const limit = Math.min(parseInt(q2.get('limit') || '5', 10) || 5, 20);
       const r = await sq('POST', '/v2/orders/search', {
         location_ids: [locId],
         query: { filter: { state_filter: { states: ['OPEN'] } } },
-        limit: 100
+        limit
       });
       const orders = r.data.orders || [];
       let done = 0;
@@ -633,7 +635,10 @@ const server = http.createServer((req, res) => {
         const paid = (o.tenders && o.tenders.length > 0);
         if (paid) { await completeOrder(o.id); done++; }
       }
-      res.end(JSON.stringify({ ok: true, 対象: orders.length, 完了にした件数: done }));
+      res.end(JSON.stringify({
+        ok: true, 未完了だった件数: orders.length, 完了にした件数: done,
+        残りがあれば: orders.length >= limit ? 'もう一度このページを開いてください' : 'すべて完了しました'
+      }));
     })();
     return;
   }
