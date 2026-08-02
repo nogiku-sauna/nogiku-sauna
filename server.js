@@ -163,7 +163,7 @@ async function sweepPending() {
             await sq('PUT', '/v2/bookings/' + p.booking_id, {
               booking: {
                 version: bk.version,
-                accepted_payment_status: 'PAID',
+                status: 'ACCEPTED',
                 seller_note: note.slice(0, 4000)
               }
             });
@@ -414,8 +414,8 @@ const server = http.createServer((req, res) => {
         start_at: startAt,
         customer_note: note,
         seller_note: 'Webサイト予約 ' + MENU[plan].label + ' ' + people + '名 / ' + name + '様 / TEL:' + tel + (email ? ' / ' + email : '') + (addr ? ' / ご住所:' + addr : '') + '（入金確認待ち）',
-        // 決済が終わるまでは「未確定」。この状態ならSquareの確定メール/SMSは飛ばない
-        accepted_payment_status: 'PENDING',
+        // 決済が終わるまでは「未確定(PENDING)」。この状態ならSquareの確定メール/SMSは飛ばない
+        status: 'PENDING',
         appointment_segments: [{
           team_member_id: team,
           service_variation_id: variation,
@@ -423,10 +423,18 @@ const server = http.createServer((req, res) => {
         }]
       };
       if (customerId) booking.customer_id = customerId;
-      const br = await sq('POST', '/v2/bookings', {
+      let br = await sq('POST', '/v2/bookings', {
         idempotency_key: 'bk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
         booking
       });
+      // status指定が使えない環境なら、指定なしで作り直す（予約が取れないより優先）
+      if (!br.ok && JSON.stringify(br.data.errors || '').includes('status')) {
+        delete booking.status;
+        br = await sq('POST', '/v2/bookings', {
+          idempotency_key: 'bk2-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+          booking
+        });
+      }
       if (!br.ok) {
         const detail = (br.data.errors || []).map(e => e.detail).join(' / ');
         res.end(JSON.stringify({ ok: false, message: 'この枠は確保できませんでした。別の時間をお試しください。', errors: br.data.errors || null, detail }));
@@ -474,7 +482,7 @@ const server = http.createServer((req, res) => {
       const plist = loadPending();
       plist.push({ booking_id: bookingId, order_id: link.order_id, link_id: link.id, created_at: Date.now() });
       savePending(plist);
-      res.end(JSON.stringify({ ok: true, booking_id: bookingId, url: link.url }));
+      res.end(JSON.stringify({ ok: true, booking_id: bookingId, booking_status: (br.data.booking && br.data.booking.status) || null, url: link.url }));
     })();
     return;
   }
