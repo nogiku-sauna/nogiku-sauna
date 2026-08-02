@@ -165,6 +165,41 @@
   .confirm-box .btn-go{background:var(--pink-deep);color:#fff;border:none;}
   .confirm-box .btn-go:hover{background:var(--pink);}
 
+  /* ---- お客様情報の入力（Square形式） ---- */
+  .sq-box{max-width:420px;text-align:left;padding:0;overflow:hidden;}
+  .sq-head{padding:22px 22px 16px;text-align:center;border-bottom:1px solid var(--line);}
+  .sq-h1{font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--ink);}
+  .sq-h2{font-size:12.5px;color:var(--sub);margin-top:2px;}
+  .sq-scroll{padding:18px 22px 4px;max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .sq-summary{
+    background:var(--cream2);border-radius:10px;padding:10px 12px;margin-bottom:18px;
+    font-size:13px;font-weight:700;color:var(--ink);line-height:1.6;
+  }
+  .sq-section{font-size:15px;font-weight:800;color:var(--ink);margin:18px 0 10px;}
+  .sq-section:first-of-type{margin-top:0;}
+  .sq-input{
+    width:100%;box-sizing:border-box;padding:14px;margin-bottom:10px;
+    border:1px solid var(--line);border-radius:8px;font-size:15px;
+    font-family:inherit;color:var(--ink);background:#fff;
+  }
+  .sq-input:focus{outline:none;border-color:var(--pink-deep);}
+  .sq-input::placeholder{color:#a89e86;}
+  .sq-select{appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2383795f' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:18px;padding-right:38px;}
+  .sq-textarea{resize:vertical;line-height:1.7;}
+  .sq-tel-row{display:flex;gap:8px;align-items:flex-start;}
+  .sq-tel-cc{
+    flex:0 0 auto;padding:14px 12px;border:1px solid var(--line);border-radius:8px;
+    font-size:15px;font-weight:700;color:var(--ink);background:#fff;white-space:nowrap;margin-bottom:10px;
+  }
+  .sq-tel-row .sq-input{flex:1;}
+  .sq-name-row{display:flex;gap:8px;}
+  .sq-name-row .sq-input{flex:1;}
+  .sq-save{display:flex;align-items:flex-start;gap:8px;margin:14px 0 0;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.6;}
+  .sq-save input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--pink-deep);flex:0 0 auto;}
+  .sq-note{font-size:11px;color:var(--sub);line-height:1.7;margin:8px 0 0;}
+  .sq-note a{color:var(--sub);text-decoration:underline;}
+  .sq-box .confirm-actions{padding:14px 22px 20px;border-top:1px solid var(--line);margin:0;}
+
   .foot{text-align:center;margin-top:40px;padding-top:20px;border-top:1px solid var(--line);font-size:11px;color:var(--sub);}
 </style>
 </head>
@@ -235,32 +270,69 @@
 </div>
 
 <div class="confirm-overlay" id="confirmOverlay">
-  <div class="confirm-box">
+  <!-- 【1画面目】内容の確認だけ -->
+  <div class="confirm-box" id="confirmStep1">
     <div class="confirm-title">この内容でよろしいですか</div>
     <div class="confirm-detail" id="confirmDetail"></div>
-    <div style="margin:14px 0 4px;text-align:left;max-height:46vh;overflow-y:auto;">
-      <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;">お名前（代表者）<span style="color:#c0392b;">必須</span></label>
-      <input type="text" id="confirmName" placeholder="例：山田 太郎" autocomplete="name" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;">
-
-      <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 6px;">お電話番号 <span style="color:#c0392b;">必須</span></label>
-      <input type="tel" id="confirmTel" placeholder="例：090-1234-5678" autocomplete="tel" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;">
-
-      <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 6px;">メールアドレス（任意）</label>
-      <input type="email" id="confirmEmail" placeholder="例：sample@example.com" autocomplete="email" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;">
-
-      <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 6px;">ご住所</label>
-      <input type="text" id="confirmAddr" placeholder="例：福岡県福岡市中央区" autocomplete="address-level2" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;">
-      <p style="font-size:11px;color:#9a8f7a;margin:6px 0 0;line-height:1.6;">※ 市区町村まででOK</p>
-
-      <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 6px;">ご要望・ご連絡事項（任意）</label>
-      <textarea id="confirmNote" rows="3" placeholder="例：18時ごろに到着予定です／浴衣のサイズ相談 など" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8cfb8;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
-
-      <p style="font-size:11px;color:#9a8f7a;margin:10px 0 0;line-height:1.7;">「はい、進む」を押すと予約枠を <b>10分間</b> お取りして、お支払いページへ進みます。<br>10分以内にお支払いが完了しない場合、お席は自動的に解除されますのでご了承ください。</p>
-      <p style="font-size:11px;color:#9a8f7a;margin:8px 0 0;line-height:1.7;">ご入力いただいた情報は、ご予約の管理とご連絡にのみ使用します（<a href="privacy.html" target="_blank" rel="noopener" style="color:#7a6a4f;text-decoration:underline;">プライバシーポリシー</a>）。<br>お支払い情報は Square の安全なページで入力され、当サイトでは保持しません。</p>
-    </div>
     <div class="confirm-actions">
       <button type="button" class="btn-back" id="confirmBack">戻る</button>
-      <button type="button" class="btn-go" id="confirmGo">はい、進む</button>
+      <button type="button" class="btn-go" id="confirmNext">はい、進む</button>
+    </div>
+  </div>
+
+  <!-- 【2画面目】お客様情報の入力（Square形式） -->
+  <div class="confirm-box sq-box" id="confirmStep2" style="display:none;">
+    <div class="sq-head">
+      <div class="sq-h1">お会計</div>
+      <div class="sq-h2">予約が10分間確保されます</div>
+    </div>
+    <div class="sq-scroll">
+      <div class="sq-summary" id="confirmSummary"></div>
+
+      <div class="sq-section">連絡先情報</div>
+      <div class="sq-tel-row">
+        <div class="sq-tel-cc">🇯🇵 +81</div>
+        <input type="tel" id="confirmTel" class="sq-input" placeholder="電話番号" autocomplete="tel" inputmode="tel">
+      </div>
+
+      <div class="sq-name-row">
+        <input type="text" id="confirmLastName" class="sq-input" placeholder="姓" autocomplete="family-name">
+        <input type="text" id="confirmFirstName" class="sq-input" placeholder="名" autocomplete="given-name">
+      </div>
+      <input type="email" id="confirmEmail" class="sq-input" placeholder="メール" autocomplete="email" inputmode="email">
+
+      <div class="sq-section">住所</div>
+      <input type="text" id="confirmZip" class="sq-input" placeholder="000-0000（半角）" autocomplete="postal-code" inputmode="numeric">
+      <select id="confirmPref" class="sq-input sq-select" autocomplete="address-level1">
+        <option value="">都道府県</option>
+        <option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option><option>秋田県</option><option>山形県</option><option>福島県</option>
+        <option>茨城県</option><option>栃木県</option><option>群馬県</option><option>埼玉県</option><option>千葉県</option><option>東京都</option><option>神奈川県</option>
+        <option>新潟県</option><option>富山県</option><option>石川県</option><option>福井県</option><option>山梨県</option><option>長野県</option>
+        <option>岐阜県</option><option>静岡県</option><option>愛知県</option><option>三重県</option>
+        <option>滋賀県</option><option>京都府</option><option>大阪府</option><option>兵庫県</option><option>奈良県</option><option>和歌山県</option>
+        <option>鳥取県</option><option>島根県</option><option>岡山県</option><option>広島県</option><option>山口県</option>
+        <option>徳島県</option><option>香川県</option><option>愛媛県</option><option>高知県</option>
+        <option>福岡県</option><option>佐賀県</option><option>長崎県</option><option>熊本県</option><option>大分県</option><option>宮崎県</option><option>鹿児島県</option><option>沖縄県</option>
+      </select>
+      <input type="text" id="confirmCity" class="sq-input" placeholder="市区町村" autocomplete="address-level2">
+      <input type="text" id="confirmAddr1" class="sq-input" placeholder="住所1（丁目・番地）" autocomplete="address-line1">
+      <input type="text" id="confirmAddr2" class="sq-input" placeholder="住所2（建物名・部屋番号）" autocomplete="address-line2">
+
+      <div class="sq-section">ご要望・ご連絡事項</div>
+      <textarea id="confirmNote" class="sq-input sq-textarea" rows="3" placeholder="例：18時ごろに到着予定です／浴衣のサイズ相談 など"></textarea>
+
+      <label class="sq-save">
+        <input type="checkbox" id="confirmRemember" checked>
+        <span>この端末に入力内容を保存する（次回の入力が省けます）</span>
+      </label>
+      <p class="sq-note" id="sqSavedNote" style="display:none;">保存された情報を使用中です。<a href="#" id="sqClearSaved">保存した情報を消す</a></p>
+
+      <p class="sq-note">10分以内にお支払いが完了しない場合、お席は自動的に解除されますのでご了承ください。</p>
+      <p class="sq-note">ご入力いただいた情報は、ご予約の管理とご連絡にのみ使用します（<a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>）。お支払い情報は Square の安全なページで入力され、当サイトでは保持しません。</p>
+    </div>
+    <div class="confirm-actions">
+      <button type="button" class="btn-back" id="confirmBack2">戻る</button>
+      <button type="button" class="btn-go" id="confirmGo">お支払いへ進む</button>
     </div>
   </div>
 </div>
@@ -519,41 +591,121 @@
   // ---- 予約前の確認モーダル ----
   const confirmOverlay = document.getElementById("confirmOverlay");
   const confirmDetail = document.getElementById("confirmDetail");
+  const confirmStep1 = document.getElementById("confirmStep1");
+  const confirmStep2 = document.getElementById("confirmStep2");
+  const confirmNext = document.getElementById("confirmNext");
   const confirmGo = document.getElementById("confirmGo");
   const confirmBack = document.getElementById("confirmBack");
+  const confirmBack2 = document.getElementById("confirmBack2");
   let pending = null;
 
+  // ---- 入力内容の保存（この端末の中だけ。サーバーには送りません） ----
+  const SAVE_KEY = "nogiku_guest_v1";
+  const SAVE_FIELDS = ["confirmTel","confirmLastName","confirmFirstName","confirmEmail",
+                       "confirmZip","confirmPref","confirmCity","confirmAddr1","confirmAddr2"];
+  function loadGuest(){
+    let data = null;
+    try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch(e){}
+    if(!data) return false;
+    SAVE_FIELDS.forEach(id => {
+      const el = document.getElementById(id);
+      if(el && data[id]) el.value = data[id];
+    });
+    document.getElementById("sqSavedNote").style.display = "block";
+    return true;
+  }
+  function saveGuest(){
+    if(!document.getElementById("confirmRemember").checked){ clearGuest(false); return; }
+    const data = {};
+    SAVE_FIELDS.forEach(id => {
+      const el = document.getElementById(id);
+      if(el) data[id] = el.value;
+    });
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch(e){}
+  }
+  function clearGuest(alsoClearForm){
+    try { localStorage.removeItem(SAVE_KEY); } catch(e){}
+    document.getElementById("sqSavedNote").style.display = "none";
+    if(alsoClearForm){
+      SAVE_FIELDS.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.value = "";
+      });
+    }
+  }
+  document.getElementById("sqClearSaved").addEventListener("click", (e) => {
+    e.preventDefault();
+    clearGuest(true);
+    document.getElementById("confirmRemember").checked = false;
+  });
+
+  function closeConfirm(){
+    confirmOverlay.classList.remove("open");
+    confirmStep1.style.display = "";
+    confirmStep2.style.display = "none";
+    pending = null;
+  }
+
   function openConfirm(room, roomName, startIso, team, timeLabel){
-    pending = { room, startIso, team, isPlan180: selectedMode === "180", people: selectedNum };
-    const modeLabel = selectedMode === "180" ? "（180分旅館）" : "";
+    const isPlan180 = selectedMode === "180";
+    pending = { room, startIso, team, isPlan180, people: selectedNum, roomName, timeLabel };
+    const modeLabel = isPlan180 ? "（180分旅館）" : "";
     confirmDetail.textContent = `${selectedNum}名・${fmtDate(selectedDate)}・${roomName}${modeLabel}・${timeLabel}でよろしいですか？`;
+    confirmStep1.style.display = "";
+    confirmStep2.style.display = "none";
     confirmOverlay.classList.add("open");
   }
-  confirmBack.addEventListener("click", () => {
-    confirmOverlay.classList.remove("open");
-    pending = null;
+
+  // 【1画面目】はい、進む → 【2画面目】お客様情報へ
+  confirmNext.addEventListener("click", () => {
+    if(!pending) return;
+    const modeLabel = pending.isPlan180 ? "（180分旅館）" : "";
+    document.getElementById("confirmSummary").textContent =
+      `${pending.people}名・${fmtDate(selectedDate)}・${pending.roomName}${modeLabel}・${pending.timeLabel}`;
+    confirmStep1.style.display = "none";
+    confirmStep2.style.display = "";
+    loadGuest();
+  });
+
+  confirmBack.addEventListener("click", closeConfirm);
+  confirmBack2.addEventListener("click", () => {
+    confirmStep2.style.display = "none";
+    confirmStep1.style.display = "";
   });
   confirmOverlay.addEventListener("click", (e) => {
-    if(e.target === confirmOverlay){
-      confirmOverlay.classList.remove("open");
-      pending = null;
-    }
+    if(e.target === confirmOverlay) closeConfirm();
   });
+
+  // 【2画面目】お支払いへ進む
   confirmGo.addEventListener("click", async () => {
     if(!pending) return;
-    const name = document.getElementById("confirmName").value.trim();
     const tel = document.getElementById("confirmTel").value.trim();
+    const lastName = document.getElementById("confirmLastName").value.trim();
+    const firstName = document.getElementById("confirmFirstName").value.trim();
     const email = document.getElementById("confirmEmail").value.trim();
-    const addr = document.getElementById("confirmAddr").value.trim();
+    const zip = document.getElementById("confirmZip").value.trim();
+    const pref = document.getElementById("confirmPref").value.trim();
+    const city = document.getElementById("confirmCity").value.trim();
+    const addr1 = document.getElementById("confirmAddr1").value.trim();
+    const addr2 = document.getElementById("confirmAddr2").value.trim();
     const note = document.getElementById("confirmNote").value.trim();
-    if(!name){ alert("お名前を入力してください"); return; }
-    if(!tel){ alert("お電話番号を入力してください"); return; }
+
+    if(!tel){ alert("電話番号を入力してください"); document.getElementById("confirmTel").focus(); return; }
+    if(!lastName || !firstName){ alert("姓名を入力してください"); document.getElementById("confirmLastName").focus(); return; }
+
+    saveGuest();
+    const name = `${lastName} ${firstName}`;
+    const addr = [pref, city, addr1, addr2].filter(Boolean).join("");
     const p = pending;
     confirmGo.disabled = true;
     confirmGo.textContent = "予約枠を確保しています…";
     try {
       const plan = planKey(p.room, p.isPlan180);
-      const r = await fetch(`${API_BASE}/book?plan=${plan}&people=${p.people}&start_at=${encodeURIComponent(p.startIso)}&team=${encodeURIComponent(p.team || "")}&name=${encodeURIComponent(name)}&tel=${encodeURIComponent(tel)}&email=${encodeURIComponent(email)}&addr=${encodeURIComponent(addr)}&note=${encodeURIComponent(note)}`);
+      const q = new URLSearchParams({
+        plan, people: p.people, start_at: p.startIso, team: p.team || "",
+        name, tel, email, addr, note, zip
+      });
+      const r = await fetch(`${API_BASE}/book?${q.toString()}`);
       const data = await r.json();
       if(data && data.ok && data.url){
         window.location.href = data.url;
@@ -564,10 +716,27 @@
       alert("通信エラーが発生しました。時間をおいてもう一度お試しください。");
     }
     confirmGo.disabled = false;
-    confirmGo.textContent = "はい、進む";
-    confirmOverlay.classList.remove("open");
-    pending = null;
+    confirmGo.textContent = "お支払いへ進む";
+    closeConfirm();
   });
+
+  // ---- 決済完了で戻ってきたとき ----
+  if(new URLSearchParams(location.search).get("paid") === "1"){
+    fetch(`${API_BASE}/paid-check`).catch(()=>{});
+    const done = document.createElement("div");
+    done.style.cssText = "position:fixed;inset:0;background:rgba(58,42,44,.55);display:flex;align-items:center;justify-content:center;z-index:400;padding:20px;";
+    done.innerHTML = `<div style="background:#fff;border-radius:18px;padding:30px 24px;max-width:360px;text-align:center;box-shadow:0 12px 32px rgba(58,42,44,.3);">
+      <div style="font-size:34px;margin-bottom:10px;">✓</div>
+      <div style="font-family:var(--font-display);font-size:19px;font-weight:700;margin-bottom:10px;">ご予約ありがとうございます</div>
+      <p style="font-size:13px;color:var(--sub);line-height:1.8;margin:0 0 20px;">お支払いが完了し、ご予約が確定しました。<br>確認のご連絡をお送りしますので、少々お待ちください。</p>
+      <button type="button" id="doneClose" style="width:100%;padding:13px;border:none;border-radius:100px;background:var(--pink-deep);color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">閉じる</button>
+    </div>`;
+    document.body.appendChild(done);
+    done.querySelector("#doneClose").addEventListener("click", () => {
+      done.remove();
+      history.replaceState(null, "", location.pathname);
+    });
+  }
 </script>
 </body>
 </html>

@@ -507,6 +507,8 @@
   .sq-tel-row .sq-input{flex:1;}
   .sq-name-row{display:flex;gap:8px;}
   .sq-name-row .sq-input{flex:1;}
+  .sq-save{display:flex;align-items:flex-start;gap:8px;margin:14px 0 0;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.6;}
+  .sq-save input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--ember);flex:0 0 auto;}
   .sq-note{font-size:11px;color:var(--sub);line-height:1.7;margin:8px 0 0;}
   .sq-note a{color:var(--sub);text-decoration:underline;}
   .sq-box .confirm-actions{padding:14px 22px 20px;border-top:1px solid var(--line);margin:0;}
@@ -768,6 +770,12 @@
 
       <div class="sq-section">ご要望・ご連絡事項</div>
       <textarea id="confirmNote" class="sq-input sq-textarea" rows="3" placeholder="例：18時ごろに到着予定です／浴衣のサイズ相談 など"></textarea>
+
+      <label class="sq-save">
+        <input type="checkbox" id="confirmRemember" checked>
+        <span>この端末に入力内容を保存する（次回の入力が省けます）</span>
+      </label>
+      <p class="sq-note" id="sqSavedNote" style="display:none;">保存された情報を使用中です。<a href="#" id="sqClearSaved">保存した情報を消す</a></p>
 
       <p class="sq-note">10分以内にお支払いが完了しない場合、お席は自動的に解除されますのでご了承ください。</p>
       <p class="sq-note">ご入力いただいた情報は、ご予約の管理とご連絡にのみ使用します（<a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>）。お支払い情報は Square の安全なページで入力され、当サイトでは保持しません。</p>
@@ -1072,6 +1080,46 @@
     confirmOverlay.classList.add("open");
   }
 
+  // ---- 入力内容の保存（この端末の中だけ。サーバーには送りません） ----
+  const SAVE_KEY = "nogiku_guest_v1";
+  const SAVE_FIELDS = ["confirmTel","confirmLastName","confirmFirstName","confirmEmail",
+                       "confirmZip","confirmPref","confirmCity","confirmAddr1","confirmAddr2"];
+  function loadGuest(){
+    let data = null;
+    try { data = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch(e){}
+    if(!data) return false;
+    SAVE_FIELDS.forEach(id => {
+      const el = document.getElementById(id);
+      if(el && data[id]) el.value = data[id];
+    });
+    document.getElementById("sqSavedNote").style.display = "block";
+    return true;
+  }
+  function saveGuest(){
+    if(!document.getElementById("confirmRemember").checked){ clearGuest(false); return; }
+    const data = {};
+    SAVE_FIELDS.forEach(id => {
+      const el = document.getElementById(id);
+      if(el) data[id] = el.value;
+    });
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch(e){}
+  }
+  function clearGuest(alsoClearForm){
+    try { localStorage.removeItem(SAVE_KEY); } catch(e){}
+    document.getElementById("sqSavedNote").style.display = "none";
+    if(alsoClearForm){
+      SAVE_FIELDS.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.value = "";
+      });
+    }
+  }
+  document.getElementById("sqClearSaved").addEventListener("click", (e) => {
+    e.preventDefault();
+    clearGuest(true);
+    document.getElementById("confirmRemember").checked = false;
+  });
+
   // 【1画面目】はい、進む → 【2画面目】お客様情報へ
   confirmNext.addEventListener("click", () => {
     if(!pending) return;
@@ -1080,6 +1128,7 @@
       `${pending.people}名・${fmtDate(selectedDate)}・${pending.roomName}${planLabel}・${pending.timeLabel}`;
     confirmStep1.style.display = "none";
     confirmStep2.style.display = "";
+    loadGuest();
   });
 
   confirmBack.addEventListener("click", closeConfirm);
@@ -1108,6 +1157,7 @@
     if(!tel){ alert("電話番号を入力してください"); document.getElementById("confirmTel").focus(); return; }
     if(!lastName || !firstName){ alert("姓名を入力してください"); document.getElementById("confirmLastName").focus(); return; }
 
+    saveGuest();
     const name = `${lastName} ${firstName}`;
     const addr = [pref, city, addr1, addr2].filter(Boolean).join("");
     const p = pending;
