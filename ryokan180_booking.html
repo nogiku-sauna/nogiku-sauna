@@ -598,6 +598,7 @@
   const confirmBack = document.getElementById("confirmBack");
   const confirmBack2 = document.getElementById("confirmBack2");
   let pending = null;
+  let holdId = null;   // 入力画面で確保した枠のID
 
   // ---- 入力内容の保存（この端末の中だけ。サーバーには送りません） ----
   const SAVE_KEY = "nogiku_guest_v1";
@@ -644,6 +645,10 @@
     confirmStep1.style.display = "";
     confirmStep2.style.display = "none";
     pending = null;
+    if(holdId){                        // 確保していた枠を解放する
+      fetch(`${API_BASE}/release?id=${holdId}`).catch(()=>{});
+      holdId = null;
+    }
   }
 
   function openConfirm(room, roomName, startIso, team, timeLabel){
@@ -665,12 +670,29 @@
     confirmStep1.style.display = "none";
     confirmStep2.style.display = "";
     loadGuest();
+    // この時点で枠を確保しておく（入力中に他の人へ取られないように）
+    confirmGo.disabled = true;
+    fetch(`${API_BASE}/hold?start_at=${encodeURIComponent(pending.startIso)}&team=${encodeURIComponent(pending.team || "")}${holdId ? "&prev=" + holdId : ""}`)
+      .then(r => r.json())
+      .then(d => {
+        confirmGo.disabled = false;
+        if(d && d.ok){ holdId = d.hold_id; }
+        else {
+          alert((d && d.message) || "この枠はただ今お手続き中です。別の時間をお選びください。");
+          closeConfirm();
+        }
+      })
+      .catch(() => { confirmGo.disabled = false; });
   });
 
   confirmBack.addEventListener("click", closeConfirm);
   confirmBack2.addEventListener("click", () => {
     confirmStep2.style.display = "none";
     confirmStep1.style.display = "";
+    if(holdId){
+      fetch(`${API_BASE}/release?id=${holdId}`).catch(()=>{});
+      holdId = null;
+    }
   });
   confirmOverlay.addEventListener("click", (e) => {
     if(e.target === confirmOverlay) closeConfirm();
@@ -703,7 +725,7 @@
       const plan = planKey(p.room, p.isPlan180);
       const q = new URLSearchParams({
         plan, people: p.people, start_at: p.startIso, team: p.team || "",
-        name, tel, email, addr, note, zip
+        name, tel, email, addr, note, zip, hold: holdId || ""
       });
       const r = await fetch(`${API_BASE}/book?${q.toString()}`);
       const data = await r.json();

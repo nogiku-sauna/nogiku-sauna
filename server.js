@@ -166,6 +166,11 @@ async function sweepPending() {
   for (const h of list) {
     if (h.done) continue;                                   // 済み → 破棄
     const ageMin = (now - h.created_at) / 60000;
+    // 入力画面だけの仮押さえ（まだ決済ページに進んでいない）
+    if (!h.order_id) {
+      if (ageMin < HOLD_MINUTES) keep.push(h);
+      continue;
+    }
     try {
       const or = await sq('GET', '/v2/orders/' + h.order_id);
       const order = or.data.order || {};
@@ -418,6 +423,42 @@ const server = http.createServer((req, res) => {
   }
 
   // ---- 予約の確保＋決済ページ（★予約はSquareのカレンダーに自動登録される） ----
+  // ---- 入力画面を開いた時点の仮押さえ（お客様情報の入力中も枠を守る） ----
+  if (url === '/hold' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    const q = new URLSearchParams((req.url.split('?')[1] || ''));
+    const startAt = q.get('start_at');
+    const team = q.get('team');
+    const prev = q.get('prev'); // 前の仮押さえ（戻る操作のとき解除する）
+    if (!startAt || !team) { res.statusCode = 400; res.end(JSON.stringify({ ok: false })); return; }
+
+    let list = loadPending();
+    if (prev) list = list.filter(h => h.id !== prev);           // 前の仮押さえを解除
+    const now = Date.now();
+    const held = list.some(h => !h.done && h.start_at === startAt && h.team === team
+      && (now - h.created_at) / 60000 < HOLD_MINUTES);
+    if (held) {
+      savePending(list);
+      res.end(JSON.stringify({ ok: false, message: 'この枠は現在ほかのお客様がお手続き中です。少し時間をおくか、別の時間をお選びください。' }));
+      return;
+    }
+    const holdId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    list.push({ id: holdId, created_at: now, start_at: startAt, team, stage: 'form' });
+    savePending(list);
+    res.end(JSON.stringify({ ok: true, hold_id: holdId, minutes: HOLD_MINUTES }));
+    return;
+  }
+
+  // ---- 仮押さえの解除（入力画面を閉じたとき） ----
+  if (url === '/release' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    const q = new URLSearchParams((req.url.split('?')[1] || ''));
+    const id = q.get('id');
+    if (id) savePending(loadPending().filter(h => h.id !== id));
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
   if (url === '/book' && req.method === 'GET') {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     if (!isConfigured()) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'not configured' })); return; }
@@ -438,8 +479,13 @@ const server = http.createServer((req, res) => {
     const variation = pickVariation(plan, people, startAt);
     if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'プランを認識できませんでした' })); return; }
 
-    // 他の人が仮押さえ中でないか
-    if (isHeld(startAt, team)) {
+    // 自分の仮押さえ（入力画面で確保したもの）は引き継ぐ。他人のものなら断る
+    const myHoldId = q.get('hold');
+    const nowMs = Date.now();
+    const others = loadPending().some(h => !h.done && h.id !== myHoldId
+      && h.start_at === startAt && h.team === team
+      && (nowMs - h.created_at) / 60000 < HOLD_MINUTES);
+    if (others) {
       res.end(JSON.stringify({ ok: false, message: 'この枠は現在ほかのお客様がお手続き中です。少し時間をおくか、別の時間をお選びください。' }));
       return;
     }
@@ -510,11 +556,12 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      // 10分間の仮押さえを登録（この時点ではSquareに予約は入らない＝通知も飛ばない）
-      const holdId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      const plist = loadPending();
+      // 仮押さえを「決済待ち」に更新（入力画面で確保した時間から数える）
+      const plist = loadPending().filter(h => h.id !== myHoldId);
+      const prevHold = loadPending().find(h => h.id === myHoldId);
+      const holdId = myHoldId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
       plist.push({
-        id: holdId, created_at: Date.now(),
+        id: holdId, created_at: prevHold ? prevHold.created_at : Date.now(),
         order_id: link.order_id, link_id: link.id,
         plan, people, start_at: startAt, team, variation,
         label: MENU[plan].label,
