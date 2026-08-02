@@ -265,7 +265,8 @@ async function createBookingFromHold(h) {
       booking
     });
     if (br.ok) {
-      notifyStore(h);   // お店へ予約通知（Squareは API 経由だと通知を送らないため）
+      notifyStore(h);          // お店へ予約通知（Squareは API 経由だと通知を送らないため）
+      completeOrder(h.order_id); // 「注文」を自動で完了にする（通知バッジを残さない）
     }
     if (!br.ok) {
       // ★万一この枠が埋まっていた場合（要対応：返金や別時間のご案内）
@@ -314,6 +315,45 @@ function prefOnly(addr) {
   if (!addr) return '';
   const m = String(addr).match(/^(北海道|東京都|京都府|大阪府|.{2,3}[県])/);
   return m ? m[1] : '';
+}
+
+// ==========================================================================
+// 「注文」を自動で完了にする
+//   サウナの予約では商品の受け渡し管理は不要なので、
+//   決済＆予約作成が済んだら注文を完了扱いにして、通知バッジを残さない
+// ==========================================================================
+async function completeOrder(orderId) {
+  if (!orderId) return;
+  try {
+    const or = await sq('GET', '/v2/orders/' + orderId);
+    const order = or.data.order;
+    if (!order) return;
+    const locId = order.location_id || await getLocationId();
+
+    // 受け渡し情報（fulfillment）があれば完了にする
+    const fulfillments = order.fulfillments || [];
+    if (fulfillments.length) {
+      const updated = fulfillments
+        .filter(f => f.state !== 'COMPLETED' && f.state !== 'CANCELED')
+        .map(f => ({ uid: f.uid, state: 'COMPLETED' }));
+      if (updated.length) {
+        await sq('PUT', '/v2/orders/' + orderId, {
+          idempotency_key: 'ful-' + orderId,
+          order: { location_id: locId, version: order.version, fulfillments: updated }
+        });
+      }
+    }
+
+    // 注文そのものも「完了」にする
+    const fresh = await sq('GET', '/v2/orders/' + orderId);
+    const ver = (fresh.data.order && fresh.data.order.version) || order.version;
+    if ((fresh.data.order || order).state !== 'COMPLETED') {
+      await sq('PUT', '/v2/orders/' + orderId, {
+        idempotency_key: 'cmp-' + orderId,
+        order: { location_id: locId, version: ver, state: 'COMPLETED' }
+      });
+    }
+  } catch (e) { console.error('注文完了処理エラー:', String(e)); }
 }
 
 // ==========================================================================
@@ -574,6 +614,27 @@ const server = http.createServer((req, res) => {
       savePending(loadPending().filter(x => x.id !== id));
     }
     res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  // ---- たまっている未完了の注文をまとめて完了にする（一時用） ----
+  if (url === '/complete-orders' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    (async () => {
+      const locId = await getLocationId();
+      const r = await sq('POST', '/v2/orders/search', {
+        location_ids: [locId],
+        query: { filter: { state_filter: { states: ['OPEN'] } } },
+        limit: 100
+      });
+      const orders = r.data.orders || [];
+      let done = 0;
+      for (const o of orders) {
+        const paid = (o.tenders && o.tenders.length > 0);
+        if (paid) { await completeOrder(o.id); done++; }
+      }
+      res.end(JSON.stringify({ ok: true, 対象: orders.length, 完了にした件数: done }));
+    })();
     return;
   }
 
