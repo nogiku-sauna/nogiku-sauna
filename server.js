@@ -136,59 +136,128 @@ async function getLocationId() {
 }
 
 // ==========================================================================
-// 未決済予約の自動管理（30分ルール）
-//  - 支払い確認 → 予約メモに【決済確認済み】を追記
-//  - 30分未払い → 予約を自動キャンセルして枠を解放（決済リンクも無効化）
+// 仮押さえ管理（D案）
+//  「はい、進む」を押した時点では Square には何も入れず、
+//  サーバー内で 10分間だけ枠を確保する（＝この間はメールもSMSも飛ばない）。
+//  決済が完了した瞬間に Square へ予約を登録し、そこで確認メール/SMSが届く。
 // ==========================================================================
 const PENDING_PATH = path.join(__dirname, 'pending.json');
 const HOLD_MINUTES = 10; // 仮押さえの有効時間（分）
+
 function loadPending() { try { return JSON.parse(fs.readFileSync(PENDING_PATH, 'utf8')); } catch (e) { return []; } }
 function savePending(list) { try { fs.writeFileSync(PENDING_PATH, JSON.stringify(list)); } catch (e) {} }
+
+// 期限切れを取り除いた、有効な仮押さえだけを返す
+function activeHolds() {
+  const now = Date.now();
+  return loadPending().filter(h => !h.done && (now - h.created_at) / 60000 < HOLD_MINUTES);
+}
+// その枠が今、他の人に仮押さえされているか
+function isHeld(startAt, team) {
+  return activeHolds().some(h => h.start_at === startAt && h.team === team);
+}
+
+// 決済が終わった仮押さえを Square の予約に変える
 async function sweepPending() {
-  let list = loadPending();
+  const list = loadPending();
   if (!list.length) return;
+  const now = Date.now();
   const keep = [];
-  for (const p of list) {
+  for (const h of list) {
+    if (h.done) continue;                                   // 済み → 破棄
+    const ageMin = (now - h.created_at) / 60000;
     try {
-      const or = await sq('GET', '/v2/orders/' + p.order_id);
+      const or = await sq('GET', '/v2/orders/' + h.order_id);
       const order = or.data.order || {};
       const paid = (order.tenders && order.tenders.length > 0) || order.state === 'COMPLETED';
       if (paid) {
-        try {
-          const br = await sq('GET', '/v2/bookings/' + p.booking_id);
-          const bk = br.data.booking;
-          if (bk && bk.status && !String(bk.status).startsWith('CANCELLED')) {
-            // 決済完了 → 予約を「確定」に切り替える（このタイミングでSquareが確認メール/SMSを送る）
-            const note = (bk.seller_note || '').replace('（入金確認待ち）', '') + '【決済確認済み】';
-            await sq('PUT', '/v2/bookings/' + p.booking_id, {
-              booking: {
-                version: bk.version,
-                status: 'ACCEPTED',
-                seller_note: note.slice(0, 4000)
-              }
-            });
-          }
-        } catch (e) {}
-        continue; // 支払い済み → 監視終了
+        await createBookingFromHold(h);                     // ★決済完了 → 本予約を作成
+        continue;
       }
-      const ageMin = (Date.now() - p.created_at) / 60000;
-      if (ageMin >= HOLD_MINUTES) {
-        try {
-          const br = await sq('GET', '/v2/bookings/' + p.booking_id);
-          const bk = br.data.booking;
-          if (bk && bk.status && !String(bk.status).startsWith('CANCELLED')) {
-            await sq('POST', '/v2/bookings/' + p.booking_id + '/cancel', { booking_version: bk.version });
-          }
-        } catch (e) {}
-        try { await sq('DELETE', '/v2/online-checkout/payment-links/' + p.link_id); } catch (e) {}
-        continue; // 期限切れ → キャンセルして監視終了
-      }
-      keep.push(p); // まだ30分以内 → 監視続行
-    } catch (e) { keep.push(p); }
+    } catch (e) {}
+    if (ageMin >= HOLD_MINUTES) {
+      try { await sq('DELETE', '/v2/online-checkout/payment-links/' + h.link_id); } catch (e) {}
+      continue;                                             // 期限切れ → 仮押さえ解除
+    }
+    keep.push(h);                                           // まだ有効 → 継続
   }
   savePending(keep);
 }
-setInterval(sweepPending, 20 * 1000); // 20秒ごとに見回り（決済後すぐ確定させるため）
+
+// 仮押さえの情報から、Square に本予約を登録する
+async function createBookingFromHold(h) {
+  try {
+    const locId = await getLocationId();
+    const co = await sq('GET', '/v2/catalog/object/' + h.variation);
+    const version = co.data.object && co.data.object.version;
+    if (!version) return;
+
+    // お客様情報（同じ電話番号があれば、その方に紐づける＝リピーター対応）
+    let customerId = null;
+    const address = h.addr ? { address_line_1: h.addr, country: 'JP' } : undefined;
+    if (address && h.zip) address.postal_code = h.zip;
+    if (h.telE164) {
+      const search = await sq('POST', '/v2/customers/search', {
+        limit: 1, query: { filter: { phone_number: { exact: h.telE164 } } }
+      });
+      const found = (search.data.customers || [])[0];
+      if (found) {
+        customerId = found.id;
+        const upd = { given_name: h.name };
+        if (h.email) upd.email_address = h.email;
+        if (address) upd.address = address;
+        await sq('PUT', '/v2/customers/' + customerId, upd);
+      }
+    }
+    if (!customerId) {
+      const custBody = {
+        idempotency_key: 'cus-' + h.id,
+        given_name: h.name,
+        note: 'Webサイト予約'
+      };
+      if (h.telE164) custBody.phone_number = h.telE164;
+      if (h.email) custBody.email_address = h.email;
+      if (address) custBody.address = address;
+      const cr = await sq('POST', '/v2/customers', custBody);
+      customerId = cr.data.customer && cr.data.customer.id;
+    }
+
+    const booking = {
+      location_id: locId,
+      start_at: h.start_at,
+      customer_note: h.note || '',
+      seller_note: 'Webサイト予約【決済済み】' + h.label + ' ' + h.people + '名 / ' + h.name + '様 / TEL:' + h.tel
+        + (h.email ? ' / ' + h.email : '') + (h.addr ? ' / ご住所:' + h.addr : ''),
+      appointment_segments: [{
+        team_member_id: h.team,
+        service_variation_id: h.variation,
+        service_variation_version: version
+      }]
+    };
+    if (customerId) booking.customer_id = customerId;
+    const br = await sq('POST', '/v2/bookings', {
+      idempotency_key: 'bk-' + h.id,   // 同じ仮押さえから二重に作らないための鍵
+      booking
+    });
+    if (!br.ok) {
+      // ★万一この枠が埋まっていた場合（要対応：返金や別時間のご案内）
+      console.error('[要対応] 決済済みだが予約作成に失敗:', h.name, h.tel, h.start_at,
+        JSON.stringify(br.data.errors || br.data));
+      const fails = loadFailures();
+      fails.push({ at: new Date().toISOString(), hold: h, errors: br.data.errors || null });
+      saveFailures(fails);
+    }
+  } catch (e) {
+    console.error('[要対応] 予約作成で例外:', String(e));
+  }
+}
+
+// 決済済みなのに予約が作れなかったケースの記録（お店が確認するため）
+const FAIL_PATH = path.join(__dirname, 'failures.json');
+function loadFailures() { try { return JSON.parse(fs.readFileSync(FAIL_PATH, 'utf8')); } catch (e) { return []; } }
+function saveFailures(list) { try { fs.writeFileSync(FAIL_PATH, JSON.stringify(list, null, 2)); } catch (e) {} }
+
+setInterval(sweepPending, 20 * 1000); // 20秒ごとに確認（決済後すぐ予約を作るため）
 setTimeout(sweepPending, 10 * 1000);  // 起動直後にも1回
 
 // ---- 設定ページHTML ----
@@ -330,7 +399,8 @@ const server = http.createServer((req, res) => {
       (r.data.availabilities || []).forEach(a => {
         // 「部屋」(予約可能スタッフ)の枠だけを採用。個人カレンダー由来の枠は除外
         const seg = (a.appointment_segments || []).find(s => bookable.has(s.team_member_id));
-        if (seg && !seen.has(a.start_at)) {
+        // 他のお客様がお手続き中（仮押さえ）の枠は表示しない
+        if (seg && !seen.has(a.start_at) && !isHeld(a.start_at, seg.team_member_id)) {
           seen.add(a.start_at);
           slots.push({ start_at: a.start_at, team: seg.team_member_id });
         }
@@ -367,90 +437,42 @@ const server = http.createServer((req, res) => {
     }
     const variation = pickVariation(plan, people, startAt);
     if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'プランを認識できませんでした' })); return; }
+
+    // 他の人が仮押さえ中でないか
+    if (isHeld(startAt, team)) {
+      res.end(JSON.stringify({ ok: false, message: 'この枠は現在ほかのお客様がお手続き中です。少し時間をおくか、別の時間をお選びください。' }));
+      return;
+    }
+
     (async () => {
       const locId = await getLocationId();
-      // メニューの最新バージョン番号（予約作成に必要）
-      const co = await sq('GET', '/v2/catalog/object/' + variation);
-      const version = co.data.object && co.data.object.version;
-      if (!version) { res.end(JSON.stringify({ ok: false, message: 'メニュー情報を取得できませんでした' })); return; }
-      // 1) お客様情報（リピーターなら既存のお客様に紐づける）
-      const telDigits = tel.replace(/[^0-9]/g, '');
-      const telE164 = telDigits.length >= 10
-        ? (telDigits.startsWith('0') ? '+81' + telDigits.slice(1) : '+' + telDigits)
-        : '';
-      const address = addr ? { address_line_1: addr, country: 'JP' } : undefined;
-      if (address && zip) address.postal_code = zip;
 
-      let customerId = null;
-      if (telE164) {
-        const search = await sq('POST', '/v2/customers/search', {
-          limit: 1,
-          query: { filter: { phone_number: { exact: telE164 } } }
-        });
-        const found = (search.data.customers || [])[0];
-        if (found) {
-          customerId = found.id;
-          const upd = { given_name: name };
-          if (email) upd.email_address = email;
-          if (address) upd.address = address;
-          await sq('PUT', '/v2/customers/' + customerId, upd);
-        }
-      }
-      if (!customerId) {
-        const custBody = {
-          idempotency_key: 'cus-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
-          given_name: name,
-          note: 'Webサイト予約'
-        };
-        if (telE164) custBody.phone_number = telE164;
-        if (email) custBody.email_address = email;
-        if (address) custBody.address = address;
-        const cr = await sq('POST', '/v2/customers', custBody);
-        customerId = cr.data.customer && cr.data.customer.id;
-      }
-      // 2) 予約をSquareカレンダーに登録（この時点で枠が埋まる）
-      const booking = {
-        location_id: locId,
-        start_at: startAt,
-        customer_note: note,
-        seller_note: 'Webサイト予約 ' + MENU[plan].label + ' ' + people + '名 / ' + name + '様 / TEL:' + tel + (email ? ' / ' + email : '') + (addr ? ' / ご住所:' + addr : '') + '（入金確認待ち）',
-        // 決済が終わるまでは「未確定(PENDING)」。この状態ならSquareの確定メール/SMSは飛ばない
-        status: 'PENDING',
-        appointment_segments: [{
-          team_member_id: team,
-          service_variation_id: variation,
-          service_variation_version: version
-        }]
-      };
-      if (customerId) booking.customer_id = customerId;
-      let br = await sq('POST', '/v2/bookings', {
-        idempotency_key: 'bk-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
-        booking
+      // Square側でまだ空いているか、念のため直前に確認
+      const avail = await sq('POST', '/v2/bookings/availability/search', {
+        query: { filter: {
+          start_at_range: { start_at: startAt, end_at: new Date(new Date(startAt).getTime() + 60000).toISOString() },
+          location_id: locId,
+          segment_filters: [{ service_variation_id: variation }]
+        } }
       });
-      // status指定が使えない環境なら、指定なしで作り直す（予約が取れないより優先）
-      if (!br.ok && JSON.stringify(br.data.errors || '').includes('status')) {
-        delete booking.status;
-        br = await sq('POST', '/v2/bookings', {
-          idempotency_key: 'bk2-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
-          booking
-        });
-      }
-      if (!br.ok) {
-        const detail = (br.data.errors || []).map(e => e.detail).join(' / ');
-        res.end(JSON.stringify({ ok: false, message: 'この枠は確保できませんでした。別の時間をお試しください。', errors: br.data.errors || null, detail }));
+      const stillFree = (avail.data.availabilities || []).some(a =>
+        a.start_at === startAt && (a.appointment_segments || []).some(sg => sg.team_member_id === team));
+      if (!stillFree) {
+        res.end(JSON.stringify({ ok: false, message: 'この枠はちょうど埋まってしまいました。別の時間をお選びください。' }));
         return;
       }
-      const bookingId = br.data.booking && br.data.booking.id;
-      // 3) 決済ページを作成
+
+      // 決済ページを作る（※Squareへの予約登録は、決済が終わってから）
       const jst = new Date(new Date(startAt).getTime() + 9 * 3600000);
       const when = jst.toISOString().slice(0, 16).replace('T', ' ');
-      // 電話番号は数字のみ（国際形式）に整えてから渡す。合わない場合は渡さない
-      const digits = tel.replace(/[^0-9]/g, '');
-      const e164 = digits.startsWith('0') ? '+81' + digits.slice(1) : (digits ? '+' + digits : '');
+      const telDigits = tel.replace(/[^0-9]/g, '');
+      const telE164 = telDigits.length >= 10
+        ? (telDigits.startsWith('0') ? '+81' + telDigits.slice(1) : '+' + telDigits) : '';
       const prefill = {};
       if (email && /.+@.+\..+/.test(email)) prefill.buyer_email = email;
-      if (/^\+\d{10,15}$/.test(e164)) prefill.buyer_phone_number = e164;
-      const pr = await sq('POST', '/v2/online-checkout/payment-links', {
+      if (/^\+\d{10,15}$/.test(telE164)) prefill.buyer_phone_number = telE164;
+
+      const linkBody = {
         idempotency_key: 'pl-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
         order: { location_id: locId, line_items: [{ quantity: '1', catalog_object_id: variation }] },
         checkout_options: {
@@ -458,32 +480,42 @@ const server = http.createServer((req, res) => {
           ask_for_shipping_address: false
         },
         pre_populated_data: Object.keys(prefill).length ? prefill : undefined,
-        payment_note: name + '様 ' + MENU[plan].label + ' ' + people + '名 ' + when + '(JST) 予約ID:' + (bookingId || '不明')
-      });
+        payment_note: name + '様 ' + MENU[plan].label + ' ' + people + '名 ' + when + '(JST)'
+      };
+      const pr = await sq('POST', '/v2/online-checkout/payment-links', linkBody);
       let link = pr.data.payment_link || {};
-      // プリフィル情報が原因で失敗した場合は、情報なしでもう一度作る（予約を無駄にしない）
       if (!link.url && Object.keys(prefill).length) {
-        const retry = await sq('POST', '/v2/online-checkout/payment-links', {
-          idempotency_key: 'pl2-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
-          order: { location_id: locId, line_items: [{ quantity: '1', catalog_object_id: variation }] },
-          checkout_options: {
-            redirect_url: 'https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1',
-            ask_for_shipping_address: false
-          },
-          payment_note: name + '様 ' + MENU[plan].label + ' ' + people + '名 ' + when + '(JST) 予約ID:' + (bookingId || '不明')
-        });
+        delete linkBody.pre_populated_data;
+        linkBody.idempotency_key = 'pl2-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        const retry = await sq('POST', '/v2/online-checkout/payment-links', linkBody);
         link = retry.data.payment_link || {};
       }
       if (!link.url) {
-        res.end(JSON.stringify({ ok: false, message: '予約は確保しましたが、決済ページの作成に失敗しました。お店にご連絡ください。', booking_id: bookingId, status: pr.status, errors: pr.data.errors || null }));
+        res.end(JSON.stringify({ ok: false, message: 'お支払いページの作成に失敗しました。時間をおいてお試しください。', errors: pr.data.errors || null }));
         return;
       }
-      // 仮押さえの監視リストに登録（10分未払いなら自動キャンセル）
+
+      // 10分間の仮押さえを登録（この時点ではSquareに予約は入らない＝通知も飛ばない）
+      const holdId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
       const plist = loadPending();
-      plist.push({ booking_id: bookingId, order_id: link.order_id, link_id: link.id, created_at: Date.now() });
+      plist.push({
+        id: holdId, created_at: Date.now(),
+        order_id: link.order_id, link_id: link.id,
+        plan, people, start_at: startAt, team, variation,
+        label: MENU[plan].label,
+        name, tel, telE164, email, addr, zip, note
+      });
       savePending(plist);
-      res.end(JSON.stringify({ ok: true, booking_id: bookingId, booking_status: (br.data.booking && br.data.booking.status) || null, url: link.url }));
+
+      res.end(JSON.stringify({ ok: true, hold_id: holdId, url: link.url }));
     })();
+    return;
+  }
+
+  // ---- 要対応リスト（決済済みなのに予約が作れなかったケース） ----
+  if (url === '/failures' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify(loadFailures(), null, 2));
     return;
   }
 
