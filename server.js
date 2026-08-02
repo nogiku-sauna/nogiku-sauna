@@ -158,8 +158,14 @@ async function sweepPending() {
           const br = await sq('GET', '/v2/bookings/' + p.booking_id);
           const bk = br.data.booking;
           if (bk && bk.status && !String(bk.status).startsWith('CANCELLED')) {
+            // 決済完了 → 予約を「確定」に切り替える（このタイミングでSquareが確認メール/SMSを送る）
+            const note = (bk.seller_note || '').replace('（入金確認待ち）', '') + '【決済確認済み】';
             await sq('PUT', '/v2/bookings/' + p.booking_id, {
-              booking: { version: bk.version, seller_note: ((bk.seller_note || '') + '【決済確認済み】').slice(0, 4000) }
+              booking: {
+                version: bk.version,
+                accepted_payment_status: 'PAID',
+                seller_note: note.slice(0, 4000)
+              }
             });
           }
         } catch (e) {}
@@ -182,8 +188,8 @@ async function sweepPending() {
   }
   savePending(keep);
 }
-setInterval(sweepPending, 60 * 1000); // 1分ごとに見回り
-setTimeout(sweepPending, 15 * 1000);  // 起動直後にも1回
+setInterval(sweepPending, 20 * 1000); // 20秒ごとに見回り（決済後すぐ確定させるため）
+setTimeout(sweepPending, 10 * 1000);  // 起動直後にも1回
 
 // ---- 設定ページHTML ----
 function setupPage(message, color) {
@@ -408,6 +414,8 @@ const server = http.createServer((req, res) => {
         start_at: startAt,
         customer_note: note,
         seller_note: 'Webサイト予約 ' + MENU[plan].label + ' ' + people + '名 / ' + name + '様 / TEL:' + tel + (email ? ' / ' + email : '') + (addr ? ' / ご住所:' + addr : '') + '（入金確認待ち）',
+        // 決済が終わるまでは「未確定」。この状態ならSquareの確定メール/SMSは飛ばない
+        accepted_payment_status: 'PENDING',
         appointment_segments: [{
           team_member_id: team,
           service_variation_id: variation,
@@ -468,6 +476,13 @@ const server = http.createServer((req, res) => {
       savePending(plist);
       res.end(JSON.stringify({ ok: true, booking_id: bookingId, url: link.url }));
     })();
+    return;
+  }
+
+  // ---- 決済完了の即時チェック（決済ページから戻ってきた直後に呼ばれる） ----
+  if (url === '/paid-check' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    (async () => { try { await sweepPending(); } catch (e) {} res.end(JSON.stringify({ ok: true })); })();
     return;
   }
 

@@ -835,6 +835,24 @@
     return `${y}-${m}-${day}`;
   }
 
+  // ---- 決済完了で戻ってきたとき ----
+  if(new URLSearchParams(location.search).get("paid") === "1"){
+    fetch(`${API_BASE}/paid-check`).catch(()=>{});
+    const done = document.createElement("div");
+    done.style.cssText = "position:fixed;inset:0;background:rgba(43,38,32,.55);display:flex;align-items:center;justify-content:center;z-index:400;padding:20px;";
+    done.innerHTML = `<div style="background:#fff;border-radius:18px;padding:30px 24px;max-width:360px;text-align:center;box-shadow:0 12px 32px rgba(43,38,32,.3);">
+      <div style="font-size:34px;margin-bottom:10px;">✓</div>
+      <div style="font-family:var(--font-display);font-size:19px;font-weight:700;margin-bottom:10px;">ご予約ありがとうございます</div>
+      <p style="font-size:13px;color:var(--sub);line-height:1.8;margin:0 0 20px;">お支払いが完了し、ご予約が確定しました。<br>確認のご連絡をお送りしますので、少々お待ちください。</p>
+      <button type="button" id="doneClose" style="width:100%;padding:13px;border:none;border-radius:100px;background:var(--ember);color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">閉じる</button>
+    </div>`;
+    document.body.appendChild(done);
+    done.querySelector("#doneClose").addEventListener("click", () => {
+      done.remove();
+      history.replaceState(null, "", location.pathname);
+    });
+  }
+
   // ---- 順番どおりに選んでもらうための案内 ----
   let alertTimer = null;
   function warnStep(sectionId, alertId){
