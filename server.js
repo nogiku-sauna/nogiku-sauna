@@ -176,11 +176,24 @@ async function sweepPending() {
       const order = or.data.order || {};
       const paid = (order.tenders && order.tenders.length > 0) || order.state === 'COMPLETED';
       if (paid) {
+        // 統計：決済完了
+        const pp = planParts(h.plan);
+        const jp = jstParts(h.start_at);
+        const total = (order.total_money && order.total_money.amount) || '';
+        logEvent([jstNow(), '③決済完了', pp.name, pp.room, h.people,
+                  jp.date, jp.time, isHolidayJST(h.start_at) ? '土日祝' : '平日',
+                  prefOnly(h.addr), total, h.id]);
         await createBookingFromHold(h);                     // ★決済完了 → 本予約を作成
         continue;
       }
     } catch (e) {}
     if (ageMin >= HOLD_MINUTES) {
+      // 統計：時間切れ（決済されなかった）
+      const pp = planParts(h.plan);
+      const jp = jstParts(h.start_at);
+      logEvent([jstNow(), '×時間切れ', pp.name, pp.room, h.people || '',
+                jp.date, jp.time, isHolidayJST(h.start_at) ? '土日祝' : '平日',
+                prefOnly(h.addr), '', h.id]);
       try { await sq('DELETE', '/v2/online-checkout/payment-links/' + h.link_id); } catch (e) {}
       continue;                                             // 期限切れ → 仮押さえ解除
     }
@@ -255,6 +268,42 @@ async function createBookingFromHold(h) {
   } catch (e) {
     console.error('[要対応] 予約作成で例外:', String(e));
   }
+}
+
+// ==========================================================================
+// 行動ログ（個人が特定できない統計用。名前・電話・メールは記録しません）
+//   どの枠が選ばれたか／どこまで進んだか／どの地域からか
+// ==========================================================================
+const LOG_PATH = path.join(__dirname, 'analytics.csv');
+const LOG_HEADER = '記録日時(JST),段階,プラン,部屋,人数,予約日,予約時刻,曜日区分,都道府県,金額,セッションID\n';
+function logEvent(row) {
+  try {
+    if (!fs.existsSync(LOG_PATH)) fs.writeFileSync(LOG_PATH, '﻿' + LOG_HEADER);
+    const esc = v => {
+      const s = String(v == null ? '' : v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    fs.appendFileSync(LOG_PATH, row.map(esc).join(',') + '\n');
+  } catch (e) {}
+}
+function jstNow() {
+  return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 19).replace('T', ' ');
+}
+function jstParts(isoUtc) {
+  const d = new Date(new Date(isoUtc).getTime() + 9 * 3600000);
+  return { date: d.toISOString().slice(0, 10), time: d.toISOString().slice(11, 16) };
+}
+const ROOM_LABEL = { amaterasu: '天照', tsukuyomi: '月読' };
+function planParts(plan) {
+  if (!plan) return { name: '', room: '' };
+  if (plan.startsWith('ryokan180_')) return { name: '180分旅館', room: ROOM_LABEL[plan.replace('ryokan180_', '')] || '' };
+  return { name: '120分', room: ROOM_LABEL[plan.replace('120', '')] || '' };
+}
+// 住所から都道府県だけ取り出す（市区町村以下は記録しない）
+function prefOnly(addr) {
+  if (!addr) return '';
+  const m = String(addr).match(/^(北海道|東京都|京都府|大阪府|.{2,3}[県])/);
+  return m ? m[1] : '';
 }
 
 // 決済済みなのに予約が作れなかったケースの記録（お店が確認するため）
@@ -443,8 +492,14 @@ const server = http.createServer((req, res) => {
       return;
     }
     const holdId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    list.push({ id: holdId, created_at: now, start_at: startAt, team, stage: 'form' });
+    list.push({ id: holdId, created_at: now, start_at: startAt, team, stage: 'form',
+                plan: q.get('plan') || '', people: q.get('people') || '' });
     savePending(list);
+    // 統計：時間枠が選ばれた（入力画面を開いた）
+    const pp = planParts(q.get('plan'));
+    const jp = jstParts(startAt);
+    logEvent([jstNow(), '①時間を選択', pp.name, pp.room, q.get('people') || '',
+              jp.date, jp.time, isHolidayJST(startAt) ? '土日祝' : '平日', '', '', holdId]);
     res.end(JSON.stringify({ ok: true, hold_id: holdId, minutes: HOLD_MINUTES }));
     return;
   }
@@ -454,8 +509,31 @@ const server = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     const q = new URLSearchParams((req.url.split('?')[1] || ''));
     const id = q.get('id');
-    if (id) savePending(loadPending().filter(h => h.id !== id));
+    if (id) {
+      const h = loadPending().find(x => x.id === id);
+      if (h && !h.order_id) {   // 決済ページに進む前にやめた場合だけ記録
+        const pp = planParts(h.plan);
+        const jp = jstParts(h.start_at);
+        logEvent([jstNow(), '×入力画面で中断', pp.name, pp.room, h.people || '',
+                  jp.date, jp.time, isHolidayJST(h.start_at) ? '土日祝' : '平日', '', '', id]);
+      }
+      savePending(loadPending().filter(x => x.id !== id));
+    }
     res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  // ---- 統計データのダウンロード（CSV） ----
+  if (url === '/analytics.csv' && req.method === 'GET') {
+    try {
+      const csv = fs.readFileSync(LOG_PATH, 'utf8');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="nogiku_analytics.csv"');
+      res.end(csv);
+    } catch (e) {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.end('まだデータがありません。');
+    }
     return;
   }
 
@@ -568,6 +646,13 @@ const server = http.createServer((req, res) => {
         name, tel, telE164, email, addr, zip, note
       });
       savePending(plist);
+
+      // 統計：決済ページへ進んだ
+      const pp2 = planParts(plan);
+      const jp2 = jstParts(startAt);
+      logEvent([jstNow(), '②決済ページへ', pp2.name, pp2.room, people,
+                jp2.date, jp2.time, isHolidayJST(startAt) ? '土日祝' : '平日',
+                prefOnly(addr), '', holdId]);
 
       res.end(JSON.stringify({ ok: true, hold_id: holdId, url: link.url }));
     })();
