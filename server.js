@@ -447,18 +447,33 @@ const server = http.createServer((req, res) => {
     (async () => {
       const locId = await getLocationId();
 
-      // Square側でまだ空いているか、念のため直前に確認
+      // Square側でまだ空いているか、念のため直前に確認（前後1時間の幅で照合）
+      const t0 = new Date(startAt).getTime();
       const avail = await sq('POST', '/v2/bookings/availability/search', {
         query: { filter: {
-          start_at_range: { start_at: startAt, end_at: new Date(new Date(startAt).getTime() + 60000).toISOString() },
+          start_at_range: {
+            start_at: new Date(t0 - 3600000).toISOString(),
+            end_at: new Date(t0 + 3600000).toISOString()
+          },
           location_id: locId,
           segment_filters: [{ service_variation_id: variation }]
         } }
       });
       const stillFree = (avail.data.availabilities || []).some(a =>
-        a.start_at === startAt && (a.appointment_segments || []).some(sg => sg.team_member_id === team));
-      if (!stillFree) {
-        res.end(JSON.stringify({ ok: false, message: 'この枠はちょうど埋まってしまいました。別の時間をお選びください。' }));
+        new Date(a.start_at).getTime() === t0 &&
+        (a.appointment_segments || []).some(sg => sg.team_member_id === team));
+      // 確認できない場合（APIエラー等）は通す。決済後に作成できなければ /failures に記録される
+      if (avail.ok && !stillFree) {
+        res.end(JSON.stringify({
+          ok: false,
+          message: 'この枠はちょうど埋まってしまいました。別の時間をお選びください。',
+          debug: {
+            asked: startAt, team,
+            found: (avail.data.availabilities || []).map(a => ({
+              start_at: a.start_at, teams: (a.appointment_segments || []).map(x => x.team_member_id)
+            }))
+          }
+        }));
         return;
       }
 
