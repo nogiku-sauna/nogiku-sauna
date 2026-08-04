@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOGIKU 予約サイト｜公開前チェックリスト</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#efe8d4; --paper:#fff; --ink:#2b2620; --sub:#83795f; --line:#d9cfae;
+    --ember:#df571d; --ok:#3f7d5c; --ok-bg:#e3ede4; --warn:#c0392b; --warn-bg:#fdecea;
+    --font-display:"Shippori Mincho B1","Hiragino Mincho ProN",serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--cream); color:var(--ink);
+    font-family:"Inter","Hiragino Sans","Yu Gothic",-apple-system,sans-serif;
+    line-height:1.8; padding-bottom:90px;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:0 16px;}
+
+  header{text-align:center; padding:32px 0 20px;}
+  header h1{font-family:var(--font-display); font-size:22px; margin:0 0 8px;}
+  header p{font-size:13px; color:var(--sub); margin:0;}
+
+  .intro{
+    background:var(--paper); border:1px solid var(--line); border-radius:16px;
+    padding:18px 20px; margin-bottom:22px; font-size:13.5px; line-height:1.9;
+  }
+  .intro b{color:var(--ember);}
+  .intro .urls{margin-top:12px; font-size:12.5px; word-break:break-all;}
+  .intro .urls a{color:var(--ember); font-weight:700;}
+
+  .progress-bar{
+    position:sticky; top:0; z-index:50; background:var(--cream);
+    padding:10px 0 12px; margin-bottom:6px;
+  }
+  .progress-inner{
+    background:var(--paper); border:1px solid var(--line); border-radius:100px;
+    padding:8px 16px; display:flex; align-items:center; gap:12px;
+    box-shadow:0 2px 10px rgba(43,38,32,.08);
+  }
+  .progress-track{flex:1; height:8px; background:var(--cream); border-radius:100px; overflow:hidden;}
+  .progress-fill{height:100%; width:0%; background:var(--ok); transition:width .3s;}
+  .progress-text{font-size:12.5px; font-weight:800; white-space:nowrap;}
+
+  h2{
+    font-family:var(--font-display); font-size:17px; margin:28px 0 12px;
+    padding-left:12px; border-left:4px solid var(--ember);
+  }
+
+  .item{
+    background:var(--paper); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:12px;
+  }
+  .item.done{background:var(--ok-bg); border-color:var(--ok);}
+  .item.important{border-color:var(--ember); border-width:2px;}
+  .item-head{display:flex; align-items:flex-start; gap:12px;}
+  .item-head input{
+    width:24px; height:24px; margin:2px 0 0; flex:0 0 auto;
+    accent-color:var(--ok); cursor:pointer;
+  }
+  .item-title{font-size:14.5px; font-weight:700; flex:1; cursor:pointer;}
+  .badge{
+    display:inline-block; font-size:10.5px; font-weight:800; padding:2px 8px;
+    border-radius:100px; background:var(--ember); color:#fff; margin-left:6px;
+    vertical-align:middle;
+  }
+  .badge.me{background:var(--sub);}
+  .how{
+    margin-top:12px; padding:12px 14px; background:var(--cream);
+    border-radius:10px; font-size:13px; line-height:1.9;
+  }
+  .how b{color:var(--ember);}
+  .how ol{margin:6px 0 0; padding-left:20px;}
+  .how li{margin-bottom:4px;}
+  .how .expect{
+    margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);
+    color:var(--ok); font-weight:700;
+  }
+  .how .ng{color:var(--warn); font-weight:700;}
+
+  .memo{
+    margin-top:10px; width:100%; box-sizing:border-box; padding:9px 11px;
+    border:1px solid var(--line); border-radius:8px; font-size:13px;
+    font-family:inherit; resize:vertical; background:#fffdf8;
+  }
+  .memo::placeholder{color:#b3a992;}
+
+  .footer-bar{
+    position:fixed; left:0; right:0; bottom:0; background:var(--paper);
+    border-top:1px solid var(--line); padding:12px 16px;
+    display:flex; gap:10px; justify-content:center;
+    box-shadow:0 -2px 12px rgba(43,38,32,.08); z-index:60;
+  }
+  .footer-bar button{
+    padding:11px 18px; border-radius:100px; font-size:13px; font-weight:800;
+    cursor:pointer; font-family:inherit; border:1px solid var(--line); background:#fff;
+  }
+  .footer-bar .primary{background:var(--ember); color:#fff; border:none;}
+
+  .note-box{
+    background:var(--warn-bg); border:1px solid var(--warn); border-radius:12px;
+    padding:14px 16px; margin:20px 0; font-size:13px; line-height:1.9;
+  }
+  .note-box b{color:var(--warn);}
+
+  @media print{
+    body{background:#fff; padding-bottom:0;}
+    .progress-bar,.footer-bar{display:none;}
+    .item{break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>NOGIKU 予約サイト｜公開前チェックリスト</h1>
+    <p>全32項目 ・ 社員の方と一緒に確認してください</p>
+  </header>
+
+  <div class="intro">
+    このリストは、<b>新しい予約サイトを一般公開する前</b>に、実際に触って確認するためのものです。<br>
+    チェックを入れると自動で保存されるので、途中でやめても大丈夫です。<br>
+    <span style="color:var(--warn);font-weight:700;">オレンジの枠</span>が付いている項目は特に重要です。
+    <span class="badge me" style="margin-left:0;">担当:私</span> が付いている項目は、私（Claude）が確認するので、飛ばして構いません。
+    <div class="urls">
+      ▶ 通常の予約ページ：<a href="https://nogiku-sauna.github.io/nogiku-sauna/booking.html" target="_blank">booking.html を開く</a><br>
+      ▶ 180分旅館ページ：<a href="https://nogiku-sauna.github.io/nogiku-sauna/ryokan180_booking.html" target="_blank">ryokan180_booking.html を開く</a>
+    </div>
+  </div>
+
+  <div class="progress-bar">
+    <div class="progress-inner">
+      <div class="progress-track"><div class="progress-fill" id="fill"></div></div>
+      <div class="progress-text" id="ptext">0 / 32</div>
+    </div>
+  </div>
+
+  <div id="list"></div>
+
+  <div class="note-box">
+    <b>すべて終わったら</b><br>
+    問題が見つかった項目のメモを、そのまま私に伝えてください。1つずつ直していきます。<br>
+    下の「結果をコピー」を押すと、チェック状況とメモがまとめてコピーされます。
+  </div>
+
+</div>
+
+<div class="footer-bar">
+  <button type="button" class="primary" id="copyBtn">結果をコピー</button>
+  <button type="button" onclick="window.print()">印刷する</button>
+  <button type="button" id="resetBtn">リセット</button>
+</div>
+
+<script>
+const DATA = [
+  { g: "A. 予約の基本動作", items: [
+    { t: "プランを選ばずに日付を押すと、赤枠とメッセージが出て①に戻る",
+      how: ["予約ページを開く（何も選ばない状態）", "いきなり③の日付を押す"],
+      ok: "画面が①まで自動で戻り、赤い枠が光って「まず、こちらでご利用プランをお選びください。」と出る" },
+    { t: "人数を選ばずに日付を押すと、②に戻る",
+      how: ["①のプランだけ選ぶ", "②の人数を飛ばして、③の日付を押す"],
+      ok: "②の枠が赤く光って「まず、こちらでご希望人数をお選びください。」と出る" },
+    { t: "空き時間が Square のカレンダーと一致している",
+      important: true,
+      how: ["サイトでプラン・人数・日付を選んで、出てきた時間をメモする", "Square アプリの予約カレンダーで同じ日を開く", "両方の空き時間を見比べる"],
+      ok: "サイトに出た時間＝Squareで空いている時間",
+      ng: "実在しない時間（15:00 や 17:00 など、お店の時間割にない時刻）が出ていたら要報告" },
+    { t: "平日と土日で料金が正しく切り替わる",
+      how: ["平日の日付を選んで料金を見る", "土日の日付を選んで料金を見る"],
+      ok: "平日は安い料金、土日祝は高い料金になっている（お盆 8/13〜15 も土日料金）" },
+    { t: "人数を変えると料金が変わる（1〜5名すべて）",
+      how: ["同じ日で、人数を1名→2名→3名→4名→5名と変えていく"],
+      ok: "人数ごとに料金が変わる。Squareに登録した金額と一致している" },
+    { t: "180分旅館の枠が3時間で表示され、閉店を超える枠が出ていない",
+      how: ["180分旅館ページを開く", "プラン「180分旅館」を選んで、日付を選ぶ", "出てきた時間の幅を見る"],
+      ok: "「16:00–19:00」のように3時間になっている。21時を大きく超える枠は出ていない" }
+  ]},
+
+  { g: "B. 仮押さえ（オーバーブッキング防止）", items: [
+    { t: "入力画面を開くと、その枠が消える",
+      important: true,
+      how: ["スマホAで予約ページを開き、ある時間枠を選んで「はい、進む」を押す（入力画面が出た状態でそのまま待つ）", "スマホB（別の端末）で同じ日・同じプラン・同じ人数で検索する"],
+      ok: "スマホBの一覧から、その時間だけが消えている" },
+    { t: "「戻る」を押すと、枠が戻る",
+      how: ["上の状態から、スマホAで「戻る」を押す", "スマホBで再検索する"],
+      ok: "消えていた枠が戻っている" },
+    { t: "画面を閉じても、枠が戻る",
+      how: ["スマホAで入力画面を開き、画面の外側（暗いところ）をタップして閉じる", "スマホBで再検索する"],
+      ok: "枠が戻っている" },
+    { t: "10分放置すると、枠が自動で戻る",
+      how: ["スマホAで入力画面を開いたまま、10分以上放置する（そのまま何もしない）", "10分たったらスマホBで再検索する"],
+      ok: "枠が自動で戻っている" },
+    { t: "★2台同時テスト：同じ枠を2人が同時に取ろうとする",
+      important: true,
+      how: ["スマホAとスマホBで、同じ日・同じ時間枠を開いておく", "「せーの」で2台同時に「はい、進む」を押す"],
+      ok: "片方だけ入力画面に進み、もう片方には「この枠は現在ほかのお客様がお手続き中です」と出る",
+      ng: "両方とも進めてしまったら、オーバーブッキングの危険あり。必ず報告してください" }
+  ]},
+
+  { g: "C. お客様情報の入力", items: [
+    { t: "電話番号を空欄で進もうとすると、止められる",
+      how: ["入力画面で、電話番号だけ空欄のまま「お支払いへ進む」を押す"],
+      ok: "「電話番号を入力してください」と出て、先に進まない" },
+    { t: "姓名を空欄で進もうとすると、止められる",
+      how: ["電話番号だけ入れて、姓名を空欄のまま「お支払いへ進む」を押す"],
+      ok: "「姓名を入力してください」と出て、先に進まない" },
+    { t: "決済ページに、電話・メール・姓名が自動で入っている",
+      important: true,
+      how: ["すべて入力して「お支払いへ進む」を押す", "決済ページの「連絡先」の欄を見る（※ここで支払わなくてOK。カードを入れなければ課金されません）"],
+      ok: "電話番号・メール・姓・名が最初から入っている。あとはカード番号だけ" },
+    { t: "姓名の順番が正しい（例：吉見 / 紳一）",
+      how: ["上の決済ページで、姓名の2つの欄を見る"],
+      ok: "左が「姓」（例：吉見）、右が「名」（例：紳一）になっている" },
+    { t: "「この端末に保存する」で、次回の入力が省ける",
+      how: ["入力画面で情報を入れ、チェックが付いた状態で「お支払いへ進む」を押す", "決済せずにサイトへ戻り、もう一度予約の入力画面を開く"],
+      ok: "前回の内容（電話・姓名・メール・住所）が最初から入っている" }
+  ]},
+
+  { g: "D. 決済と予約登録（※ここは実際にお金が動きます）", items: [
+    { t: "決済が完了し、エラーが出ない",
+      important: true,
+      how: ["実際に1件、最後まで決済してみる（少額のプランで）", "決済ボタンを押したあとの画面を見る"],
+      ok: "「ご予約ありがとうございます」と出る",
+      ng: "「ご注文が完了しませんでした」と出たら要報告（8/4に修正済みの箇所）" },
+    { t: "Square のカレンダーに予約が入る",
+      important: true,
+      how: ["決済のあと、Square アプリの予約カレンダーを開く"],
+      ok: "予約した日時・部屋・人数で入っている。お客様名も正しい" },
+    { t: "お客様に確認メール・SMS が届く",
+      how: ["決済に使ったメールアドレス・電話番号を確認する"],
+      ok: "Squareから予約確認のメール（またはSMS）が届いている" },
+    { t: "お店に予約通知メールが届く",
+      how: ["nogikusauna@gmail.com の受信箱を確認する（迷惑メールも見る）"],
+      ok: "「【NOGIKU】新しいご予約が入りました」というメールが届いている",
+      ng: "届かない場合は、下のURLで内容を確認できます：https://162-43-28-12.nip.io/notifications" },
+    { t: "Square の「取引」一覧に、お客様名が表示される",
+      how: ["Square アプリの「お取引」を開く", "今の決済の行を見る（開かずに一覧のまま）"],
+      ok: "お客様名・日付・人数が見えて、誰の予約かすぐ分かる" },
+    { t: "決済しなかった場合、Square に何も残らない",
+      how: ["入力画面まで進んで、決済ページで支払わずに閉じる", "10分待つ", "Square の予約カレンダーと取引を確認する"],
+      ok: "予約もお金の記録も、どこにも残っていない" }
+  ]},
+
+  { g: "E. キャンセル・返金", items: [
+    { t: "「お取引」から返金できる",
+      important: true,
+      how: ["Square アプリ →「お取引」→ 該当の取引を開く", "「払い戻し」を実行する"],
+      ok: "全額（例：5,000円）が返金できる",
+      ng: "※「カレンダーの予約画面」からは返金できません（Squareの仕組み上の制限）。必ず「お取引」から行ってください" },
+    { t: "返金後、カレンダーの予約を手動で消す",
+      how: ["返金したあと、Square の予約カレンダーを開く", "該当の予約をキャンセル（削除）する"],
+      ok: "予約が消える。※返金だけでは予約は消えないので、この操作が必要です" },
+    { t: "返金・キャンセルしたら、その枠が空きに戻る",
+      how: ["上の操作のあと、サイトで同じ日を検索する"],
+      ok: "キャンセルした時間が、また選べるようになっている" }
+  ]},
+
+  { g: "F. 見た目・使いやすさ", items: [
+    { t: "スマホで崩れずに見える（iPhone・Android 両方）",
+      how: ["iPhone と Android の両方で、予約ページを開いて最後までスクロールする", "入力画面も開いてみる"],
+      ok: "文字が切れたり、はみ出したり、重なったりしていない" },
+    { t: "パソコンで崩れずに見える",
+      how: ["パソコンのブラウザで同じように確認する"],
+      ok: "レイアウトが崩れていない" },
+    { t: "文字が小さすぎない・押しにくいボタンがない",
+      how: ["スマホで実際に指で操作してみる（特に年配の方の目線で）"],
+      ok: "読みづらい文字や、押しにくいボタンがない" },
+    { t: "読み込みが遅すぎない",
+      how: ["Wi-Fiを切って、モバイル通信で予約ページを開く", "トップページの動画も確認する"],
+      ok: "待たされる感じがない（数秒以内に表示される）" }
+  ]},
+
+  { g: "G. 安全性・トラブル対応", items: [
+    { t: "テスト用の入口が閉じている",
+      important: true, me: true,
+      how: ["※ 私（Claude）が公開前に閉じます", "対象：/setup（トークン登録）、/inspect（内部情報）、/cancel-booking、/complete-orders など"],
+      ok: "開発用の入口がすべて閉じられ、外部から触れない状態になっている" },
+    { t: "サーバーが再起動しても動き続ける",
+      me: true,
+      how: ["※ 私（Claude）が確認します", "サーバーを意図的に再起動して、予約サイトが自動で復帰するか確かめます", "あわせて、再起動時に仮押さえの情報がどうなるかも確認します"],
+      ok: "再起動後も、何もしなくてサイトが動いている" },
+    { t: "決済したのに予約が作れなかったとき、お店が気づける",
+      important: true, me: true,
+      how: ["※ 私（Claude）が仕組みを確認・強化します", "現状：記録は残るが、お店への通知が弱い", "確認用URL：https://162-43-28-12.nip.io/failures"],
+      ok: "万一のときに、お店がすぐ気づいて返金・別時間の案内ができる状態" }
+  ]}
+];
+
+// ---- 描画 ----
+const listEl = document.getElementById("list");
+let n = 0;
+DATA.forEach(group => {
+  const h2 = document.createElement("h2");
+  h2.textContent = group.g;
+  listEl.appendChild(h2);
+
+  group.items.forEach(item => {
+    n++;
+    const id = "chk" + n;
+    const div = document.createElement("div");
+    div.className = "item" + (item.important ? " important" : "");
+    div.innerHTML = `
+      <div class="item-head">
+        <input type="checkbox" id="${id}">
+        <label class="item-title" for="${id}">${n}. ${item.t}
+          ${item.important ? '<span class="badge">重要</span>' : ''}
+          ${item.me ? '<span class="badge me">担当:私</span>' : ''}
+        </label>
+      </div>
+      <div class="how">
+        <b>やり方</b>
+        <ol>${item.how.map(s => `<li>${s}</li>`).join("")}</ol>
+        <div class="expect">✓ こうなればOK：${item.ok}</div>
+        ${item.ng ? `<div class="expect ng">⚠ ${item.ng}</div>` : ""}
+      </div>
+      <textarea class="memo" id="memo${n}" rows="2" placeholder="気になったこと・うまくいかなかったことがあれば、ここにメモ"></textarea>
+    `;
+    listEl.appendChild(div);
+  });
+});
+
+const TOTAL = n;
+const KEY = "nogiku_checklist_v1";
+
+function save(){
+  const data = {};
+  for(let i=1;i<=TOTAL;i++){
+    data["c"+i] = document.getElementById("chk"+i).checked;
+    data["m"+i] = document.getElementById("memo"+i).value;
+  }
+  try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){}
+  update();
+}
+function load(){
+  let data = null;
+  try{ data = JSON.parse(localStorage.getItem(KEY) || "null"); }catch(e){}
+  if(data){
+    for(let i=1;i<=TOTAL;i++){
+      if(data["c"+i]) document.getElementById("chk"+i).checked = true;
+      if(data["m"+i]) document.getElementById("memo"+i).value = data["m"+i];
+    }
+  }
+  update();
+}
+function update(){
+  let done = 0;
+  for(let i=1;i<=TOTAL;i++){
+    const c = document.getElementById("chk"+i);
+    const box = c.closest(".item");
+    if(c.checked){ done++; box.classList.add("done"); }
+    else box.classList.remove("done");
+  }
+  document.getElementById("fill").style.width = (done/TOTAL*100) + "%";
+  document.getElementById("ptext").textContent = done + " / " + TOTAL;
+}
+
+for(let i=1;i<=TOTAL;i++){
+  document.getElementById("chk"+i).addEventListener("change", save);
+  document.getElementById("memo"+i).addEventListener("input", save);
+}
+load();
+
+document.getElementById("copyBtn").addEventListener("click", () => {
+  let out = "【NOGIKU 予約サイト チェック結果】\n\n";
+  let idx = 0;
+  DATA.forEach(group => {
+    out += "■ " + group.g + "\n";
+    group.items.forEach(item => {
+      idx++;
+      const ok = document.getElementById("chk"+idx).checked;
+      const memo = document.getElementById("memo"+idx).value.trim();
+      out += (ok ? "✓" : "×") + " " + idx + ". " + item.t + "\n";
+      if(memo) out += "   → メモ: " + memo + "\n";
+    });
+    out += "\n";
+  });
+  navigator.clipboard.writeText(out).then(
+    () => alert("コピーしました。そのまま貼り付けて送れます。"),
+    () => {
+      const ta = document.createElement("textarea");
+      ta.value = out; document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); ta.remove();
+      alert("コピーしました。そのまま貼り付けて送れます。");
+    }
+  );
+});
+
+document.getElementById("resetBtn").addEventListener("click", () => {
+  if(!confirm("すべてのチェックとメモを消します。よろしいですか？")) return;
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  for(let i=1;i<=TOTAL;i++){
+    document.getElementById("chk"+i).checked = false;
+    document.getElementById("memo"+i).value = "";
+  }
+  update();
+});
+</script>
+</body>
+</html>
