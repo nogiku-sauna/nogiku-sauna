@@ -182,7 +182,8 @@ async function sweepPending() {
         const total = (order.total_money && order.total_money.amount) || '';
         logEvent([jstNow(), '③決済完了', pp.name, pp.room, h.people,
                   jp.date, jp.time, isHolidayJST(h.start_at) ? '土日祝' : '平日',
-                  prefOnly(h.addr), total, h.id]);
+                  prefOnly(h.addr), total, h.id,
+                  h.repeat || '', h.src || '', daysAhead(h.start_at), h.dev || '']);
         await createBookingFromHold(h);                     // ★決済完了 → 本予約を作成
         continue;
       }
@@ -219,6 +220,7 @@ async function createBookingFromHold(h) {
         limit: 1, query: { filter: { phone_number: { exact: h.telE164 } } }
       });
       const found = (search.data.customers || [])[0];
+      h.repeat = found ? 'リピーター' : '新規';   // 統計用
       if (found) {
         customerId = found.id;
         const upd = (h.lastName || h.firstName)
@@ -290,7 +292,7 @@ async function createBookingFromHold(h) {
 //   どの枠が選ばれたか／どこまで進んだか／どの地域からか
 // ==========================================================================
 const LOG_PATH = path.join(__dirname, 'analytics.csv');
-const LOG_HEADER = '記録日時(JST),段階,プラン,部屋,人数,予約日,予約時刻,曜日区分,都道府県,金額,セッションID\n';
+const LOG_HEADER = '記録日時(JST),段階,プラン,部屋,人数,予約日,予約時刻,曜日区分,都道府県,金額,セッションID,新規/リピーター,流入元,何日前,端末\n';
 function logEvent(row) {
   try {
     if (!fs.existsSync(LOG_PATH)) fs.writeFileSync(LOG_PATH, '﻿' + LOG_HEADER);
@@ -314,6 +316,35 @@ function planParts(plan) {
   if (plan.startsWith('ryokan180_')) return { name: '180分旅館', room: ROOM_LABEL[plan.replace('ryokan180_', '')] || '' };
   return { name: '120分', room: ROOM_LABEL[plan.replace('120', '')] || '' };
 }
+// どこから来たお客様か（Instagram・検索・直接など）
+function sourceLabel(ref, utm) {
+  if (utm) return utm;                       // ?utm=... が付いていればそれを優先
+  if (!ref) return '直接・不明';
+  const r = String(ref).toLowerCase();
+  if (r.includes('instagram') || r.includes('l.instagram')) return 'Instagram';
+  if (r.includes('google')) return 'Google検索';
+  if (r.includes('yahoo')) return 'Yahoo検索';
+  if (r.includes('t.co') || r.includes('twitter') || r.includes('x.com')) return 'X(Twitter)';
+  if (r.includes('facebook')) return 'Facebook';
+  if (r.includes('line')) return 'LINE';
+  if (r.includes('tiktok')) return 'TikTok';
+  if (r.includes('nogiku')) return 'サイト内';
+  try { return new URL(ref).hostname; } catch (e) { return 'その他'; }
+}
+// スマホかパソコンか
+function deviceLabel(ua) {
+  if (!ua) return '';
+  const u = String(ua).toLowerCase();
+  if (u.includes('ipad') || (u.includes('android') && !u.includes('mobile'))) return 'タブレット';
+  if (u.includes('iphone') || u.includes('android') || u.includes('mobile')) return 'スマホ';
+  return 'パソコン';
+}
+// 予約日の何日前に申し込まれたか
+function daysAhead(startAtUtc) {
+  const days = (new Date(startAtUtc).getTime() - Date.now()) / 86400000;
+  return Math.max(0, Math.round(days));
+}
+
 // 住所から都道府県だけ取り出す（市区町村以下は記録しない）
 function prefOnly(addr) {
   if (!addr) return '';
@@ -411,6 +442,212 @@ function saveFailures(list) { try { fs.writeFileSync(FAIL_PATH, JSON.stringify(l
 
 setInterval(sweepPending, 20 * 1000); // 20秒ごとに確認（決済後すぐ予約を作るため）
 setTimeout(sweepPending, 10 * 1000);  // 起動直後にも1回
+
+// ==========================================================================
+// データ分析ダッシュボード（お店の判断に使う画面）
+// ==========================================================================
+function dashboardPage(rows) {
+  const esc = v => String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // 期間の絞り込み用に、日付だけ取り出す
+  const clicks = rows.filter(r => r['段階'] === '①時間を選択');
+  const forms  = rows.filter(r => r['段階'] === '②決済ページへ');
+  const paid   = rows.filter(r => r['段階'] === '③決済完了');
+  const dropForm = rows.filter(r => r['段階'] === '×入力画面で中断');
+  const dropTime = rows.filter(r => r['段階'] === '×時間切れ');
+
+  const sales = paid.reduce((a, r) => a + (parseInt(r['金額'] || '0', 10) || 0), 0);
+  const cvr = clicks.length ? Math.round(paid.length / clicks.length * 1000) / 10 : 0;
+  const avg = paid.length ? Math.round(sales / paid.length) : 0;
+
+  // 集計のしかた
+  const countBy = (list, key, mapper) => {
+    const m = {};
+    list.forEach(r => {
+      const k = mapper ? mapper(r) : (r[key] || '（不明）');
+      if (!k) return;
+      m[k] = (m[k] || 0) + 1;
+    });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  };
+
+  // 棒グラフのHTMLを作る
+  const bars = (data, unit) => {
+    if (!data.length) return '<p class="empty">まだデータがありません</p>';
+    const max = data[0][1];
+    return data.map(([k, v]) => `
+      <div class="bar-row">
+        <div class="bar-label">${esc(k)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${max ? v / max * 100 : 0}%"></div></div>
+        <div class="bar-value">${v}${unit || '件'}</div>
+      </div>`).join('');
+  };
+
+  const planData   = countBy(paid, 'プラン');
+  const roomData   = countBy(paid, '部屋');
+  const peopleData = countBy(paid, null, r => (r['人数'] ? r['人数'] + '名' : ''));
+  const timeData   = countBy(paid, '予約時刻');
+  const wdData     = countBy(paid, '曜日区分');
+  const prefData   = countBy(paid, '都道府県');
+  const srcClick   = countBy(clicks, '流入元');
+  const srcPaid    = countBy(paid, '流入元');
+  const repeatData = countBy(paid, '新規/リピーター');
+  const devData    = countBy(clicks, '端末');
+  const aheadData  = countBy(paid, null, r => {
+    const d = parseInt(r['何日前'] || '', 10);
+    if (isNaN(d)) return '';
+    if (d === 0) return '当日';
+    if (d <= 3) return '1〜3日前';
+    if (d <= 7) return '4〜7日前';
+    if (d <= 14) return '8〜14日前';
+    return '15日以上前';
+  });
+
+  // 最近の動き（新しい順に30件）
+  const recent = rows.slice(-30).reverse().map(r => `
+    <tr>
+      <td>${esc(r['記録日時(JST)'] || '')}</td>
+      <td><span class="stage s${esc((r['段階'] || '').charAt(0))}">${esc(r['段階'] || '')}</span></td>
+      <td>${esc(r['プラン'] || '')} ${esc(r['部屋'] || '')}</td>
+      <td>${esc(r['人数'] || '')}${r['人数'] ? '名' : ''}</td>
+      <td>${esc(r['予約日'] || '')} ${esc(r['予約時刻'] || '')}</td>
+      <td>${esc(r['流入元'] || '')}</td>
+      <td>${esc(r['都道府県'] || '')}</td>
+      <td>${r['金額'] ? '¥' + Number(r['金額']).toLocaleString() : ''}</td>
+    </tr>`).join('');
+
+  return `<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOGIKU 予約データ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root{--cream:#efe8d4;--paper:#fff;--ink:#2b2620;--sub:#83795f;--line:#d9cfae;
+        --ember:#df571d;--ok:#3f7d5c;--font-display:"Shippori Mincho B1",serif;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--cream);color:var(--ink);
+       font-family:"Inter","Hiragino Sans","Yu Gothic",-apple-system,sans-serif;line-height:1.8;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 16px 60px;}
+  header{text-align:center;padding:30px 0 18px;}
+  header h1{font-family:var(--font-display);font-size:22px;margin:0 0 6px;}
+  header p{font-size:12.5px;color:var(--sub);margin:0;}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:26px;}
+  .kpi{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px 18px;text-align:center;}
+  .kpi .label{font-size:11.5px;color:var(--sub);font-weight:700;}
+  .kpi .value{font-size:26px;font-weight:800;color:var(--ember);line-height:1.3;}
+  .kpi .unit{font-size:13px;font-weight:700;color:var(--sub);}
+
+  .funnel{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:26px;}
+  .funnel h2{margin-top:0;}
+  .fstep{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .fstep .fname{width:130px;font-size:13px;font-weight:700;flex:0 0 auto;}
+  .fstep .ftrack{flex:1;height:26px;background:var(--cream);border-radius:6px;overflow:hidden;}
+  .fstep .ffill{height:100%;background:var(--ok);opacity:.85;}
+  .fstep .fnum{width:90px;text-align:right;font-size:13px;font-weight:800;flex:0 0 auto;}
+  .fnote{font-size:12px;color:var(--sub);margin:10px 0 0;}
+
+  h2{font-family:var(--font-display);font-size:16px;margin:26px 0 12px;
+     padding-left:10px;border-left:4px solid var(--ember);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:18px 20px;}
+  .card h3{font-size:14px;margin:0 0 14px;font-weight:800;}
+
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .bar-label{width:110px;font-size:12.5px;flex:0 0 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bar-track{flex:1;height:18px;background:var(--cream);border-radius:4px;overflow:hidden;}
+  .bar-fill{height:100%;background:var(--ember);opacity:.8;}
+  .bar-value{width:52px;text-align:right;font-size:12px;font-weight:800;flex:0 0 auto;}
+  .empty{font-size:12.5px;color:var(--sub);margin:0;}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;}
+  th{color:var(--sub);font-size:11px;font-weight:700;}
+  .stage{display:inline-block;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:800;}
+  .stage.s①{background:#e8eef5;color:#2f5d8a;}
+  .stage.s②{background:#f5eee0;color:#a8611f;}
+  .stage.s③{background:#e3ede4;color:#2f6b4a;}
+  .stage.s×{background:#f3e6e6;color:#a33;}
+  .scroll{overflow-x:auto;}
+
+  .actions{text-align:center;margin:26px 0 0;}
+  .actions a{display:inline-block;padding:11px 20px;border-radius:100px;background:var(--ember);
+             color:#fff;text-decoration:none;font-size:13px;font-weight:800;margin:0 4px;}
+  .actions a.sub{background:var(--paper);color:var(--ink);border:1px solid var(--line);}
+</style></head>
+<body><div class="wrap">
+
+  <header>
+    <h1>NOGIKU 予約データ</h1>
+    <p>${new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} 現在（全期間）</p>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">予約件数</div><div class="value">${paid.length}<span class="unit">件</span></div></div>
+    <div class="kpi"><div class="label">売上</div><div class="value">¥${sales.toLocaleString()}</div></div>
+    <div class="kpi"><div class="label">成約率</div><div class="value">${cvr}<span class="unit">%</span></div></div>
+    <div class="kpi"><div class="label">平均単価</div><div class="value">¥${avg.toLocaleString()}</div></div>
+  </div>
+
+  <div class="funnel">
+    <h2 style="border:none;padding:0;margin:0 0 14px;">お客様がどこまで進んだか</h2>
+    <div class="fstep">
+      <div class="fname">① 時間を選んだ</div>
+      <div class="ftrack"><div class="ffill" style="width:100%"></div></div>
+      <div class="fnum">${clicks.length} 人</div>
+    </div>
+    <div class="fstep">
+      <div class="fname">② 決済ページへ</div>
+      <div class="ftrack"><div class="ffill" style="width:${clicks.length ? forms.length / clicks.length * 100 : 0}%"></div></div>
+      <div class="fnum">${forms.length} 人</div>
+    </div>
+    <div class="fstep">
+      <div class="fname">③ 決済まで完了</div>
+      <div class="ftrack"><div class="ffill" style="width:${clicks.length ? paid.length / clicks.length * 100 : 0}%"></div></div>
+      <div class="fnum">${paid.length} 人</div>
+    </div>
+    <p class="fnote">
+      入力画面で離脱：${dropForm.length}人 ／ 決済ページで離脱（10分切れ）：${dropTime.length}人<br>
+      ※ ②が①より大きく減っていれば「入力が面倒」、③が②より大きく減っていれば「決済で迷っている」サインです。
+    </p>
+  </div>
+
+  <h2>お客様のこと</h2>
+  <div class="grid">
+    <div class="card"><h3>新規 / リピーター</h3>${bars(repeatData)}</div>
+    <div class="card"><h3>どこから来たか（流入元・予約した人）</h3>${bars(srcPaid)}</div>
+    <div class="card"><h3>どこから来たか（流入元・見た人）</h3>${bars(srcClick, '人')}</div>
+    <div class="card"><h3>都道府県</h3>${bars(prefData)}</div>
+    <div class="card"><h3>端末（見た人）</h3>${bars(devData, '人')}</div>
+    <div class="card"><h3>何日前に予約したか</h3>${bars(aheadData)}</div>
+  </div>
+
+  <h2>売れ方のこと</h2>
+  <div class="grid">
+    <div class="card"><h3>プラン別</h3>${bars(planData)}</div>
+    <div class="card"><h3>部屋別（天照 / 月読）</h3>${bars(roomData)}</div>
+    <div class="card"><h3>人数別</h3>${bars(peopleData)}</div>
+    <div class="card"><h3>人気の時間帯</h3>${bars(timeData)}</div>
+    <div class="card"><h3>平日 / 土日祝</h3>${bars(wdData)}</div>
+  </div>
+
+  <h2>最近の動き（新しい順に30件）</h2>
+  <div class="card scroll">
+    ${rows.length ? `<table>
+      <tr><th>記録日時</th><th>段階</th><th>プラン</th><th>人数</th><th>予約日時</th><th>流入元</th><th>地域</th><th>金額</th></tr>
+      ${recent}
+    </table>` : '<p class="empty">まだデータがありません</p>'}
+  </div>
+
+  <div class="actions">
+    <a href="/analytics.csv">CSVでダウンロード</a>
+    <a href="/dashboard" class="sub">最新に更新</a>
+  </div>
+
+</div></body></html>`;
+}
 
 // ---- 設定ページHTML ----
 function setupPage(message, color) {
@@ -590,14 +827,18 @@ const server = http.createServer((req, res) => {
       return;
     }
     const holdId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const src = sourceLabel(req.headers.referer, q.get('utm'));
+    const dev = deviceLabel(req.headers['user-agent']);
     list.push({ id: holdId, created_at: now, start_at: startAt, team, stage: 'form',
-                plan: q.get('plan') || '', people: q.get('people') || '' });
+                plan: q.get('plan') || '', people: q.get('people') || '',
+                src, dev });
     savePending(list);
     // 統計：時間枠が選ばれた（入力画面を開いた）
     const pp = planParts(q.get('plan'));
     const jp = jstParts(startAt);
     logEvent([jstNow(), '①時間を選択', pp.name, pp.room, q.get('people') || '',
-              jp.date, jp.time, isHolidayJST(startAt) ? '土日祝' : '平日', '', '', holdId]);
+              jp.date, jp.time, isHolidayJST(startAt) ? '土日祝' : '平日', '', '', holdId,
+              '', src, daysAhead(startAt), dev]);
     res.end(JSON.stringify({ ok: true, hold_id: holdId, minutes: HOLD_MINUTES }));
     return;
   }
@@ -656,6 +897,32 @@ const server = http.createServer((req, res) => {
       const list = JSON.parse(fs.readFileSync(NOTIFY_PATH, 'utf8'));
       res.end(list.slice().reverse().map(n => '━━━━━━ ' + n.at + ' ━━━━━━\n' + n.body).join('\n\n'));
     } catch (e) { res.end('まだ予約通知はありません。'); }
+    return;
+  }
+
+  // ---- データ分析ダッシュボード ----
+  if (url === '/dashboard' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    let rows = [];
+    try {
+      const csv = fs.readFileSync(LOG_PATH, 'utf8').replace(/^﻿/, '');
+      const lines = csv.split('\n').filter(l => l.trim());
+      const head = lines.shift().split(',');
+      rows = lines.map(line => {
+        // 簡易CSVパース（"..." の中のカンマに対応）
+        const cells = []; let cur = ''; let q = false;
+        for (const ch of line) {
+          if (ch === '"') q = !q;
+          else if (ch === ',' && !q) { cells.push(cur); cur = ''; }
+          else cur += ch;
+        }
+        cells.push(cur);
+        const o = {};
+        head.forEach((h, i) => o[h] = (cells[i] || '').trim());
+        return o;
+      });
+    } catch (e) {}
+    res.end(dashboardPage(rows));
     return;
   }
 
@@ -798,13 +1065,16 @@ const server = http.createServer((req, res) => {
       // 仮押さえを「決済待ち」に更新（入力画面で確保した時間から数える）
       const plist = loadPending().filter(h => h.id !== myHoldId);
       const prevHold = loadPending().find(h => h.id === myHoldId);
+      const src2 = (prevHold && prevHold.src) || sourceLabel(req.headers.referer, q.get('utm'));
+      const dev2 = (prevHold && prevHold.dev) || deviceLabel(req.headers['user-agent']);
       const holdId = myHoldId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
       plist.push({
         id: holdId, created_at: prevHold ? prevHold.created_at : Date.now(),
         order_id: link.order_id, link_id: link.id,
         plan, people, start_at: startAt, team, variation,
         label: MENU[plan].label,
-        name, lastName, firstName, tel, telE164, email, addr, zip, note
+        name, lastName, firstName, tel, telE164, email, addr, zip, note,
+        src: src2, dev: dev2
       });
       savePending(plist);
 
@@ -813,7 +1083,7 @@ const server = http.createServer((req, res) => {
       const jp2 = jstParts(startAt);
       logEvent([jstNow(), '②決済ページへ', pp2.name, pp2.room, people,
                 jp2.date, jp2.time, isHolidayJST(startAt) ? '土日祝' : '平日',
-                prefOnly(addr), '', holdId]);
+                prefOnly(addr), '', holdId, '', src2, daysAhead(startAt), dev2]);
 
       res.end(JSON.stringify({ ok: true, hold_id: holdId, url: link.url }));
     })();
