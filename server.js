@@ -266,7 +266,11 @@ async function createBookingFromHold(h) {
     });
     if (br.ok) {
       notifyStore(h);          // お店へ予約通知（Squareは API 経由だと通知を送らないため）
-      completeOrder(h.order_id); // 「注文」を自動で完了にする（通知バッジを残さない）
+      // ※「注文の自動完了」はここでは行わない。
+      //   決済直後に注文を変更すると、お客様の画面に「ご注文が完了しませんでした」と
+      //   誤ったエラーが出てしまうため。完了処理は10分後に安全に行う（下記）。
+      const oid = h.order_id;
+      setTimeout(() => { completeOrder(oid); }, 10 * 60 * 1000);
     }
     if (!br.ok) {
       // ★万一この枠が埋まっていた場合（要対応：返金や別時間のご案内）
@@ -633,7 +637,9 @@ const server = http.createServer((req, res) => {
       let done = 0;
       for (const o of orders) {
         const paid = (o.tenders && o.tenders.length > 0);
-        if (paid) { await completeOrder(o.id); done++; }
+        // 決済から10分たっていない注文は触らない（お客様の画面にエラーが出るため）
+        const ageMin = (Date.now() - new Date(o.created_at).getTime()) / 60000;
+        if (paid && ageMin >= 10) { await completeOrder(o.id); done++; }
       }
       res.end(JSON.stringify({
         ok: true, 未完了だった件数: orders.length, 完了にした件数: done,
@@ -760,7 +766,15 @@ const server = http.createServer((req, res) => {
 
       const linkBody = {
         idempotency_key: 'pl-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
-        order: { location_id: locId, line_items: [{ quantity: '1', catalog_object_id: variation }] },
+        order: {
+          location_id: locId,
+          line_items: [{
+            quantity: '1',
+            catalog_object_id: variation,
+            // 取引一覧でお客様名がすぐ分かるようにする（返金時に探しやすくするため）
+            note: (name ? name + '様 ' : '') + when.slice(5) + ' ' + people + '名'
+          }]
+        },
         checkout_options: {
           redirect_url: 'https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1',
           ask_for_shipping_address: false
