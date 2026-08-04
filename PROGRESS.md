@@ -11,6 +11,8 @@
 まずここを全部読んでから作業を始めてください。
 **ユーザーへの説明は「中学生に伝えるイメージ」で、専門用語を避けてください。**
 
+**GitHub の編集は Claude 自身ができます。詳しくは「13. Claude がブラウザを操作する方法」を必ず読むこと。**
+
 ---
 
 ## 1. 何を作っているか
@@ -89,13 +91,13 @@ Square の標準予約ページの代わりになる、**自社の予約サイ�
 
 ### サイト（HTML）を直すとき
 1. Claude がファイルを作る
-2. **GitHub のウェブ画面からアップロード**
+2. **Claude が GitHub のウェブ画面から直接コミット**（手順は 13 参照）
 3. GitHub Pages に自動反映
 
 ### サーバー（server.js）を直すとき
 1. Claude がファイルを作る
-2. GitHub にアップロード
-3. **シリアルコンソールで下記を1行ずつ実行**
+2. Claude が GitHub にコミット
+3. **ユーザーがシリアルコンソールで下記を1行ずつ実行**
 
 ```
 cd ~/app
@@ -212,3 +214,44 @@ sweepPending()       // 20秒ごとに実行：決済済み→予約作成／期
 1. **公開前の安全対策**（テスト用の入口を閉じる）← Claude が作業
 2. **チェックリストの実行**（社員さんと一緒に）
 3. **週次レポート**（毎週月曜の朝にメール）
+
+---
+
+## 13. Claude がブラウザを操作する方法（重要・引き継ぎ）
+
+**GitHub の編集・コミットは Claude 自身ができます。ユーザーに手作業をお願いしないこと。**
+
+- 使うのは **Chrome のブラウザ操作ツール（claude-in-chrome）**。API キーやトークンは不要。
+- ツールが読み込まれていない場合は **ToolSearch** で読み込む：
+  `select:mcp__claude-in-chrome__navigate,mcp__claude-in-chrome__computer,mcp__claude-in-chrome__javascript_tool,mcp__claude-in-chrome__tabs_context_mcp`
+- ユーザーの Chrome は **GitHub にログイン済み**。そのまま編集できる。
+
+### ファイルを丸ごと書き換える手順（実績あり）
+
+1. `https://github.com/nogiku-sauna/nogiku-sauna/edit/main/ファイル名` を開く
+2. エディタ内をクリック → **ctrl+a**（実キー）で全選択
+3. **javascript_tool で paste イベントを送り込む**（GitHub は CodeMirror。type では遅すぎる）
+
+```js
+const text = ["1行目","2行目"].join("\n");
+const cm = document.querySelector('.cm-content');
+cm.focus();
+const dt = new DataTransfer();
+dt.setData('text/plain', text);
+cm.dispatchEvent(new ClipboardEvent('paste', {clipboardData: dt, bubbles: true, cancelable: true}));
+```
+
+4. 右上の **Commit changes...** をクリック
+5. コミットメッセージを入力 → **Commit changes**
+6. `blob` ページを開いて反映を確認する
+
+> **コツ**
+> - `.cm-content` に直接 paste イベントを送る。`textarea` は存在しない。
+> - **必ず全文を貼り直すこと。** `ctrl+End` でカーソルを末尾に送っても効かず、
+->   追記のつもりが先頭に入ってしまう事故が起きた。
+
+### Claude にできないこと
+
+- **サーバーのコマンド実行**（シリアルコンソール）はユーザーにお願いする。
+  Claude の bash はサンドボックスなので VPS には届かない。
+  必ず **1行ずつ** 渡すこと。
