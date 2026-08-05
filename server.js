@@ -158,6 +158,24 @@ function isHeld(startAt, team) {
 }
 
 // 決済が終わった仮押さえを Square の予約に変える
+// 本当に支払いが完了したかを確認する（未払い残高0＋各支払いがCOMPLETED）
+async function isReallyPaid(order) {
+  if (!order) return false;
+  const due = (order.net_amount_due_money && typeof order.net_amount_due_money.amount === 'number')
+    ? order.net_amount_due_money.amount : null;
+  if (due === null || due > 0) return false;
+  const tenders = order.tenders || [];
+  if (tenders.length === 0) return false;
+  for (const t of tenders) {
+    if (!t.payment_id) return false;
+    try {
+      const pr = await sq('GET', '/v2/payments/' + t.payment_id);
+      if (!pr.data.payment || pr.data.payment.status !== 'COMPLETED') return false;
+    } catch (e) { return false; }
+  }
+  return true;
+}
+
 async function sweepPending() {
   const list = loadPending();
   if (!list.length) return;
@@ -174,7 +192,7 @@ async function sweepPending() {
     try {
       const or = await sq('GET', '/v2/orders/' + h.order_id);
       const order = or.data.order || {};
-      const paid = (order.tenders && order.tenders.length > 0) || order.state === 'COMPLETED';
+      const paid = await isReallyPaid(order);
       if (paid) {
         // 統計：決済完了
         const pp = planParts(h.plan);
