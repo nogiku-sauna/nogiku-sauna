@@ -973,11 +973,13 @@
     (async () => {
       const isPlan180 = selectedPlan === "180min";
       let dataA = { slots: [] }, dataT = { slots: [] };
+      let okA = false, okT = false;
       try {
         const [ra, rt] = await Promise.all([
           fetch(`${API_BASE}/slots?plan=${planKey("amaterasu", isPlan180)}&people=${selectedNum}&date=${selectedDate}`),
           fetch(`${API_BASE}/slots?plan=${planKey("tsukuyomi", isPlan180)}&people=${selectedNum}&date=${selectedDate}`)
         ]);
+        okA = ra.ok; okT = rt.ok;
         dataA = await ra.json();
         dataT = await rt.json();
       } catch (e) {
@@ -1006,8 +1008,10 @@
         renderPrice("priceAmaterasu", type);
         renderPrice("priceTsukuyomi", type);
       }
-      renderSlots("amaterasu", dataA.slots || [], isPlan180);
-      renderSlots("tsukuyomi", dataT.slots || [], isPlan180);
+      const errA = !okA || !dataA || !Array.isArray(dataA.slots) || dataA.error;
+      const errT = !okT || !dataT || !Array.isArray(dataT.slots) || dataT.error;
+      renderSlots("amaterasu", dataA.slots || [], isPlan180, errA);
+      renderSlots("tsukuyomi", dataT.slots || [], isPlan180, errT);
     })();
   }
 
@@ -1022,7 +1026,7 @@
     }
   }
 
-  function renderSlots(room, slots, isPlan180){
+  function renderSlots(room, slots, isPlan180, isError){
     const wrap = document.getElementById(room === "amaterasu" ? "slotsAmaterasu" : "slotsTsukuyomi");
     const titleEl = document.getElementById(room === "amaterasu" ? "titleAmaterasu" : "titleTsukuyomi");
     const baseTitle = room === "amaterasu" ? "天照 AMATERASU" : "月読 TSUKUYOMI";
@@ -1030,6 +1034,13 @@
     const roomName = room === "amaterasu" ? "天照" : "月読";
 
     wrap.innerHTML = "";
+    if(isError){
+      const err = document.createElement("div");
+      err.style.cssText = "font-size:12.5px;color:var(--warn-ink);font-weight:700;line-height:1.7;";
+      err.textContent = "空き状況をうまく取得できませんでした。もう一度「日にち」を選び直してお試しください。";
+      wrap.appendChild(err);
+      return;
+    }
     if(!slots.length){
       const none = document.createElement("div");
       none.style.cssText = "font-size:12.5px;color:var(--sub);";
