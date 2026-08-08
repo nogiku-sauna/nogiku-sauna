@@ -198,11 +198,12 @@ async function sweepPending() {
         const pp = planParts(h.plan);
         const jp = jstParts(h.start_at);
         const total = (order.total_money && order.total_money.amount) || '';
+        // 先に本予約を作る（この中でお客様照合が走り、h.repeat に 新規/リピーター が入る）
+        await createBookingFromHold(h);                     // ★決済完了 → 本予約を作成
         logEvent([jstNow(), '③決済完了', pp.name, pp.room, h.people,
                   jp.date, jp.time, isHolidayJST(h.start_at) ? '土日祝' : '平日',
                   prefOnly(h.addr), total, h.id,
                   h.repeat || '', h.src || '', daysAhead(h.start_at), h.dev || '']);
-        await createBookingFromHold(h);                     // ★決済完了 → 本予約を作成
         continue;
       }
     } catch (e) {}
