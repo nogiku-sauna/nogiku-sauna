@@ -459,90 +459,6 @@ const FAIL_PATH = path.join(__dirname, 'failures.json');
 function loadFailures() { try { return JSON.parse(fs.readFileSync(FAIL_PATH, 'utf8')); } catch (e) { return []; } }
 function saveFailures(list) { try { fs.writeFileSync(FAIL_PATH, JSON.stringify(list, null, 2)); } catch (e) {} }
 
-// ==========================================================================
-// 週次レポート（毎週月曜の朝、先週1週間ぶんをお店へメール）
-// ==========================================================================
-const WEEKLY_SENT_PATH = path.join(__dirname, 'weekly_sent.json');
-function parseJst(s) { if (!s) return NaN; return new Date(s.replace(' ', 'T') + '+09:00').getTime(); }
-function parseCsvLine(line) {
-  const out = []; let cur = ''; let q = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (q) { if (c === '"') { if (line[i+1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
-    else { if (c === '"') q = true; else if (c === ',') { out.push(cur); cur = ''; } else cur += c; }
-  }
-  out.push(cur); return out;
-}
-function weeklyReport() {
-  let text = '';
-  try { text = fs.readFileSync(LOG_PATH, 'utf8'); } catch (e) { return; }
-  const lines = text.split('\n').filter(l => l.trim());
-  if (lines.length <= 1) return;
-  const rows = lines.slice(1).map(parseCsvLine).filter(r => r.length >= 11);
-  const nowJst = new Date(Date.now() + 9 * 3600000);
-  const daysSinceMon = (nowJst.getUTCDay() + 6) % 7;
-  const thisMon = Date.UTC(nowJst.getUTCFullYear(), nowJst.getUTCMonth(), nowJst.getUTCDate() - daysSinceMon) - 9 * 3600000;
-  const start = thisMon - 7 * 86400000;
-  const end = thisMon;
-  const inWeek = rows.filter(r => { const t = parseJst(r[0]); return t >= start && t < end; });
-  const cnt = stage => inWeek.filter(r => r[1] === stage).length;
-  const done = inWeek.filter(r => r[1] === '③決済完了');
-  const sum = (arr, i) => arr.reduce((a, r) => a + (parseInt(r[i], 10) || 0), 0);
-  const views = cnt('①時間を選択');
-  const toPay = cnt('②決済ページへ');
-  const completed = done.length;
-  const sales = sum(done, 9);
-  const people = sum(done, 4);
-  const rate = views ? Math.round(completed / views * 100) : 0;
-  const abandon = cnt('×入力画面で中断');
-  const expired = cnt('×時間切れ');
-  const tally = (arr, i) => { const m = {}; arr.forEach(r => { const k = (r[i] || '（不明）'); m[k] = (m[k] || 0) + 1; }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
-  const roomLine = tally(done, 3).map(e => e[0] + ' ' + e[1] + '件').join(' / ') || 'なし';
-  const timeLine = tally(done, 6).map(e => e[0] + ' ' + e[1] + '件').join(' / ') || 'なし';
-  const devLine = tally(inWeek.filter(r => r[1] === '①時間を選択'), 14).map(e => e[0] + ' ' + e[1]).join(' / ') || 'なし';
-  const repLine = tally(done, 11).map(e => (e[0] || '（不明）') + ' ' + e[1] + '件').join(' / ') || 'なし';
-  const fmt = ms => new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
-  const body = [
-    '【NOGIKU】先週の予約レポート（' + fmt(start) + ' 〜 ' + fmt(end - 86400000) + '）',
-    '',
-    '■ 予約・売上',
-    '　予約数（決済完了）: ' + completed + '件',
-    '　のべ人数        : ' + people + '名',
-    '　売上            : ¥' + sales.toLocaleString(),
-    '',
-    '■ お客様の動き',
-    '　時間を選んだ人   : ' + views + '人',
-    '　決済ページへ     : ' + toPay + '人',
-    '　予約完了         : ' + completed + '人（完了率 ' + rate + '%）',
-    '　入力画面で中断   : ' + abandon + '件',
-    '　時間切れ         : ' + expired + '件',
-    '',
-    '■ 内訳',
-    '　部屋別（完了）   : ' + roomLine,
-    '　時間帯別（完了） : ' + timeLine,
-    '　新規/リピーター  : ' + repLine,
-    '　端末（閲覧）     : ' + devLine,
-    '',
-    '※ 毎週月曜の朝に、先週1週間ぶんを自動送信しています。',
-    '※ 金額は決済完了ログの合計です（返金は反映されません）。'
-  ].join('\n');
-  try {
-    const { execFile } = require('child_process');
-    execFile('/bin/sh', ['-c', 'printf %s ' + JSON.stringify(body) + ' | mail -s "【NOGIKU】先週の予約レポート" ' + STORE_EMAIL], (err) => { if (err) console.error('週次レポート送信エラー:', err.message); });
-  } catch (e) { console.error('週次レポートエラー:', String(e)); }
-}
-function maybeWeeklyReport() {
-  const nowJst = new Date(Date.now() + 9 * 3600000);
-  if (!(nowJst.getUTCDay() === 1 && nowJst.getUTCHours() >= 8)) return;
-  const weekKey = nowJst.toISOString().slice(0, 10);
-  let sent = {};
-  try { sent = JSON.parse(fs.readFileSync(WEEKLY_SENT_PATH, 'utf8')); } catch (e) {}
-  if (sent.week === weekKey) return;
-  try { fs.writeFileSync(WEEKLY_SENT_PATH, JSON.stringify({ week: weekKey, at: jstNow() })); } catch (e) {}
-  weeklyReport();
-}
-setInterval(maybeWeeklyReport, 10 * 60 * 1000); // 10分ごとに月曜朝かチェック
-
 setInterval(sweepPending, 20 * 1000); // 20秒ごとに確認（決済後すぐ予約を作るため）
 setTimeout(sweepPending, 10 * 1000);  // 起動直後にも1回
 
@@ -796,16 +712,6 @@ const server = http.createServer((req, res) => {
   if (url === '/health') {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({ ok: true, service: 'nogiku-booking', configured: isConfigured(), time: new Date().toISOString() }));
-    return;
-  }
-
-  // 【一時】メール送信の診断（確認用・あとで撤去します）
-  if (url === '/weekly-test') {
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    const { execFile } = require('child_process');
-    execFile('/bin/sh', ['-c', 'printf %s "NOGIKU メール送信テストです。これが届けばメール送信は正常です。" | mail -s "【NOGIKU】メール送信テスト" ' + STORE_EMAIL], (err, stdout, stderr) => {
-      res.end(JSON.stringify({ ok: !err, exitError: err ? String(err.message) : null, stderr: String(stderr || '').slice(0, 800), stdout: String(stdout || '').slice(0, 800), note: 'これが ok:true でメールも届けば、mailは正常。届かなければ配信/迷惑メールの問題。ok:false ならmail自体が失敗。' }));
-    });
     return;
   }
 
