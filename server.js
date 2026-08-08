@@ -799,11 +799,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 【一時】週次レポートのテスト送信（確認用・あとで撤去します）
+  // 【一時】メール送信の診断（確認用・あとで撤去します）
   if (url === '/weekly-test') {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    try { weeklyReport(); res.end(JSON.stringify({ ok: true, message: 'テストメールを送信しました。nogikusauna@gmail.com を確認してください。' })); }
-    catch (e) { res.end(JSON.stringify({ ok: false, error: String(e) })); }
+    const { execFile } = require('child_process');
+    execFile('/bin/sh', ['-c', 'printf %s "NOGIKU メール送信テストです。これが届けばメール送信は正常です。" | mail -s "【NOGIKU】メール送信テスト" ' + STORE_EMAIL], (err, stdout, stderr) => {
+      res.end(JSON.stringify({ ok: !err, exitError: err ? String(err.message) : null, stderr: String(stderr || '').slice(0, 800), stdout: String(stdout || '').slice(0, 800), note: 'これが ok:true でメールも届けば、mailは正常。届かなければ配信/迷惑メールの問題。ok:false ならmail自体が失敗。' }));
+    });
     return;
   }
 
