@@ -799,6 +799,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 【一時】週次レポートのテスト送信（確認用・あとで撤去します）
+  if (url === '/weekly-test') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    try { weeklyReport(); res.end(JSON.stringify({ ok: true, message: 'テストメールを送信しました。nogikusauna@gmail.com を確認してください。' })); }
+    catch (e) { res.end(JSON.stringify({ ok: false, error: String(e) })); }
+    return;
+  }
+
   if (url === '/setup' && req.method === 'GET') {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(isConfigured() ? setupPage('✅ すでに設定済みです（安全のため、上書きはできません）。', '#1a7f3c') : setupPage('', ''));
