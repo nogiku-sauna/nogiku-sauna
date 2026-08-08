@@ -157,6 +157,22 @@ function isHeld(startAt, team) {
   return activeHolds().some(h => h.start_at === startAt && h.team === team);
 }
 
+// ---- 空き枠の短時間キャッシュ ----
+//  Squareの空き検索は同じ質問でも結果がぶれるため、一度「空き」と分かった枠を
+//  少しの間だけ覚えておき、表示がちらつかないようにする。
+//  （※予約確定の直前に改めて空きを確認するので、埋まった枠が通ることはない）
+const SLOT_CACHE_MS = 90 * 1000;
+const slotCache = new Map();
+function rememberSlots(key, list) {
+  let m = slotCache.get(key);
+  if (!m) { m = new Map(); slotCache.set(key, m); }
+  const now = Date.now();
+  list.forEach(s => m.set(s.start_at + '|' + s.team, { start_at: s.start_at, team: s.team, at: now }));
+  for (const [k, v] of m) if (now - v.at > SLOT_CACHE_MS) m.delete(k);
+  if (slotCache.size > 200) slotCache.clear();
+  return [...m.values()];
+}
+
 // 決済が終わった仮押さえを Square の予約に変える
 // 本当に支払いが完了したかを確認する（未払い残高0＋各支払いがCOMPLETED）
 async function isReallyPaid(order) {
@@ -803,21 +819,26 @@ const server = http.createServer((req, res) => {
       // Squareの空き検索はこの枠について結果が不安定なため、数回問い合わせて結果を合体する
       const SEARCH_TRIES = 3;
       let r = { status: 0, data: {} };
-      const merged = new Map();
+      const found = [];
       for (let i = 0; i < SEARCH_TRIES; i++) {
         r = await sq('POST', '/v2/bookings/availability/search', body);
         (r.data.availabilities || []).forEach(a => {
           (a.appointment_segments || []).forEach(seg => {
-            merged.set(a.start_at + '|' + seg.team_member_id, { start_at: a.start_at, team: seg.team_member_id });
+            found.push({ start_at: a.start_at, team: seg.team_member_id });
           });
         });
       }
+      // 短時間キャッシュに覚えさせ、直近に見つかった枠もあわせて表示（ちらつき防止）
+      const stable = rememberSlots(plan + '|' + people + '|' + date, found);
       const bookable = await getBookableTeam();
       const seen = new Set();
       const slots = [];
-      [...merged.values()].forEach(av => {
+      const nowMs2 = Date.now();
+      stable.forEach(av => {
         // 「部屋」(予約可能スタッフ)の枠だけを採用。個人カレンダー由来の枠は除外
         if (!bookable.has(av.team)) return;
+        // すでに過ぎた時間は出さない
+        if (new Date(av.start_at).getTime() <= nowMs2) return;
         // 他のお客様がお手続き中（仮押さえ）の枠は表示しない
         if (!seen.has(av.start_at) && !isHeld(av.start_at, av.team)) {
           seen.add(av.start_at);
@@ -1016,19 +1037,26 @@ const server = http.createServer((req, res) => {
 
       // Square側でまだ空いているか、念のため直前に確認（前後1時間の幅で照合）
       const t0 = new Date(startAt).getTime();
-      const avail = await sq('POST', '/v2/bookings/availability/search', {
-        query: { filter: {
-          start_at_range: {
-            start_at: new Date(t0 - 3600000).toISOString(),
-            end_at: new Date(t0 + 3600000).toISOString()
-          },
-          location_id: locId,
-          segment_filters: [{ service_variation_id: variation }]
-        } }
-      });
-      const stillFree = (avail.data.availabilities || []).some(a =>
-        new Date(a.start_at).getTime() === t0 &&
-        (a.appointment_segments || []).some(sg => sg.team_member_id === team));
+      // Squareの返事はぶれるため、複数回たずねて一度でも見つかれば「空き」とみなす
+      //  （本当に埋まっていれば何回聞いても出てこないので、二重予約にはならない）
+      const CHECK_TRIES = 3;
+      let avail = { ok: false, data: {} };
+      let stillFree = false;
+      for (let i = 0; i < CHECK_TRIES && !stillFree; i++) {
+        avail = await sq('POST', '/v2/bookings/availability/search', {
+          query: { filter: {
+            start_at_range: {
+              start_at: new Date(t0 - 3600000).toISOString(),
+              end_at: new Date(t0 + 3600000).toISOString()
+            },
+            location_id: locId,
+            segment_filters: [{ service_variation_id: variation }]
+          } }
+        });
+        stillFree = (avail.data.availabilities || []).some(a =>
+          new Date(a.start_at).getTime() === t0 &&
+          (a.appointment_segments || []).some(sg => sg.team_member_id === team));
+      }
       // 確認できない場合（APIエラー等）は通す。決済後に作成できなければ /failures に記録される
       if (avail.ok && !stillFree) {
         res.end(JSON.stringify({
