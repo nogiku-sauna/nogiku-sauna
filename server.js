@@ -725,6 +725,25 @@ const server = http.createServer((req, res) => {
     res.statusCode = 204; res.end(); return;
   }
 
+  // ==========================================================================
+  // 管理用ページの保護（公開前の安全対策）
+  //  ・開発用に作った入口は完全に閉じる
+  //  ・お客様の個人情報を含む画面は「合言葉」が必要
+  // ==========================================================================
+  const ADMIN_KEY = 'ngk-3oixtnw0bzbw2mom';
+  const CLOSED_PATHS = ['/setup', '/inspect', '/cancel-booking', '/complete-orders'];
+  const SECRET_PATHS = ['/notifications', '/failures'];
+  function notFound() {
+    res.statusCode = 404;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end('Not Found');
+  }
+  if (CLOSED_PATHS.indexOf(url) !== -1) { notFound(); return; }
+  if (SECRET_PATHS.indexOf(url) !== -1) {
+    const givenKey = new URLSearchParams(req.url.split('?')[1] || '').get('key');
+    if (givenKey !== ADMIN_KEY) { notFound(); return; }
+  }
+
   if (url === '/health') {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({ ok: true, service: 'nogiku-booking', configured: isConfigured(), time: new Date().toISOString() }));
