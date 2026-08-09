@@ -481,7 +481,9 @@ setTimeout(sweepPending, 10 * 1000);  // 起動直後にも1回
 // ==========================================================================
 // データ分析ダッシュボード（お店の判断に使う画面）
 // ==========================================================================
-function dashboardPage(rows, failures) {
+function dashboardPage(rows, failures, period) {
+  period = period || 'all';
+  const periodLabel = period === 'day' ? '今日' : period === 'week' ? '今週' : period === 'month' ? '今月' : '全期間';
   const esc = v => String(v == null ? '' : v)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -634,8 +636,15 @@ ${(failures && failures.length) ? `
 
   <header>
     <h1>NOGIKU 予約データ</h1>
-    <p>${new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} 現在（全期間）</p>
+    <p>${new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} 現在（${periodLabel}）</p>
   </header>
+
+  <div style="display:flex;gap:8px;justify-content:center;margin-bottom:22px;flex-wrap:wrap;">
+    ${[['day','今日'],['week','今週'],['month','今月'],['all','全期間']].map(function(p){
+      var v = p[0], l = p[1], on = (period === v);
+      return '<a href="/dashboard?period=' + v + '" style="padding:9px 20px;border-radius:100px;text-decoration:none;font-size:13.5px;font-weight:700;border:1px solid ' + (on ? '#df571d' : '#d9cfae') + ';background:' + (on ? '#df571d' : '#fff') + ';color:' + (on ? '#fff' : '#2b2620') + ';">' + l + '</a>';
+    }).join('')}
+  </div>
 
   <div class="kpis">
     <div class="kpi"><div class="label">予約件数</div><div class="value">${paid.length}<span class="unit">件</span></div></div>
@@ -1010,7 +1019,25 @@ const server = http.createServer((req, res) => {
         return o;
       });
     } catch (e) {}
-    res.end(dashboardPage(rows, loadFailures()));
+    // ---- 期間の絞り込み（今日／今週／今月／全期間） ----
+    const dq = new URLSearchParams(req.url.split('?')[1] || '');
+    const period = dq.get('period') || 'all';
+    const nowJ = new Date(Date.now() + 9 * 3600000);
+    const todayStr = nowJ.toISOString().slice(0, 10);
+    const monthStr = nowJ.toISOString().slice(0, 7);
+    const dowMon = (nowJ.getUTCDay() + 6) % 7;
+    const mondayStr = new Date(nowJ.getTime() - dowMon * 86400000).toISOString().slice(0, 10);
+    if (period !== 'all') {
+      rows = rows.filter(r => {
+        const d = (r['記録日時(JST)'] || '').slice(0, 10);
+        if (!d) return false;
+        if (period === 'day') return d === todayStr;
+        if (period === 'week') return d >= mondayStr;
+        if (period === 'month') return d.slice(0, 7) === monthStr;
+        return true;
+      });
+    }
+    res.end(dashboardPage(rows, loadFailures(), period));
     return;
   }
 
