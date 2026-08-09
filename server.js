@@ -481,9 +481,13 @@ setTimeout(sweepPending, 10 * 1000);  // 起動直後にも1回
 // ==========================================================================
 // データ分析ダッシュボード（お店の判断に使う画面）
 // ==========================================================================
-function dashboardPage(rows, failures, period) {
+function dashboardPage(rows, failures, period, from, to) {
   period = period || 'all';
-  const periodLabel = period === 'day' ? '今日' : period === 'week' ? '今週' : period === 'month' ? '今月' : '全期間';
+  from = from || '';
+  to = to || '';
+  const periodLabel = (from || to)
+    ? ((from || '最初') + ' 〜 ' + (to || '今日'))
+    : (period === 'day' ? '今日' : period === 'week' ? '今週' : period === 'month' ? '今月' : '全期間');
   const esc = v => String(v == null ? '' : v)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -645,6 +649,14 @@ ${(failures && failures.length) ? `
       return '<a href="/dashboard?period=' + v + '" style="padding:9px 20px;border-radius:100px;text-decoration:none;font-size:13.5px;font-weight:700;border:1px solid ' + (on ? '#df571d' : '#d9cfae') + ';background:' + (on ? '#df571d' : '#fff') + ';color:' + (on ? '#fff' : '#2b2620') + ';">' + l + '</a>';
     }).join('')}
   </div>
+
+  <form method="get" action="/dashboard" style="display:flex;gap:8px;justify-content:center;align-items:center;margin-bottom:24px;flex-wrap:wrap;font-size:13px;color:#83795f;">
+    <span>期間を指定：</span>
+    <input type="date" name="from" value="${from}" style="padding:7px 10px;border:1px solid #d9cfae;border-radius:8px;font-size:13px;font-family:inherit;">
+    <span>〜</span>
+    <input type="date" name="to" value="${to}" style="padding:7px 10px;border:1px solid #d9cfae;border-radius:8px;font-size:13px;font-family:inherit;">
+    <button type="submit" style="padding:8px 18px;border:none;border-radius:100px;background:#2b2620;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">表示</button>
+  </form>
 
   <div class="kpis">
     <div class="kpi"><div class="label">予約件数</div><div class="value">${paid.length}<span class="unit">件</span></div></div>
@@ -1027,7 +1039,17 @@ const server = http.createServer((req, res) => {
     const monthStr = nowJ.toISOString().slice(0, 7);
     const dowMon = (nowJ.getUTCDay() + 6) % 7;
     const mondayStr = new Date(nowJ.getTime() - dowMon * 86400000).toISOString().slice(0, 10);
-    if (period !== 'all') {
+    const fromStr = (dq.get('from') || '').slice(0, 10);
+    const toStr = (dq.get('to') || '').slice(0, 10);
+    if (fromStr || toStr) {
+      rows = rows.filter(r => {
+        const d = (r['記録日時(JST)'] || '').slice(0, 10);
+        if (!d) return false;
+        if (fromStr && d < fromStr) return false;
+        if (toStr && d > toStr) return false;
+        return true;
+      });
+    } else if (period !== 'all') {
       rows = rows.filter(r => {
         const d = (r['記録日時(JST)'] || '').slice(0, 10);
         if (!d) return false;
@@ -1037,7 +1059,7 @@ const server = http.createServer((req, res) => {
         return true;
       });
     }
-    res.end(dashboardPage(rows, loadFailures(), period));
+    res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr));
     return;
   }
 
