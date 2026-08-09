@@ -481,7 +481,7 @@ setTimeout(sweepPending, 10 * 1000);  // 起動直後にも1回
 // ==========================================================================
 // データ分析ダッシュボード（お店の判断に使う画面）
 // ==========================================================================
-function dashboardPage(rows) {
+function dashboardPage(rows, failures) {
   const esc = v => String(v == null ? '' : v)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -613,6 +613,24 @@ function dashboardPage(rows) {
   .actions a.sub{background:var(--paper);color:var(--ink);border:1px solid var(--line);}
 </style></head>
 <body><div class="wrap">
+${(failures && failures.length) ? `
+  <div style="background:#fdecea;border:2px solid #c0392b;border-radius:14px;padding:18px 20px;margin-bottom:22px;">
+    <div style="font-size:17px;font-weight:800;color:#c0392b;margin-bottom:8px;">⚠️ 至急ご確認ください</div>
+    <div style="font-size:14px;color:#2b2620;line-height:1.9;">
+      お支払いは完了したのに、ご予約が作成できなかったお客様が <b>${failures.length}件</b> あります。<br>
+      お客様は「予約できた」と思っている可能性があります。至急、ご連絡のうえ返金または別のお時間のご案内をお願いします。
+    </div>
+    <div style="margin-top:12px;font-size:13px;">
+      ${failures.slice(-5).reverse().map(f => {
+        const h = f.hold || {};
+        const jp = h.start_at ? new Date(new Date(h.start_at).getTime() + 9*3600000).toISOString().slice(0,16).replace('T',' ') : '(不明)';
+        return `<div style="background:#fff;border-radius:8px;padding:10px 12px;margin-bottom:6px;">
+          <b>${esc(h.name || '(お名前不明)')}</b> 様 ／ ${esc(h.tel || '(電話不明)')} ／ ${esc(h.email || '')}<br>
+          ご希望：${esc(h.label || '')} ${esc(h.people || '')}名 ／ ${esc(jp)}〜
+        </div>`;
+      }).join('')}
+    </div>
+  </div>` : ''}
 
   <header>
     <h1>NOGIKU 予約データ</h1>
@@ -992,7 +1010,7 @@ const server = http.createServer((req, res) => {
         return o;
       });
     } catch (e) {}
-    res.end(dashboardPage(rows));
+    res.end(dashboardPage(rows, loadFailures()));
     return;
   }
 
