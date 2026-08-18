@@ -509,6 +509,9 @@
   .sq-name-row .sq-input{flex:1;}
   .sq-save{display:flex;align-items:flex-start;gap:8px;margin:14px 0 0;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.6;}
   .sq-save input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--ember);flex:0 0 auto;}
+  .sq-terms{display:flex;align-items:flex-start;gap:8px;margin:18px 0 0;padding:12px 14px;background:var(--cream);border-radius:10px;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.6;}
+  .sq-terms input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--ember);flex:0 0 auto;}
+  .sq-terms a{color:var(--ember);font-weight:700;text-decoration:underline;}
   .sq-note{font-size:11px;color:var(--sub);line-height:1.7;margin:8px 0 0;}
   .sq-note a{color:var(--sub);text-decoration:underline;}
   .sq-box .confirm-actions{padding:14px 22px 20px;border-top:1px solid var(--line);margin:0;}
@@ -769,6 +772,11 @@
 
       <div class="sq-section">ご要望・ご連絡事項</div>
       <textarea id="confirmNote" class="sq-input sq-textarea" rows="3" placeholder="ご希望・ご質問があればご記入ください（任意）"></textarea>
+
+      <label class="sq-terms">
+        <input type="checkbox" id="confirmTerms">
+        <span><a href="terms.html" target="_blank" rel="noopener">ご利用規約・キャンセルポリシー</a>を確認し、同意します</span>
+      </label>
 
       <label class="sq-save">
         <input type="checkbox" id="confirmRemember" checked>
@@ -1198,6 +1206,7 @@
 
     if(!tel){ alert("電話番号を入力してください"); document.getElementById("confirmTel").focus(); return; }
     if(!lastName || !firstName){ alert("姓名を入力してください"); document.getElementById("confirmLastName").focus(); return; }
+    if(!document.getElementById("confirmTerms").checked){ alert("ご利用規約・キャンセルポリシーへの同意をお願いします"); document.getElementById("confirmTerms").focus(); return; }
 
     saveGuest();
     const name = `${lastName} ${firstName}`;
@@ -1209,7 +1218,7 @@
       const plan = planKey(p.room, p.isPlan180);
       const q = new URLSearchParams({
         plan, people: p.people, start_at: p.startIso, team: p.team || "",
-        name, last_name: lastName, first_name: firstName, tel, email, addr, note, zip, hold: holdId || "", utm: utmTag
+        name, last_name: lastName, first_name: firstName, tel, email, addr, note, zip, hold: holdId || "", utm: utmTag, terms: "1"
       });
       const r = await fetch(`${API_BASE}/book?${q.toString()}`);
       const data = await r.json();
