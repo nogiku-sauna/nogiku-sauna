@@ -237,7 +237,7 @@ const DATA = [
     { t: "お店に予約通知メールが届く",
       how: ["nogikusauna@gmail.com の受信箱を確認する（迷惑メールも見る）"],
       ok: "「【NOGIKU】新しいご予約が入りました」というメールが届いている",
-      ng: "届かない場合は、下のURLで内容を確認できます：https://162-43-28-12.nip.io/notifications" },
+      ng: "届かない場合は、下のURLで内容を確認できます：https://api.nogikusauna.com/notifications?key=ngk-3oixtnw0bzbw2mom" },
     { t: "Square の「取引」一覧に、お客様名が表示される",
       how: ["Square アプリの「お取引」を開く", "今の決済の行を見る（開かずに一覧のまま）"],
       ok: "お客様名・日付・人数が見えて、誰の予約かすぐ分かる" },
@@ -286,7 +286,7 @@ const DATA = [
       ok: "再起動後も、何もしなくてサイトが動いている" },
     { t: "決済したのに予約が作れなかったとき、お店が気づける",
       important: true, me: true,
-      how: ["※ 私（Claude）が仕組みを確認・強化します", "現状：記録は残るが、お店への通知が弱い", "確認用URL：https://162-43-28-12.nip.io/failures"],
+      how: ["※ 私（Claude）が仕組みを確認・強化します", "現状：記録は残るが、お店への通知が弱い", "確認用URL：https://api.nogikusauna.com/failures?key=ngk-3oixtnw0bzbw2mom"],
       ok: "万一のときに、お店がすぐ気づいて返金・別時間の案内ができる状態" }
   ]}
 ];
