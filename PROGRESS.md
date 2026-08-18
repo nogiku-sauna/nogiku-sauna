@@ -1,6 +1,6 @@
 # NOGIKU 予約サイト 引き継ぎメモ
 
-最終更新：2026-08-04
+最終更新：2026-08-18
 担当：吉見紳一（しん）／ NOGIKU サウナ（湯布院）
 
 ---
@@ -10,8 +10,6 @@
 このファイルは、チャットが変わっても作業を続けられるようにするための引き継ぎ書です。
 まずここを全部読んでから作業を始めてください。
 **ユーザーへの説明は「中学生に伝えるイメージ」で、専門用語を避けてください。**
-
-**GitHub の編集は Claude 自身ができます。詳しくは「13. Claude がブラウザを操作する方法」を必ず読むこと。**
 
 ---
 
@@ -42,27 +40,51 @@ Square の標準予約ページの代わりになる、**自社の予約サイ�
 | 2画面の確認フロー（①確認だけ ②入力フォーム） | 完成 |
 | 公開前チェックリスト（32項目） | 完成・未実行 |
 | データ分析ダッシュボード | 完成・動作確認済み |
+| 独自ドメイン（nogikusauna.com）への切り替え | 完成（詳細は3・4章） |
+| 「決済したのに予約が取れなかった」を検知する見張り番（Gmail自動通知） | 完成・稼働中（15分おき、2026-08-18に保存・実行完了を確認済み） |
+| 流入経路（インスタ・Google検索など）の記録 | 完成 |
+| トップページが2つある問題（「トップへ」を押すと古い画面に飛ぶバグ） | 修正済み（古いページを自動転送に変更） |
+| データ分析用スプレッドシートのA1（新ドメインへのIMPORTDATA） | 完成・2026-08-18に書き換え＆データ読み込み成功を確認済み |
 
 ### まだのもの
 
+- **本番の決済テスト1回**（予約→決済→カレンダー反映→通知→返金、を通しで）※最優先
 - **週次レポート**（毎週月曜の朝にメールでダッシュボードの内容を送る）
 - **公開前チェックリストの実行**（社員さんと一緒にやる。ユーザーが一人のため保留中）
 - **テスト用の入口を閉じる作業**（公開前に必須。下の「7. 公開前にやること」参照）
-- **DNS の切り替え**（エックスサーバーのサポート返答待ち）
 - **VPS 自動更新オフ**の設定
+- **データのリセット**（テスト用データを公開前にゼロに戻す）
+- **旧Squareサイトの停止・案内切り替え**（オーバーブッキング防止のため）
 
 ---
 
-## 3. URL 一覧
+## 3. URL 一覧（2026-08-18 更新：独自ドメインに切り替え済み）
 
 | 何 | URL |
 |---|---|
 | 予約ページ（120分） | https://nogiku-sauna.github.io/nogiku-sauna/booking.html |
 | 予約ページ（180分旅館） | https://nogiku-sauna.github.io/nogiku-sauna/ryokan180_booking.html |
 | 公開前チェックリスト | https://nogiku-sauna.github.io/nogiku-sauna/checklist.html |
-| データ分析ダッシュボード | https://162-43-28-12.nip.io/dashboard |
-| CSVダウンロード | https://162-43-28-12.nip.io/analytics.csv |
+| 予約システム本体（新） | https://api.nogikusauna.com |
+| データ分析ダッシュボード | https://api.nogikusauna.com/dashboard |
+| CSVダウンロード | https://api.nogikusauna.com/analytics.csv |
+| 予約通知の控え | https://api.nogikusauna.com/notifications?key=ngk-3oixtnw0bzbw2mom |
+| トラブル記録 | https://api.nogikusauna.com/failures?key=ngk-3oixtnw0bzbw2mom |
 | GitHub | https://github.com/nogiku-sauna/nogiku-sauna |
+
+⚠️ 古いURL（162-43-28-12.nip.io）はもう使わないこと。
+証明書の作業（certbot）の影響で応答しなくなっており、一時的にサイトが止まる原因になった（8/18に発生・復旧済み）。booking.html と ryokan180_booking.html は新URLに書き換え・GitHub反映済み。
+
+残っている古いURLの書き換え（未確認・要フォロー）：
+
+- `checklist.html` に古いURL（162-43-28-12.nip.io）の記載が2箇所残っている（240行目・289行目付近）。案内文としての記載なので緊急ではないが、次回直すこと。
+
+以下2件は2026-08-18に確認・完了済み：
+
+- Google スプレッドシート（分析用）のA1セル：`=IMPORTDATA("https://api.nogikusauna.com/analytics.csv")` に書き換え完了。データ読み込み成功を確認済み。
+  シート：https://docs.google.com/spreadsheets/d/1GKgI8VNb7TYUC7HC62YxX5WyBjT5m4S0O-jLA9Vd5AI/edit
+- Google Apps Script「NOGIKUトラブル見張り番」（nogikusauna@gmail.com アカウントで作成、15分おきに自動実行するトリガー設定済み）：4行目・31行目とも api.nogikusauna.com に書き換え済み。保存＋実行して「実行完了」になったことを実行ログで確認済み。
+  - 紛らわしい「空の無題プロジェクト」がもう1つ残っている可能性あり。後で削除して整理するとよい（急ぎではない）。
 
 ---
 
@@ -72,10 +94,13 @@ Square の標準予約ページの代わりになる、**自社の予約サイ�
 - OS: Ubuntu / サービス名 `nogiku`（systemd）
 - アプリ本体: `/root/app/server.js`（Node.js 標準ライブラリのみ。npm パッケージ不使用）
 - nginx がリバースプロキシ（80/443 → 127.0.0.1:3000）
-- HTTPS: certbot / Let's Encrypt
-- ドメインは **nip.io** を仮利用中：`162-43-28-12.nip.io`
-  - 本来使いたい `nogikusauna.com` は **DNS の設定不備（lame delegation）** で使えない
-  - `ns1-3.xdomain.ne.jp` が REFUSED を返す状態。エックスサーバーに問い合わせ済み・返答待ち
+- HTTPS: certbot / Let's Encrypt（api.nogikusauna.com 用の証明書は取得・組み込み済み）
+- ドメイン問題は解決済み。
+  原因は「XServerドメイン」側のDNSレコード設定画面（誤り）と「XServer VPS」側のDNS設定画面（正解）が別物で、正しい画面に何も登録されていなかったこと。VPS側の正しい画面でAレコード（本体／www／api）を登録して解決。
+  - nogikusauna.com → 162.43.28.12 ✅
+  - www.nogikusauna.com → 162.43.28.12 ✅
+  - api.nogikusauna.com → 162.43.28.12 ✅（予約システムはこれを使う）
+  - ドメイン契約：自動更新オン、利用期限 2027/07/31
 
 ### データの保存場所（サーバー内）
 
@@ -91,12 +116,12 @@ Square の標準予約ページの代わりになる、**自社の予約サイ�
 
 ### サイト（HTML）を直すとき
 1. Claude がファイルを作る
-2. **Claude が GitHub のウェブ画面から直接コミット**（手順は 13 参照）
+2. Claude が GitHub のウェブ画面（ブラウザ操作）から直接コミット、またはユーザーによるアップロード
 3. GitHub Pages に自動反映
 
 ### サーバー（server.js）を直すとき
 1. Claude がファイルを作る
-2. Claude が GitHub にコミット
+2. Claude が GitHub にアップロード
 3. **ユーザーがシリアルコンソールで下記を1行ずつ実行**
 
 ```
@@ -124,15 +149,18 @@ systemctl restart nogiku
 
 ---
 
-## 7. 公開前にやること（未着手）
+## 7. 公開前にやること（未着手・優先度順）
 
-チェックリストの項目30〜32に相当。
-
-- [ ] テスト用の入口を閉じる：`/setup` `/inspect` `/cancel-booking` `/complete-orders`
-- [ ] サーバーが落ちたとき自動で再起動するか確認
-- [ ] 「決済は通ったのに予約が入らなかった」場合の検知を強化
-- [ ] 2台のスマホで同時予約テスト（枠おさえがちゃんと効くか）
-- [ ] 32項目チェックリストを社員さんと実行
+1. 🔴 **本番の決済テスト1回**（予約→決済→カレンダー反映→通知→返金を通しで）← 最重要・まだ未実施
+2. データのリセット（コマンド3行、Claudeが案内）
+3. 旧Squareサイトの切り替え
+   - 各ページ先頭に「新サイトへ」の案内文＋リンク
+   - コピーしたトップページを一番上に
+   - オンライン予約サイトを無効化（オーバーブッキング防止）
+4. テスト用の入口を閉じる：`/setup` `/inspect` `/cancel-booking` `/complete-orders`
+5. サーバーが落ちたとき自動で再起動するか確認
+6. 2台のスマホで同時予約テスト（枠おさえがちゃんと効くか）
+7. 32項目チェックリストを社員さんと実行
 
 ---
 
@@ -147,9 +175,8 @@ systemctl restart nogiku
 - 現在の運用：**お取引から返金 → カレンダーの予約は手動でキャンセル**
 - 困りごと：お取引の一覧には**名前が出ない**ので、対象のお客様を探すのが手間
 
-### ② DNS（nogikusauna.com が使えない）
-- エックスサーバーのサポート返答待ち
-- 直ったら `api.nogikusauna.com` に切り替える
+### ②（解決済み）DNS（nogikusauna.com が使えない）
+2026-08-18 に解決。詳細は4章参照。以降は api.nogikusauna.com を正式なアドレスとして使う。
 
 ---
 
@@ -166,6 +193,9 @@ systemctl restart nogiku
 | 決済直後に「ご注文が完了しませんでした」 | `completeOrder()` を20秒後に実行していて Square の処理中だった | **10分後に遅延実行**に変更 |
 | 枠おさえが効いていない | 決済ページに飛んだ時点でしか押さえていなかった | `/hold` `/release` を追加し、**入力フォームを開いた瞬間**に押さえる |
 | `/complete-orders` が504 | 一度に処理しすぎ | 5件ずつに変更 |
+| 空き枠の表示が不安定（2回タップで正しく出る） | 表示ロジックのタイミング問題 | 調査・対策済み（体感10回中1回程度まで改善、大きな副作用なしと判断） |
+| 予約ページの「← トップへ」を押すと古い画面（陰陽マーク・ギャラリー無し）に飛ぶ | トップページが2つ存在し（index.htmlが最新、reservation_landing.htmlが旧版）、7ファイル8箇所のリンクが旧版を指していた | 旧版ページを自動転送ページに置き換え（UTMパラメータも引き継ぐ）。リンクを1つずつ直すより確実なため一括対応 |
+| certbot作業後に旧URL（nip.io）が応答しなくなり予約サイトが一時停止 | 証明書の再インストール作業でnginx設定が変わった | booking.html / ryokan180_booking.html を新URL（api.nogikusauna.com）に書き換えて復旧 |
 
 ---
 
@@ -198,6 +228,8 @@ sweepPending()       // 20秒ごとに実行：決済済み→予約作成／期
 ```
 段階は `①時間を選択` `②決済ページへ` `③決済完了` `×入力画面で中断` `×時間切れ`
 
+流入元は `?utm=◯◯` パラメータで記録。入り口ごとのリンク一覧は別ファイル `NOGIKU_流入経路リンク一覧.md`（作業フォルダ内）を参照。独自ドメインに切り替わったので、このリンク集も nogikusauna.com ベースに作り直しが必要（未着手）。
+
 ---
 
 ## 11. 使っている Square の API
@@ -209,49 +241,23 @@ sweepPending()       // 20秒ごとに実行：決済済み→予約作成／期
 
 ---
 
-## 12. 次にやること（おすすめ順）
+## 12. Gmail自動通知の見張り番（Apps Script）
 
-1. **公開前の安全対策**（テスト用の入口を閉じる）← Claude が作業
-2. **チェックリストの実行**（社員さんと一緒に）
-3. **週次レポート**（毎週月曜の朝にメール）
+「決済したのに予約が取れなかった」件が出たら、15分以内に自動でメール通知する仕組み。
+
+- `nogikusauna@gmail.com`（お店のアカウント）で作成済み（個人アカウントではない）。
+- トリガー設定済み：`checkFailures` 関数を15分おきに自動実行。
+- 参照先URLを `api.nogikusauna.com` に書き換え済み（4行目・31行目）。
+- **2026-08-18 に保存・実行を確認済み。** 実行ログで「実行開始→実行完了」を確認、エラーなし。
+- 紛らわしい「空の無題プロジェクト」がもう1つ残っている可能性あり。後で削除して整理するとよい（急ぎではない）。
 
 ---
 
-## 13. Claude がブラウザを操作する方法（重要・引き継ぎ）
+## 13. 次にやること（おすすめ順）
 
-**GitHub の編集・コミットは Claude 自身ができます。ユーザーに手作業をお願いしないこと。**
-
-- 使うのは **Chrome のブラウザ操作ツール（claude-in-chrome）**。API キーやトークンは不要。
-- ツールが読み込まれていない場合は **ToolSearch** で読み込む：
-  `select:mcp__claude-in-chrome__navigate,mcp__claude-in-chrome__computer,mcp__claude-in-chrome__javascript_tool,mcp__claude-in-chrome__tabs_context_mcp`
-- ユーザーの Chrome は **GitHub にログイン済み**。そのまま編集できる。
-
-### ファイルを丸ごと書き換える手順（実績あり）
-
-1. `https://github.com/nogiku-sauna/nogiku-sauna/edit/main/ファイル名` を開く
-2. エディタ内をクリック → **ctrl+a**（実キー）で全選択
-3. **javascript_tool で paste イベントを送り込む**（GitHub は CodeMirror。type では遅すぎる）
-
-```js
-const text = ["1行目","2行目"].join("\n");
-const cm = document.querySelector('.cm-content');
-cm.focus();
-const dt = new DataTransfer();
-dt.setData('text/plain', text);
-cm.dispatchEvent(new ClipboardEvent('paste', {clipboardData: dt, bubbles: true, cancelable: true}));
-```
-
-4. 右上の **Commit changes...** をクリック
-5. コミットメッセージを入力 → **Commit changes**
-6. `blob` ページを開いて反映を確認する
-
-> **コツ**
-> - `.cm-content` に直接 paste イベントを送る。`textarea` は存在しない。
-> - **必ず全文を貼り直すこと。** `ctrl+End` でカーソルを末尾に送っても効かず、
-->   追記のつもりが先頭に入ってしまう事故が起きた。
-
-### Claude にできないこと
-
-- **サーバーのコマンド実行**（シリアルコンソール）はユーザーにお願いする。
-  Claude の bash はサンドボックスなので VPS には届かない。
-  必ず **1行ずつ** 渡すこと。
+1. **本番の決済テスト1回**（最優先・まだ未実施）
+2. 公開前の安全対策（テスト用の入口を閉じる）← Claude が作業
+3. チェックリストの実行（社員さんと一緒に）
+4. 週次レポート（毎週月曜の朝にメール）
+5. `checklist.html` 内に残る古いURL（nip.io）の書き換え
+6. 流入経路リンク一覧を新ドメイン（nogikusauna.com）ベースに作り直し
