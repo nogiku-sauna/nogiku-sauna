@@ -289,7 +289,8 @@ async function createBookingFromHold(h) {
       start_at: h.start_at,
       customer_note: h.note || '',
       seller_note: 'Webサイト予約【決済済み】' + h.label + ' ' + h.people + '名 / ' + h.name + '様 / TEL:' + h.tel
-        + (h.email ? ' / ' + h.email : '') + (h.addr ? ' / ご住所:' + h.addr : ''),
+        + (h.email ? ' / ' + h.email : '') + (h.addr ? ' / ご住所:' + h.addr : '')
+        + ' / 規約・キャンセルポリシー同意:済(' + (h.terms_agreed_at || '日時不明') + ')',
       appointment_segments: [{
         team_member_id: h.team,
         service_variation_id: h.variation,
@@ -1101,8 +1102,12 @@ const server = http.createServer((req, res) => {
     const note = (q.get('note') || '').trim().slice(0, 500);
     const addr = (q.get('addr') || '').trim().slice(0, 120);
     const zip = (q.get('zip') || '').trim().slice(0, 12);
+    const termsAgreed = q.get('terms') === '1';
     if (!plan || !people || !startAt || !team || !name || !tel) {
       res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'お名前と電話番号は必須です' })); return;
+    }
+    if (!termsAgreed) {
+      res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'ご利用規約・キャンセルポリシーへの同意が必要です' })); return;
     }
     const variation = pickVariation(plan, people, startAt);
     if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'プランを認識できませんでした' })); return; }
@@ -1218,6 +1223,7 @@ const server = http.createServer((req, res) => {
         plan, people, start_at: startAt, team, variation,
         label: MENU[plan].label,
         name, lastName, firstName, tel, telE164, email, addr, zip, note,
+        terms_agreed_at: jstNow(),
         src: src2, dev: dev2
       });
       savePending(plist);
