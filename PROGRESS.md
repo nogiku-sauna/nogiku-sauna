@@ -71,10 +71,10 @@ Square の標準予約ページの代わりになる、**自社の予約サイ�
 | 予約ページ（180分旅館） | https://nogiku-sauna.github.io/nogiku-sauna/ryokan180_booking.html |
 | 公開前チェックリスト | https://nogiku-sauna.github.io/nogiku-sauna/checklist.html |
 | 予約システム本体（新） | https://api.nogikusauna.com |
-| データ分析ダッシュボード | https://api.nogikusauna.com/dashboard |
+| データ分析ダッシュボード | https://api.nogikusauna.com/dashboard?key=ngk-e0cd7c98705f6843d4f2e912af9bfd2a |
 | CSVダウンロード | https://api.nogikusauna.com/analytics.csv |
-| 予約通知の控え | https://api.nogikusauna.com/notifications?key=ngk-3oixtnw0bzbw2mom |
-| トラブル記録 | https://api.nogikusauna.com/failures?key=ngk-3oixtnw0bzbw2mom |
+| 予約通知の控え | https://api.nogikusauna.com/notifications?key=ngk-e0cd7c98705f6843d4f2e912af9bfd2a |
+| トラブル記録 | https://api.nogikusauna.com/failures?key=ngk-e0cd7c98705f6843d4f2e912af9bfd2a |
 | GitHub | https://github.com/nogiku-sauna/nogiku-sauna |
 
 ⚠️ 古いURL（162-43-28-12.nip.io）はもう使わないこと。
@@ -285,7 +285,50 @@ sweepPending()       // 20秒ごとに実行：決済済み→予約作成／期
 
 ---
 
-## 14. 次にやること（おすすめ順）
+## 14. サイト全体の監査と修正（2026-08-18）
+
+Claudeにサイト全体（予約動線・情報の網羅性・法令面・セキュリティ）を詳しく調べてもらい、見つかった問題をチャットで報告のうえ、確認が取れたものから順に修正した記録。
+
+### 見つかった問題と対応状況
+
+| 内容 | 深刻度 | 状況 |
+|---|---|---|
+| **コマンドインジェクション**：予約フォームの入力（お名前・ご要望など）がそのままシェルコマンドとして実行されてしまう不具合 | 最重要 | ✅ 対応済み。`mail`コマンドをシェル経由せず直接呼び出す方式に変更（`server.js`） |
+| **`/dashboard`に認証がない**：URLを知っていれば誰でも閲覧でき、「決済済みなのに予約が作れなかった」お客様の氏名・電話・メールが表示されてしまう | 重大 | ✅ 対応済み。`/notifications`・`/failures`と同じ鍵付きURLに変更 |
+| **ADMIN_KEYが公開リポジトリに直書きされていた** | 重大 | ✅ 対応済み。新しい鍵を発行し`.env`（非公開）に移動。旧鍵は無効化が必要（VPS作業＋Apps Script更新が残っている。下記参照） |
+| **`/notifications`・`/failures`に不要な個人情報が保存されていた** | 中 | ✅ 対応済み。`/notifications`は氏名・電話・メール・住所を保存しない（日時・プラン・人数のみ）。`/failures`は連絡に必要な氏名・電話・メールは残すが住所は保存しない。30日で自動削除も追加 |
+| tokushoho.htmlの運営責任者名 | - | ❗**誤報告だった。** 木村達行さんが実際の代表（社長）とのことで、記載は正しい。変更不要 |
+| privacy.htmlに「ひな形です」という制作メモが公開されたまま | 重大（信頼性） | 対応予定 |
+| `reservation_loss_estimate.html`（社内の経営分析ツール）が公開リポジトリ・公開サイトに置かれている | 重大（信頼性） | 対応予定：非公開化 |
+| `pricing.html`・`access.html`・`faq.html`・`contact.html`が孤立ページとして残り、内容が最新版と食い違う（料金・駐車場など） | 中 | 対応予定：index.htmlへ自動転送に変更 |
+| `reservation_concierge.html`（固定時間枠でSquareに直接誘導する別の予約導線） | 中 | ユーザー確認済み：削除してよい |
+| サイトに載っていない情報（雨天対応・ペット・喫煙・貴重品） | 軽微 | ユーザーから回答あり：雨天は屋根付きなので基本問題なし／ペット不可／室内禁煙・屋外喫煙所あり／貴重品は個室が鍵付きのため追記不要と判断 |
+| privacy.htmlのSquareへのデータ提供の書き方が「第三者提供」なのか曖昧 | 軽微 | 対応予定：業務委託の趣旨に文言調整 |
+
+### 🔴 まだ残っている作業（Claudeだけでは完結しない）
+
+**新しいADMIN_KEYをVPSの`.env`に反映する必要がある。** しんさんにシリアルコンソールで以下を実行してもらう（server.jsの通常デプロイ手順に1行追加）：
+
+```
+cd ~/app
+```
+```
+git pull
+```
+```
+echo "ADMIN_KEY=ngk-e0cd7c98705f6843d4f2e912af9bfd2a" >> .env
+```
+```
+systemctl restart nogiku
+```
+
+**Google Apps Script「NOGIKUトラブル見張り番」の更新も必要。** 2箇所直す：
+1. 鍵を新しいものに変更：`ngk-3oixtnw0bzbw2mom` → `ngk-e0cd7c98705f6843d4f2e912af9bfd2a`
+2. `/failures`のデータ構造が変わったので、コード内の`f.hold.name`のような書き方を`f.name`のように直す（`hold`という入れ子がなくなった）
+
+---
+
+## 15. 次にやること（おすすめ順）
 
 1. チェックリストの実行（社員さんと一緒に。ユーザーが一人のため保留中）
 2. データのリセット（テスト用データを公開前にゼロに戻す）
