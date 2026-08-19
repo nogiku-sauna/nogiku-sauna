@@ -314,8 +314,14 @@ async function createBookingFromHold(h) {
       // ★万一この枠が埋まっていた場合（要対応：返金や別時間のご案内）
       console.error('[要対応] 決済済みだが予約作成に失敗:', h.name, h.tel, h.start_at,
         JSON.stringify(br.data.errors || br.data));
+      // 連絡に必要な項目だけ保存する（住所・ご要望など不要な個人情報は保存しない）
       const fails = loadFailures();
-      fails.push({ at: new Date().toISOString(), hold: h, errors: br.data.errors || null });
+      fails.push({
+        at: new Date().toISOString(),
+        name: h.name, tel: h.tel, email: h.email,
+        label: h.label, people: h.people, start_at: h.start_at,
+        errors: br.data.errors || null
+      });
       saveFailures(fails);
     }
   } catch (e) {
@@ -455,25 +461,41 @@ function notifyStore(h) {
   ].join('\n');
 
   try {
+    // ※ シェルを経由せず mail コマンドを直接呼び出す（お客様の入力がコマンドとして
+    //    実行されてしまう「コマンドインジェクション」を防ぐため。本文は標準入力で渡す）
     const { execFile } = require('child_process');
-    execFile('/bin/sh', ['-c',
-      'printf %s ' + JSON.stringify(body) + ' | mail -s "【NOGIKU】新しいご予約（' + jp.date + ' ' + jp.time + '）" ' + STORE_EMAIL
-    ], (err) => { if (err) console.error('通知メール送信エラー:', err.message); });
+    const subject = '【NOGIKU】新しいご予約（' + jp.date + ' ' + jp.time + '）';
+    const child = execFile('mail', ['-s', subject, STORE_EMAIL], (err) => {
+      if (err) console.error('通知メール送信エラー:', err.message);
+    });
+    child.stdin.write(body);
+    child.stdin.end();
   } catch (e) { console.error('通知エラー:', String(e)); }
 
-  // 送信できなかった場合に備えて記録も残す
+  // 送信できなかった場合に備えて記録も残す（個人情報は保存しない：日時・プラン・人数のみ）
   try {
     let list = [];
     try { list = JSON.parse(fs.readFileSync(NOTIFY_PATH, 'utf8')); } catch (e) {}
-    list.push({ at: jstNow(), body });
+    list.push({ at: jstNow(), date: jp.date, time: jp.time, plan: h.label, people: h.people });
     if (list.length > 200) list = list.slice(-200);
     fs.writeFileSync(NOTIFY_PATH, JSON.stringify(list, null, 2));
   } catch (e) {}
 }
 
 // 決済済みなのに予約が作れなかったケースの記録（お店が確認するため）
+//   ※ 連絡に必要な氏名・電話・メールのみ保存し、住所などは保存しない。
+//     30日を過ぎた記録は読み込み時に自動で削除する（対応済みのはずのため）
 const FAIL_PATH = path.join(__dirname, 'failures.json');
-function loadFailures() { try { return JSON.parse(fs.readFileSync(FAIL_PATH, 'utf8')); } catch (e) { return []; } }
+const FAILURE_RETENTION_MS = 30 * 24 * 3600 * 1000;
+function loadFailures() {
+  try {
+    const list = JSON.parse(fs.readFileSync(FAIL_PATH, 'utf8'));
+    const cutoff = Date.now() - FAILURE_RETENTION_MS;
+    const kept = list.filter(f => new Date(f.at).getTime() > cutoff);
+    if (kept.length !== list.length) saveFailures(kept);
+    return kept;
+  } catch (e) { return []; }
+}
 function saveFailures(list) { try { fs.writeFileSync(FAIL_PATH, JSON.stringify(list, null, 2)); } catch (e) {} }
 
 setInterval(sweepPending, 20 * 1000); // 20秒ごとに確認（決済後すぐ予約を作るため）
@@ -629,11 +651,10 @@ ${(failures && failures.length) ? `
     </div>
     <div style="margin-top:12px;font-size:13px;">
       ${failures.slice(-5).reverse().map(f => {
-        const h = f.hold || {};
-        const jp = h.start_at ? new Date(new Date(h.start_at).getTime() + 9*3600000).toISOString().slice(0,16).replace('T',' ') : '(不明)';
+        const jp = f.start_at ? new Date(new Date(f.start_at).getTime() + 9*3600000).toISOString().slice(0,16).replace('T',' ') : '(不明)';
         return `<div style="background:#fff;border-radius:8px;padding:10px 12px;margin-bottom:6px;">
-          <b>${esc(h.name || '(お名前不明)')}</b> 様 ／ ${esc(h.tel || '(電話不明)')} ／ ${esc(h.email || '')}<br>
-          ご希望：${esc(h.label || '')} ${esc(h.people || '')}名 ／ ${esc(jp)}〜
+          <b>${esc(f.name || '(お名前不明)')}</b> 様 ／ ${esc(f.tel || '(電話不明)')} ／ ${esc(f.email || '')}<br>
+          ご希望：${esc(f.label || '')} ${esc(f.people || '')}名 ／ ${esc(jp)}〜
         </div>`;
       }).join('')}
     </div>
@@ -770,9 +791,9 @@ const server = http.createServer((req, res) => {
   //  ・開発用に作った入口は完全に閉じる
   //  ・お客様の個人情報を含む画面は「合言葉」が必要
   // ==========================================================================
-  const ADMIN_KEY = 'ngk-3oixtnw0bzbw2mom';
+  const ADMIN_KEY = config.ADMIN_KEY || '';
   const CLOSED_PATHS = ['/setup', '/inspect', '/cancel-booking', '/complete-orders'];
-  const SECRET_PATHS = ['/notifications', '/failures'];
+  const SECRET_PATHS = ['/notifications', '/failures', '/dashboard'];
   function notFound() {
     res.statusCode = 404;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -1005,7 +1026,9 @@ const server = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     try {
       const list = JSON.parse(fs.readFileSync(NOTIFY_PATH, 'utf8'));
-      res.end(list.slice().reverse().map(n => '━━━━━━ ' + n.at + ' ━━━━━━\n' + n.body).join('\n\n'));
+      res.end(list.slice().reverse().map(n =>
+        '━━━━━━ ' + n.at + ' ━━━━━━\n' + n.date + ' ' + n.time + '〜 / ' + n.plan + ' / ' + n.people + '名'
+      ).join('\n\n') + '\n\n※ お客様のお名前・連絡先はここには保存していません。Squareの予約カレンダーをご確認ください。');
     } catch (e) { res.end('まだ予約通知はありません。'); }
     return;
   }
