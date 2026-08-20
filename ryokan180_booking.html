@@ -710,11 +710,15 @@
       if(hint) hint.style.display = "none";
     }
     function checkTermsScroll(){
-      if(box.scrollTop + box.clientHeight >= box.scrollHeight - 4) unlockTerms();
+      // 画面が非表示（高さ0）の間は判定しない。表示されてから、
+      // スクロールで最後まで到達した／最初から全文が収まっている場合のみ解放する
+      if(box.clientHeight > 0 && box.scrollTop + box.clientHeight >= box.scrollHeight - 4) unlockTerms();
     }
     box.addEventListener("scroll", checkTermsScroll);
-    // 画面が大きく、スクロールしなくても全文が収まっている場合は最初から解放する
-    setTimeout(checkTermsScroll, 0);
+    // 画面がお客様情報入力ステップとして表示された瞬間（高さが0→実寸になった瞬間）に判定する
+    if(window.ResizeObserver){
+      new ResizeObserver(checkTermsScroll).observe(box);
+    }
   })();
 
   function closeConfirm(){
