@@ -509,19 +509,15 @@
   .sq-name-row .sq-input{flex:1;}
   .sq-save{display:flex;align-items:flex-start;gap:8px;margin:14px 0 0;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.6;}
   .sq-save input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--ember);flex:0 0 auto;}
-  .sq-terms{display:flex;align-items:flex-start;gap:8px;margin:8px 0 0;padding:12px 14px;background:var(--cream);border-radius:10px;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.6;}
+  .sq-terms{display:flex;align-items:flex-start;gap:8px;margin:8px 0 0;padding:12px 14px;background:var(--cream);border-radius:10px;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.6;transition:opacity .2s;}
   .sq-terms input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--ember);flex:0 0 auto;}
   .sq-terms a{color:var(--ember);font-weight:700;text-decoration:underline;}
-  .sq-terms-toggle{
-    display:block; width:100%; text-align:left; margin:18px 0 0; padding:11px 14px;
-    background:var(--cream); border:1px solid var(--line); border-radius:10px;
-    font-size:12.5px; font-weight:700; color:var(--ink); cursor:pointer; font-family:inherit;
-  }
-  .sq-terms-toggle .arrow{display:inline-block; margin-right:4px; transition:transform .15s;}
-  .sq-terms-toggle.open .arrow{transform:rotate(90deg);}
+  .sq-terms.locked{opacity:.45;cursor:not-allowed;}
+  .sq-terms.locked input{cursor:not-allowed;}
+  .sq-terms-hint{font-size:11px;color:var(--sub);margin:6px 2px 0;text-align:center;}
   .sq-terms-box{
-    display:none; max-height:200px; overflow-y:auto; margin-top:-1px;
-    border:1px solid var(--line); border-top:none; border-radius:0 0 10px 10px;
+    display:block; max-height:200px; overflow-y:auto; margin-top:18px;
+    border:1px solid var(--line); border-radius:10px;
     padding:12px 14px; background:#fffdf8; font-size:12px; line-height:1.8; color:var(--ink);
   }
   .sq-terms-box p{margin:8px 0 4px;}
@@ -753,7 +749,7 @@
   <!-- 【2画面目】お客様情報の入力（Square形式） -->
   <div class="confirm-box sq-box" id="confirmStep2" style="display:none;">
     <div class="sq-head">
-      <div class="sq-h1">お会計</div>
+      <div class="sq-h1">ご予約手続き</div>
       <div class="sq-h2">予約が10分間確保されます</div>
       <div class="sq-summary" id="confirmSummary"></div>
     </div>
@@ -790,9 +786,7 @@
       <div class="sq-section">ご要望・ご連絡事項</div>
       <textarea id="confirmNote" class="sq-input sq-textarea" rows="3" placeholder="ご希望・ご質問があればご記入ください（任意）"></textarea>
 
-      <button type="button" class="sq-terms-toggle" id="termsToggle">
-        <span class="arrow">▸</span>ご利用規約・キャンセルポリシーを表示
-      </button>
+      <div class="sq-section" style="margin-top:18px;">ご利用規約・キャンセルポリシー</div>
       <div class="sq-terms-box" id="termsBox">
         <p><b>ご利用上のご注意</b></p>
         <ol>
@@ -818,8 +812,9 @@
         <p>※予約変更は24時間以内になると、どんな理由でも対応できません。</p>
       </div>
 
-      <label class="sq-terms">
-        <input type="checkbox" id="confirmTerms">
+      <p class="sq-terms-hint" id="termsHint">↑ 最後までスクロールすると、下のチェックができるようになります</p>
+      <label class="sq-terms locked" id="termsLabel">
+        <input type="checkbox" id="confirmTerms" disabled>
         <span>上記のご利用規約・キャンセルポリシーに同意します</span>
       </label>
 
@@ -1198,14 +1193,24 @@
     document.getElementById("confirmRemember").checked = false;
   });
 
-  // 規約・キャンセルポリシーの開閉（タブは開かず、その場で表示）
-  document.getElementById("termsToggle").addEventListener("click", () => {
+  // 規約・キャンセルポリシーを最後までスクロールしたら、同意チェックを解放する
+  (function(){
     const box = document.getElementById("termsBox");
-    const btn = document.getElementById("termsToggle");
-    const opening = box.style.display !== "block";
-    box.style.display = opening ? "block" : "none";
-    btn.classList.toggle("open", opening);
-  });
+    const cb = document.getElementById("confirmTerms");
+    const label = document.getElementById("termsLabel");
+    const hint = document.getElementById("termsHint");
+    function unlockTerms(){
+      cb.disabled = false;
+      label.classList.remove("locked");
+      if(hint) hint.style.display = "none";
+    }
+    function checkTermsScroll(){
+      if(box.scrollTop + box.clientHeight >= box.scrollHeight - 4) unlockTerms();
+    }
+    box.addEventListener("scroll", checkTermsScroll);
+    // 画面が大きく、スクロールしなくても全文が収まっている場合は最初から解放する
+    setTimeout(checkTermsScroll, 0);
+  })();
 
   // 【1画面目】はい、進む → 【2画面目】お客様情報へ
   confirmNext.addEventListener("click", () => {
