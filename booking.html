@@ -835,22 +835,22 @@
 </div>
 
 <script>
-  // 120分プラン（天照・月読）の料金。3〜5名は期間限定割引（2026-08-31まで）
+  // 120分プラン（天照・月読）の料金。3〜5名の期間限定割引は2026-08-31で終了、通常料金に戻した
   const SALE_UNTIL = "2026-08-31";
   const PRICING = {
     weekday: {
       1: { regular: 5000,  current: 5000  },
       2: { regular: 8000,  current: 8000  },
-      3: { regular: 10500, current: 10000 },
-      4: { regular: 13000, current: 11000 },
-      5: { regular: 15000, current: 12000 }
+      3: { regular: 10500, current: 10500 },
+      4: { regular: 13000, current: 13000 },
+      5: { regular: 15000, current: 15000 }
     },
     weekend: {
       1: { regular: 6000,  current: 6000  },
       2: { regular: 9600,  current: 9600  },
-      3: { regular: 12600, current: 12000 },
-      4: { regular: 15600, current: 13000 },
-      5: { regular: 18000, current: 14000 }
+      3: { regular: 12600, current: 12600 },
+      4: { regular: 15600, current: 15600 },
+      5: { regular: 18000, current: 18000 }
     }
   };
 
