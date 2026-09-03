@@ -504,10 +504,12 @@ setTimeout(sweepPending, 10 * 1000);  // 起動直後にも1回
 // ==========================================================================
 // データ分析ダッシュボード（お店の判断に使う画面）
 // ==========================================================================
-function dashboardPage(rows, failures, period, from, to) {
+function dashboardPage(rows, failures, period, from, to, key) {
   period = period || 'all';
   from = from || '';
   to = to || '';
+  key = key || '';
+  const keyQS = 'key=' + encodeURIComponent(key);
   const periodLabel = (from || to)
     ? ((from || '最初') + ' 〜 ' + (to || '今日'))
     : (period === 'day' ? '今日' : period === 'week' ? '今週' : period === 'month' ? '今月' : '全期間');
@@ -668,11 +670,12 @@ ${(failures && failures.length) ? `
   <div style="display:flex;gap:8px;justify-content:center;margin-bottom:22px;flex-wrap:wrap;">
     ${[['day','今日'],['week','今週'],['month','今月'],['all','全期間']].map(function(p){
       var v = p[0], l = p[1], on = (period === v);
-      return '<a href="/dashboard?period=' + v + '" style="padding:9px 20px;border-radius:100px;text-decoration:none;font-size:13.5px;font-weight:700;border:1px solid ' + (on ? '#df571d' : '#d9cfae') + ';background:' + (on ? '#df571d' : '#fff') + ';color:' + (on ? '#fff' : '#2b2620') + ';">' + l + '</a>';
+      return '<a href="/dashboard?period=' + v + '&' + keyQS + '" style="padding:9px 20px;border-radius:100px;text-decoration:none;font-size:13.5px;font-weight:700;border:1px solid ' + (on ? '#df571d' : '#d9cfae') + ';background:' + (on ? '#df571d' : '#fff') + ';color:' + (on ? '#fff' : '#2b2620') + ';">' + l + '</a>';
     }).join('')}
   </div>
 
   <form method="get" action="/dashboard" style="display:flex;gap:8px;justify-content:center;align-items:center;margin-bottom:24px;flex-wrap:wrap;font-size:13px;color:#83795f;">
+    <input type="hidden" name="key" value="${esc(key)}">
     <span>期間を指定：</span>
     <input type="date" name="from" value="${from}" style="padding:7px 10px;border:1px solid #d9cfae;border-radius:8px;font-size:13px;font-family:inherit;">
     <span>〜</span>
@@ -739,7 +742,7 @@ ${(failures && failures.length) ? `
 
   <div class="actions">
     <a href="/analytics.csv">CSVでダウンロード</a>
-    <a href="/dashboard" class="sub">最新に更新</a>
+    <a href="/dashboard?${keyQS}" class="sub">最新に更新</a>
   </div>
 
 </div></body></html>`;
@@ -1057,6 +1060,7 @@ const server = http.createServer((req, res) => {
     } catch (e) {}
     // ---- 期間の絞り込み（今日／今週／今月／全期間） ----
     const dq = new URLSearchParams(req.url.split('?')[1] || '');
+    const dashKey = dq.get('key') || '';
     const period = dq.get('period') || 'all';
     const nowJ = new Date(Date.now() + 9 * 3600000);
     const todayStr = nowJ.toISOString().slice(0, 10);
@@ -1083,7 +1087,7 @@ const server = http.createServer((req, res) => {
         return true;
       });
     }
-    res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr));
+    res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr, dashKey));
     return;
   }
 
