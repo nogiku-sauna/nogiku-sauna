@@ -203,7 +203,7 @@
   .sq-terms.locked input{cursor:not-allowed;}
   .sq-terms-hint{font-size:11px;color:var(--sub);margin:6px 2px 0;text-align:center;}
   .sq-terms-box{
-    display:block; max-height:200px; overflow-y:auto; margin-top:18px;
+    display:block; margin-top:10px;
     border:1px solid var(--line); border-radius:10px;
     padding:12px 14px; background:#fffdf8; font-size:12px; line-height:1.8; color:var(--ink);
   }
@@ -212,6 +212,10 @@
   .sq-terms-box b{color:var(--pink-deep);}
   .sq-terms-box ol,.sq-terms-box ul{margin:0 0 8px;padding-left:18px;}
   .sq-terms-box li{margin-bottom:4px;}
+  .sq-terms-highlight{
+    background:var(--pink-soft); border:1px solid var(--pink-deep); border-radius:8px;
+    padding:8px 10px; margin:0 0 10px; font-size:12px; line-height:1.7;
+  }
   .sq-note{font-size:11px;color:var(--sub);line-height:1.7;margin:8px 0 0;}
   .sq-note a{color:var(--sub);text-decoration:underline;}
   .sq-box .confirm-actions{padding:14px 22px 20px;border-top:1px solid var(--line);margin:0;}
@@ -338,7 +342,9 @@
       <textarea id="confirmNote" class="sq-input sq-textarea" rows="3" placeholder="ご希望・ご質問があればご記入ください（任意）"></textarea>
 
       <div class="sq-section" style="margin-top:18px;">ご利用規約・キャンセルポリシー</div>
+      <p class="sq-terms-hint" id="termsHint">↓ 下記を最後までお読みいただくと、同意のチェックができるようになります</p>
       <div class="sq-terms-box" id="termsBox">
+        <p class="sq-terms-highlight"><b>特に大事な点だけ先に：</b>小学生以下（小学生を含む）はご利用いただけません／飲酒運転が発覚した場合は通報します／設備を破損した場合は弁償いただきます／キャンセル料は48時間以内50%・24時間以内100%です。</p>
         <p><b>ご利用上のご注意</b></p>
         <ol>
           <li>体調がすぐれない時や不安がある場合は医師に相談し、健康状態に応じてご利用ください。</li>
@@ -361,9 +367,9 @@
           <li>24時間以内のキャンセル：100%</li>
         </ul>
         <p>※予約変更は24時間以内になると、どんな理由でも対応できません。</p>
+        <div id="termsEnd" style="height:1px;"></div>
       </div>
 
-      <p class="sq-terms-hint" id="termsHint">↑ 最後までスクロールすると、下のチェックができるようになります</p>
       <label class="sq-terms locked" id="termsLabel">
         <input type="checkbox" id="confirmTerms" disabled>
         <span>上記のご利用規約・キャンセルポリシーに同意します</span>
@@ -698,27 +704,38 @@
     document.getElementById("confirmRemember").checked = false;
   });
 
-  // 規約・キャンセルポリシーを最後までスクロールしたら、同意チェックを解放する
+  // 規約・キャンセルポリシーの最後まで実際に画面に表示されたら、同意チェックを解放する
+  // （箱の中だけをスクロールする方式は、スマホで指の操作が引っかかって分かりづらいという
+  //   声があったため、画面全体のスクロールで最後まで表示されたか判定する方式に変更）
+  let recheckTermsGate = null;
   (function(){
-    const box = document.getElementById("termsBox");
+    const scrollArea = document.querySelector(".sq-scroll");
+    const endMark = document.getElementById("termsEnd");
     const cb = document.getElementById("confirmTerms");
     const label = document.getElementById("termsLabel");
     const hint = document.getElementById("termsHint");
+    if(!scrollArea || !endMark || !cb || !label) return;
     function unlockTerms(){
       cb.disabled = false;
       label.classList.remove("locked");
       if(hint) hint.style.display = "none";
     }
-    function checkTermsScroll(){
-      // 画面が非表示（高さ0）の間は判定しない。表示されてから、
-      // スクロールで最後まで到達した／最初から全文が収まっている場合のみ解放する
-      if(box.clientHeight > 0 && box.scrollTop + box.clientHeight >= box.scrollHeight - 4) unlockTerms();
+    function manualCheck(){
+      const r1 = endMark.getBoundingClientRect();
+      const r2 = scrollArea.getBoundingClientRect();
+      if(r1.top <= r2.bottom) unlockTerms();
     }
-    box.addEventListener("scroll", checkTermsScroll);
-    // 画面がお客様情報入力ステップとして表示された瞬間（高さが0→実寸になった瞬間）に判定する
-    if(window.ResizeObserver){
-      new ResizeObserver(checkTermsScroll).observe(box);
+    if(window.IntersectionObserver){
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => { if(entry.isIntersecting) unlockTerms(); });
+      }, { root: scrollArea, threshold: 0 });
+      io.observe(endMark);
+    } else {
+      // 古いブラウザでは判定できないため、チェックをブロックしない
+      unlockTerms();
     }
+    // 画面がお客様情報入力ステップとして表示された瞬間にも、念のため判定し直す
+    recheckTermsGate = () => requestAnimationFrame(manualCheck);
   })();
 
   function closeConfirm(){
@@ -751,6 +768,7 @@
     confirmStep1.style.display = "none";
     confirmStep2.style.display = "";
     loadGuest();
+    recheckTermsGate && recheckTermsGate();
     // この時点で枠を確保しておく（入力中に他の人へ取られないように）
     confirmGo.disabled = true;
     fetch(`${API_BASE}/hold?start_at=${encodeURIComponent(pending.startIso)}&team=${encodeURIComponent(pending.team || "")}&plan=${planKey(pending.room, pending.isPlan180)}&people=${pending.people}${holdId ? "&prev=" + holdId : ""}${utmParam}`)
