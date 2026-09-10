@@ -348,6 +348,58 @@ function logEvent(row) {
 function jstNow() {
   return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 19).replace('T', ' ');
 }
+// analytics.csv を読み込んで、1行=1オブジェクトの配列にする（ダッシュボード表示・キャンセル処理で共用）
+function loadAnalyticsRows() {
+  let rows = [];
+  try {
+    const csv = fs.readFileSync(LOG_PATH, 'utf8').replace(/^﻿/, '');
+    const lines = csv.split('\n').filter(l => l.trim());
+    const head = lines.shift().split(',');
+    rows = lines.map(line => {
+      // 簡易CSVパース（"..." の中のカンマに対応）
+      const cells = []; let cur = ''; let q = false;
+      for (const ch of line) {
+        if (ch === '"') q = !q;
+        else if (ch === ',' && !q) { cells.push(cur); cur = ''; }
+        else cur += ch;
+      }
+      cells.push(cur);
+      const o = {};
+      head.forEach((h, i) => o[h] = (cells[i] || '').trim());
+      return o;
+    });
+  } catch (e) {}
+  return rows;
+}
+function escHtml(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+// キャンセル処理・取り消しの確認画面（共通の簡単なテンプレート）
+function simpleConfirmPage(heading, bodyHtml, actionHref, actionLabel, backHref) {
+  return `<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escHtml(heading)} - NOGIKU 予約データ</title>
+<style>
+  body{margin:0;background:#efe8d4;color:#2b2620;font-family:"Hiragino Sans","Yu Gothic",-apple-system,sans-serif;line-height:1.8;}
+  .wrap{max-width:520px;margin:60px auto;padding:0 20px;}
+  .card{background:#fff;border:1px solid #d9cfae;border-radius:16px;padding:28px 24px;}
+  h1{font-size:18px;margin:0 0 16px;}
+  p{font-size:14px;margin:0 0 12px;}
+  .btn{display:inline-block;padding:11px 22px;border-radius:100px;text-decoration:none;font-weight:800;font-size:14px;margin:6px 8px 0 0;}
+  .btn.go{background:#a33;color:#fff;}
+  .btn.back{background:#fff;color:#2b2620;border:1px solid #d9cfae;}
+</style></head>
+<body><div class="wrap"><div class="card">
+  <h1>${escHtml(heading)}</h1>
+  ${bodyHtml}
+  <div style="margin-top:20px;">
+    ${actionHref ? `<a class="btn go" href="${actionHref}">${escHtml(actionLabel)}</a>` : ''}
+    <a class="btn back" href="${backHref}">戻る</a>
+  </div>
+</div></div></body></html>`;
+}
 function jstParts(isoUtc) {
   const d = new Date(new Date(isoUtc).getTime() + 9 * 3600000);
   return { date: d.toISOString().slice(0, 10), time: d.toISOString().slice(11, 16) };
@@ -519,13 +571,27 @@ function dashboardPage(rows, failures, period, from, to, key) {
   // 期間の絞り込み用に、日付だけ取り出す
   const clicks = rows.filter(r => r['段階'] === '①時間を選択');
   const forms  = rows.filter(r => r['段階'] === '②決済ページへ');
-  const paid   = rows.filter(r => r['段階'] === '③決済完了');
   const dropForm = rows.filter(r => r['段階'] === '×入力画面で中断');
   const dropTime = rows.filter(r => r['段階'] === '×時間切れ');
+
+  // キャンセル状態の判定：③決済完了のあとに「④キャンセル」「④キャンセル取消」が
+  // 追記されていたら、同じセッションIDの中で一番新しい記録を「今の状態」とする
+  const cancelStatus = {};
+  rows.forEach(r => {
+    if ((r['段階'] === '④キャンセル' || r['段階'] === '④キャンセル取消') && r['セッションID']) {
+      cancelStatus[r['セッションID']] = (r['段階'] === '④キャンセル');
+    }
+  });
+  const isCancelledRow = r => !!(r['セッションID'] && cancelStatus[r['セッションID']]);
+
+  const paidAll = rows.filter(r => r['段階'] === '③決済完了');
+  const paid = paidAll.filter(r => !isCancelledRow(r));           // キャンセル済みは集計から除外
+  const cancelledList = paidAll.filter(r => isCancelledRow(r));
 
   const sales = paid.reduce((a, r) => a + (parseInt(r['金額'] || '0', 10) || 0), 0);
   const cvr = clicks.length ? Math.round(paid.length / clicks.length * 1000) / 10 : 0;
   const avg = paid.length ? Math.round(sales / paid.length) : 0;
+  const cancelRate = paidAll.length ? Math.round(cancelledList.length / paidAll.length * 1000) / 10 : 0;
 
   // 集計のしかた
   const countBy = (list, key, mapper) => {
@@ -570,18 +636,33 @@ function dashboardPage(rows, failures, period, from, to, key) {
     return '15日以上前';
   });
 
-  // 最近の動き（新しい順に30件）
-  const recent = rows.slice(-30).reverse().map(r => `
+  // 最近の動き（新しい順に200件。③決済完了の行にはキャンセル操作のリンクを付ける）
+  const RECENT_COUNT = 200;
+  const recent = rows.slice(-RECENT_COUNT).reverse().map(r => {
+    const stage = r['段階'] || '';
+    const sid = r['セッションID'] || '';
+    let actionCell = '';
+    if (stage === '③決済完了' && sid) {
+      if (isCancelledRow(r)) {
+        actionCell = '<span style="color:#a33;font-weight:700;">キャンセル済み</span><br>'
+          + '<a class="uncancel-link" href="/confirm-uncancel?id=' + encodeURIComponent(sid) + '&' + keyQS + '">（取り消しを戻す）</a>';
+      } else {
+        actionCell = '<a class="cancel-link" href="/confirm-cancel?id=' + encodeURIComponent(sid) + '&' + keyQS + '">キャンセルにする</a>';
+      }
+    }
+    return `
     <tr>
       <td>${esc(r['記録日時(JST)'] || '')}</td>
-      <td><span class="stage s${esc((r['段階'] || '').charAt(0))}">${esc(r['段階'] || '')}</span></td>
+      <td><span class="stage s${esc(stage.charAt(0))}">${esc(stage)}</span></td>
       <td>${esc(r['プラン'] || '')} ${esc(r['部屋'] || '')}</td>
       <td>${esc(r['人数'] || '')}${r['人数'] ? '名' : ''}</td>
       <td>${esc(r['予約日'] || '')} ${esc(r['予約時刻'] || '')}</td>
       <td>${esc(r['流入元'] || '')}</td>
       <td>${esc(r['都道府県'] || '')}</td>
       <td>${r['金額'] ? '¥' + Number(r['金額']).toLocaleString() : ''}</td>
-    </tr>`).join('');
+      <td>${actionCell}</td>
+    </tr>`;
+  }).join('');
 
   return `<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8">
@@ -636,6 +717,9 @@ function dashboardPage(rows, failures, period, from, to, key) {
   .stage.s②{background:#f5eee0;color:#a8611f;}
   .stage.s③{background:#e3ede4;color:#2f6b4a;}
   .stage.s×{background:#f3e6e6;color:#a33;}
+  .stage.s④{background:#f3e6e6;color:#a33;}
+  .cancel-link{color:#a33;text-decoration:none;font-weight:700;font-size:12px;}
+  .uncancel-link{font-size:11px;color:#83795f;}
   .scroll{overflow-x:auto;}
 
   .actions{text-align:center;margin:26px 0 0;}
@@ -688,6 +772,8 @@ ${(failures && failures.length) ? `
     <div class="kpi"><div class="label">売上</div><div class="value">¥${sales.toLocaleString()}</div></div>
     <div class="kpi"><div class="label">成約率</div><div class="value">${cvr}<span class="unit">%</span></div></div>
     <div class="kpi"><div class="label">平均単価</div><div class="value">¥${avg.toLocaleString()}</div></div>
+    <div class="kpi"><div class="label">キャンセル件数</div><div class="value" style="color:#a33;">${cancelledList.length}<span class="unit">件</span></div></div>
+    <div class="kpi"><div class="label">キャンセル率</div><div class="value" style="color:#a33;">${cancelRate}<span class="unit">%</span></div></div>
   </div>
 
   <div class="funnel">
@@ -732,10 +818,10 @@ ${(failures && failures.length) ? `
     <div class="card"><h3>平日 / 土日祝</h3>${bars(wdData)}</div>
   </div>
 
-  <h2>最近の動き（新しい順に30件）</h2>
+  <h2>最近の動き（新しい順に200件）</h2>
   <div class="card scroll">
     ${rows.length ? `<table>
-      <tr><th>記録日時</th><th>段階</th><th>プラン</th><th>人数</th><th>予約日時</th><th>流入元</th><th>地域</th><th>金額</th></tr>
+      <tr><th>記録日時</th><th>段階</th><th>プラン</th><th>人数</th><th>予約日時</th><th>流入元</th><th>地域</th><th>金額</th><th>操作</th></tr>
       ${recent}
     </table>` : '<p class="empty">まだデータがありません</p>'}
   </div>
@@ -796,7 +882,7 @@ const server = http.createServer((req, res) => {
   // ==========================================================================
   const ADMIN_KEY = config.ADMIN_KEY || '';
   const CLOSED_PATHS = ['/setup', '/inspect', '/cancel-booking', '/complete-orders'];
-  const SECRET_PATHS = ['/notifications', '/failures', '/dashboard'];
+  const SECRET_PATHS = ['/notifications', '/failures', '/dashboard', '/confirm-cancel', '/do-cancel', '/confirm-uncancel', '/do-uncancel'];
   function notFound() {
     res.statusCode = 404;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -1088,6 +1174,90 @@ const server = http.createServer((req, res) => {
       });
     }
     res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr, dashKey));
+    return;
+  }
+
+  // ---- キャンセル処理：確認画面 ----
+  if (url === '/confirm-cancel' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    const q = new URLSearchParams(req.url.split('?')[1] || '');
+    const id = q.get('id') || '';
+    const key = q.get('key') || '';
+    const keyQS = 'key=' + encodeURIComponent(key);
+    const rows = loadAnalyticsRows();
+    const target = rows.find(r => r['セッションID'] === id && r['段階'] === '③決済完了');
+    if (!target) {
+      res.end(simpleConfirmPage('見つかりませんでした', '<p>対象の予約データが見つかりませんでした。すでに処理済みか、IDが間違っている可能性があります。</p>', '', '', '/dashboard?' + keyQS));
+      return;
+    }
+    const body = `<p>以下の予約をキャンセル扱いにします。よろしいですか？</p>
+      <p>${escHtml(target['予約日'])} ${escHtml(target['予約時刻'])}〜<br>
+      ${escHtml(target['プラン'])} ${escHtml(target['部屋'])} / ${escHtml(target['人数'])}名<br>
+      金額：${target['金額'] ? '¥' + Number(target['金額']).toLocaleString() : ''}</p>
+      <p style="color:#a33;font-size:13px;">※ この操作は後から「取り消しを戻す」で元に戻せます。</p>`;
+    res.end(simpleConfirmPage('キャンセル処理の確認', body,
+      '/do-cancel?id=' + encodeURIComponent(id) + '&' + keyQS, 'キャンセルにする',
+      '/dashboard?' + keyQS));
+    return;
+  }
+
+  // ---- キャンセル処理：実行 ----
+  if (url === '/do-cancel' && req.method === 'GET') {
+    const q = new URLSearchParams(req.url.split('?')[1] || '');
+    const id = q.get('id') || '';
+    const key = q.get('key') || '';
+    const rows = loadAnalyticsRows();
+    const target = rows.find(r => r['セッションID'] === id && r['段階'] === '③決済完了');
+    if (target) {
+      logEvent([jstNow(), '④キャンセル', target['プラン'] || '', target['部屋'] || '', target['人数'] || '',
+        target['予約日'] || '', target['予約時刻'] || '', target['曜日区分'] || '',
+        target['都道府県'] || '', target['金額'] || '', id,
+        target['新規/リピーター'] || '', target['流入元'] || '', target['何日前'] || '', target['端末'] || '']);
+    }
+    res.statusCode = 302;
+    res.setHeader('Location', '/dashboard?key=' + encodeURIComponent(key));
+    res.end();
+    return;
+  }
+
+  // ---- キャンセル取り消し：確認画面 ----
+  if (url === '/confirm-uncancel' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    const q = new URLSearchParams(req.url.split('?')[1] || '');
+    const id = q.get('id') || '';
+    const key = q.get('key') || '';
+    const keyQS = 'key=' + encodeURIComponent(key);
+    const rows = loadAnalyticsRows();
+    const target = rows.find(r => r['セッションID'] === id && r['段階'] === '③決済完了');
+    if (!target) {
+      res.end(simpleConfirmPage('見つかりませんでした', '<p>対象の予約データが見つかりませんでした。</p>', '', '', '/dashboard?' + keyQS));
+      return;
+    }
+    const body = `<p>以下の予約の「キャンセル」を取り消し、通常の予約に戻します。よろしいですか？</p>
+      <p>${escHtml(target['予約日'])} ${escHtml(target['予約時刻'])}〜<br>
+      ${escHtml(target['プラン'])} ${escHtml(target['部屋'])} / ${escHtml(target['人数'])}名</p>`;
+    res.end(simpleConfirmPage('キャンセル取り消しの確認', body,
+      '/do-uncancel?id=' + encodeURIComponent(id) + '&' + keyQS, '取り消しを戻す',
+      '/dashboard?' + keyQS));
+    return;
+  }
+
+  // ---- キャンセル取り消し：実行 ----
+  if (url === '/do-uncancel' && req.method === 'GET') {
+    const q = new URLSearchParams(req.url.split('?')[1] || '');
+    const id = q.get('id') || '';
+    const key = q.get('key') || '';
+    const rows = loadAnalyticsRows();
+    const target = rows.find(r => r['セッションID'] === id && r['段階'] === '③決済完了');
+    if (target) {
+      logEvent([jstNow(), '④キャンセル取消', target['プラン'] || '', target['部屋'] || '', target['人数'] || '',
+        target['予約日'] || '', target['予約時刻'] || '', target['曜日区分'] || '',
+        target['都道府県'] || '', target['金額'] || '', id,
+        target['新規/リピーター'] || '', target['流入元'] || '', target['何日前'] || '', target['端末'] || '']);
+    }
+    res.statusCode = 302;
+    res.setHeader('Location', '/dashboard?key=' + encodeURIComponent(key));
+    res.end();
     return;
   }
 
