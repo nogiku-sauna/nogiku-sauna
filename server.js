@@ -219,7 +219,7 @@ async function sweepPending() {
         logEvent([jstNow(), '③決済完了', pp.name, pp.room, h.people,
                   jp.date, jp.time, isHolidayJST(h.start_at) ? '土日祝' : '平日',
                   prefOnly(h.addr), total, h.id,
-                  h.repeat || '', h.src || '', daysAhead(h.start_at), h.dev || '']);
+                  h.repeat || '', h.src || '', daysAhead(h.start_at), h.dev || ''], cityOnly(h.addr));
         continue;
       }
     } catch (e) {}
@@ -229,7 +229,7 @@ async function sweepPending() {
       const jp = jstParts(h.start_at);
       logEvent([jstNow(), '×時間切れ', pp.name, pp.room, h.people || '',
                 jp.date, jp.time, isHolidayJST(h.start_at) ? '土日祝' : '平日',
-                prefOnly(h.addr), '', h.id]);
+                prefOnly(h.addr), '', h.id], cityOnly(h.addr));
       try { await sq('DELETE', '/v2/online-checkout/payment-links/' + h.link_id); } catch (e) {}
       continue;                                             // 期限切れ → 仮押さえ解除
     }
@@ -334,10 +334,30 @@ async function createBookingFromHold(h) {
 //   どの枠が選ばれたか／どこまで進んだか／どの地域からか
 // ==========================================================================
 const LOG_PATH = path.join(__dirname, 'analytics.csv');
-const LOG_HEADER = '記録日時(JST),段階,プラン,部屋,人数,予約日,予約時刻,曜日区分,都道府県,金額,セッションID,新規/リピーター,流入元,何日前,端末\n';
-function logEvent(row) {
+const LOG_HEADER = '記録日時(JST),段階,プラン,部屋,人数,予約日,予約時刻,曜日区分,都道府県,金額,セッションID,新規/リピーター,流入元,何日前,端末,市区町村\n';
+const LOG_COLS = LOG_HEADER.trim().split(',').length;
+// 2026-09-28に「市区町村」列を追加。古いanalytics.csvの見出し行に列名が無ければ、最初の1回だけ見出しを付け足す
+// （データの行はそのまま。古い行の市区町村は空欄として扱われる）
+let logHeaderChecked = false;
+function ensureLogHeader() {
+  if (logHeaderChecked) return;
+  logHeaderChecked = true;
+  try {
+    if (!fs.existsSync(LOG_PATH)) return;
+    const csv = fs.readFileSync(LOG_PATH, 'utf8');
+    const nl = csv.indexOf('\n');
+    const first = nl >= 0 ? csv.slice(0, nl) : csv;
+    if (first.includes('市区町村')) return;
+    fs.writeFileSync(LOG_PATH, first.replace(/\r$/, '') + ',市区町村' + (nl >= 0 ? csv.slice(nl) : '\n'));
+  } catch (e) {}
+}
+ensureLogHeader();
+// city を渡すと、列の数をそろえた上で一番右の「市区町村」列に入れる
+function logEvent(row, city) {
   try {
     if (!fs.existsSync(LOG_PATH)) fs.writeFileSync(LOG_PATH, '﻿' + LOG_HEADER);
+    else ensureLogHeader();
+    if (city) { row = row.slice(); while (row.length < LOG_COLS - 1) row.push(''); row[LOG_COLS - 1] = city; }
     const esc = v => {
       const s = String(v == null ? '' : v);
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -443,6 +463,28 @@ function daysAhead(startAtUtc) {
 function prefOnly(addr) {
   if (!addr) return '';
   const m = String(addr).match(/^(北海道|東京都|京都府|大阪府|.{2,3}[県])/);
+  return m ? m[1] : '';
+}
+
+// 住所から市区町村の名前だけ取り出す（番地・建物名は記録しない）
+//   例：「大分県由布市湯布院町川上…」→「由布市」／「福岡県福岡市博多区…」→「福岡市」（区は記録しない）
+//       「大分県玖珠郡九重町…」→「九重町」（郡は省く）／「東京都新宿区…」→「新宿区」（東京23区は区まで）
+//   名前の途中に「市・町・村」が入る地名は、下の一覧で先に判定する
+const CITY_SPECIAL = ['四日市市', '廿日市市', '野々市市', '大町市', '十日町市', '武蔵村山市', '東村山市', '村山市',
+  '村上市', '田村市', '大村市', '羽村市', '町田市', '市川市', '市原市', '市川三郷町', '市貝町'];
+function cityOnly(addr) {
+  if (!addr) return '';
+  let s = String(addr).replace(/\s/g, '');
+  const pref = prefOnly(s);
+  if (pref) s = s.slice(pref.length);
+  const sp = CITY_SPECIAL.find(c => s.startsWith(c));
+  if (sp) return sp;
+  // 「〇〇郡△△町」は郡を省いて町村名だけ
+  const g = s.match(/^(.{1,4}?)郡(.{1,6}?[町村])/);
+  if (g) return g[2];
+  // 1文字目以降で最初に出てくる「市」「町」「村」（東京都だけは「区」も）までを市区町村名とみなす
+  const re = pref === '東京都' ? /^(.{1,7}?[市区町村])/ : /^(.{1,7}?[市町村])/;
+  const m = s.match(re);
   return m ? m[1] : '';
 }
 
@@ -622,6 +664,7 @@ function dashboardPage(rows, failures, period, from, to, key) {
   const timeData   = countBy(paid, '予約時刻');
   const wdData     = countBy(paid, '曜日区分');
   const prefData   = countBy(paid, '都道府県');
+  const cityData   = countBy(paid, null, r => (r['市区町村'] ? (r['都道府県'] || '') + r['市区町村'] : ''));
   const srcClick   = countBy(clicks, '流入元');
   const srcPaid    = countBy(paid, '流入元');
   const repeatData = countBy(paid, '新規/リピーター');
@@ -658,7 +701,7 @@ function dashboardPage(rows, failures, period, from, to, key) {
       <td>${esc(r['人数'] || '')}${r['人数'] ? '名' : ''}</td>
       <td>${esc(r['予約日'] || '')} ${esc(r['予約時刻'] || '')}</td>
       <td>${esc(r['流入元'] || '')}</td>
-      <td>${esc(r['都道府県'] || '')}</td>
+      <td>${esc((r['都道府県'] || '') + (r['市区町村'] || ''))}</td>
       <td>${r['金額'] ? '¥' + Number(r['金額']).toLocaleString() : ''}</td>
       <td>${actionCell}</td>
     </tr>`;
@@ -805,6 +848,7 @@ ${(failures && failures.length) ? `
     <div class="card"><h3>どこから来たか（流入元・予約した人）</h3>${bars(srcPaid)}</div>
     <div class="card"><h3>どこから来たか（流入元・見た人）</h3>${bars(srcClick, '人')}</div>
     <div class="card"><h3>都道府県</h3>${bars(prefData)}</div>
+    <div class="card"><h3>市区町村（ご記入いただいた方のみ）</h3>${bars(cityData)}</div>
     <div class="card"><h3>端末（見た人）</h3>${bars(devData, '人')}</div>
     <div class="card"><h3>何日前に予約したか</h3>${bars(aheadData)}</div>
   </div>
@@ -1212,7 +1256,7 @@ const server = http.createServer((req, res) => {
       logEvent([jstNow(), '④キャンセル', target['プラン'] || '', target['部屋'] || '', target['人数'] || '',
         target['予約日'] || '', target['予約時刻'] || '', target['曜日区分'] || '',
         target['都道府県'] || '', target['金額'] || '', id,
-        target['新規/リピーター'] || '', target['流入元'] || '', target['何日前'] || '', target['端末'] || '']);
+        target['新規/リピーター'] || '', target['流入元'] || '', target['何日前'] || '', target['端末'] || ''], target['市区町村'] || '');
     }
     res.statusCode = 302;
     res.setHeader('Location', '/dashboard?key=' + encodeURIComponent(key));
@@ -1253,7 +1297,7 @@ const server = http.createServer((req, res) => {
       logEvent([jstNow(), '④キャンセル取消', target['プラン'] || '', target['部屋'] || '', target['人数'] || '',
         target['予約日'] || '', target['予約時刻'] || '', target['曜日区分'] || '',
         target['都道府県'] || '', target['金額'] || '', id,
-        target['新規/リピーター'] || '', target['流入元'] || '', target['何日前'] || '', target['端末'] || '']);
+        target['新規/リピーター'] || '', target['流入元'] || '', target['何日前'] || '', target['端末'] || ''], target['市区町村'] || '');
     }
     res.statusCode = 302;
     res.setHeader('Location', '/dashboard?key=' + encodeURIComponent(key));
@@ -1430,7 +1474,7 @@ const server = http.createServer((req, res) => {
       const jp2 = jstParts(startAt);
       logEvent([jstNow(), '②決済ページへ', pp2.name, pp2.room, people,
                 jp2.date, jp2.time, isHolidayJST(startAt) ? '土日祝' : '平日',
-                prefOnly(addr), '', holdId, '', src2, daysAhead(startAt), dev2]);
+                prefOnly(addr), '', holdId, '', src2, daysAhead(startAt), dev2], cityOnly(addr));
 
       res.end(JSON.stringify({ ok: true, hold_id: holdId, url: link.url }));
     })();
