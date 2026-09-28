@@ -323,10 +323,57 @@ async function createBookingFromHold(h) {
         errors: br.data.errors || null
       });
       saveFailures(fails);
+      notifyFailure(h, '決済は完了しましたが、Squareに予約を作成できませんでした（その枠がすでに埋まっていた等）。');
     }
   } catch (e) {
     console.error('[要対応] 予約作成で例外:', String(e));
+    // 通信エラーなどで、予約が作れたかどうか分からない場合も、お店に確認してもらう
+    try {
+      const fails = loadFailures();
+      fails.push({
+        at: new Date().toISOString(),
+        name: h.name, tel: h.tel, email: h.email,
+        label: h.label, people: h.people, start_at: h.start_at,
+        errors: [{ detail: '予約作成中にエラー（作成できたか不明）: ' + String(e).slice(0, 200) }]
+      });
+      saveFailures(fails);
+    } catch (e2) {}
+    notifyFailure(h, '予約の作成中にエラーが起きたため、予約が作れたかどうか分かりません。Squareのカレンダーを確認してください。');
   }
+}
+
+// 決済済みなのに予約が作れなかった時、お店にすぐ「要対応」メールを送る
+//   （データ画面の赤い警告だけでは、画面を開くまで気づけないため）
+function notifyFailure(h, reason) {
+  try {
+    const jp = jstParts(h.start_at);
+    const body = [
+      '【NOGIKU・要対応】お支払い済みのご予約で問題が起きました',
+      '',
+      reason,
+      '',
+      'プラン : ' + (h.label || ''),
+      '人数   : ' + (h.people || '') + '名',
+      '日時   : ' + jp.date + ' ' + jp.time + '〜',
+      '',
+      'お名前 : ' + (h.name || '') + ' 様',
+      'お電話 : ' + (h.tel || ''),
+      'メール : ' + (h.email || '（未入力）'),
+      '',
+      '▼ 対応のお願い',
+      '1. Squareのカレンダーで、この日時に予約が入っているか確認してください。',
+      '2. 入っていない場合は、お客様に連絡し、別の時間のご案内か、',
+      '   Squareの「お取引」からの返金をお願いします。',
+      '※ データ画面の上部にも、赤い警告として表示されています。'
+    ].join('\n');
+    const { execFile } = require('child_process');
+    const subject = '【NOGIKU・要対応】決済済みの予約で問題（' + jp.date + ' ' + jp.time + '）';
+    const child = execFile('mail', ['-s', subject, STORE_EMAIL], (err) => {
+      if (err) console.error('要対応メール送信エラー:', err.message);
+    });
+    child.stdin.write(body);
+    child.stdin.end();
+  } catch (e) { console.error('要対応メールのエラー:', String(e)); }
 }
 
 // ==========================================================================

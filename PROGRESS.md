@@ -71,10 +71,10 @@ Square の標準予約ページの代わりになる、**自社の予約サイ�
 | 予約ページ（180分旅館） | https://nogiku-sauna.github.io/nogiku-sauna/ryokan180_booking.html |
 | 公開前チェックリスト | https://nogiku-sauna.github.io/nogiku-sauna/checklist.html |
 | 予約システム本体（新） | https://api.nogikusauna.com |
-| データ分析ダッシュボード | https://api.nogikusauna.com/dashboard?key=ngk-e0cd7c98705f6843d4f2e912af9bfd2a |
+| データ分析ダッシュボード | https://api.nogikusauna.com/dashboard?key=（合言葉） |
 | CSVダウンロード | https://api.nogikusauna.com/analytics.csv |
-| 予約通知の控え | https://api.nogikusauna.com/notifications?key=ngk-e0cd7c98705f6843d4f2e912af9bfd2a |
-| トラブル記録 | https://api.nogikusauna.com/failures?key=ngk-e0cd7c98705f6843d4f2e912af9bfd2a |
+| 予約通知の控え | https://api.nogikusauna.com/notifications?key=（合言葉） |
+| トラブル記録 | https://api.nogikusauna.com/failures?key=（合言葉） |
 | GitHub | https://github.com/nogiku-sauna/nogiku-sauna |
 
 ⚠️ 古いURL（162-43-28-12.nip.io）はもう使わないこと。
@@ -311,7 +311,7 @@ Claudeにサイト全体（予約動線・情報の網羅性・法令面・セ�
 **① server.jsのVPS反映：完了。** しんさんにシリアルコンソールで`cd ~/app`→`git pull`→新ADMIN_KEYを`.env`に追加→`systemctl restart nogiku`を実行してもらい、`/health`正常・新鍵でダッシュボード閲覧可・旧鍵は拒否・`/setup`は404、を確認済み。コマンドインジェクションの脆弱性は本番サーバーでも解消。
 
 **② Google Apps Script「NOGIKUトラブル見張り番」の更新：完了。** 実際に「見張り番」を確認・実行していたのは`sinriku24@gmail.com`（しんさんの個人アカウント）だったと判明（前回チャットで特定できなかった点が解決）。このアカウントのApps Scriptプロジェクト（無題のプロジェクト、最終更新2026/08/09）の中身が`checkFailures`関数を含む実物の見張り番だった。以下を修正・保存・実行確認済み：
-- URLと鍵：`https://162-43-28-12.nip.io/failures?key=ngk-3oixtnw0bzbw2mom` → `https://api.nogikusauna.com/failures?key=ngk-e0cd7c98705f6843d4f2e912af9bfd2a`
+- URLと鍵：`https://162-43-28-12.nip.io/failures?key=（合言葉）` → `https://api.nogikusauna.com/failures?key=（合言葉）`
 - データ構造：`var h = f.hold || {};` → `var h = f;`（`hold`の入れ子がなくなったため）
 - メール本文中のダッシュボードリンクも鍵付きの新URLに変更
 - 実行ログで「実行開始→実行完了」をエラーなく確認済み。15分おきのトリガー設定はそのまま生きている
@@ -572,3 +572,33 @@ SquareのBookings APIには、予約の状態を表す`BookingStatus`という�
 - 見た目（ピンク系のデザイン）は変えていない。スマホ幅で表示を確認済み。
 
 **規約の本文がある場所は、全部で4か所**：booking.html・ryokan180_booking.html の埋め込み文、index.html の #terms、ryokan180.html の #terms。よくあるご質問は index.html と ryokan180.html の2か所。文言を変える時は全部を一緒に直すこと（第21章の「3か所」は誤りで、正しくは4か所）。
+
+---
+
+## 24. チェックリストG（安全性・トラブル対応）の確認と、合言葉（ADMIN_KEY）の漏れへの対応（2026-09-28）
+
+しんさんから「チェックリストはG以外すべて検証済み。Gを今やりたい」という依頼があり、確認した記録。
+
+### 【重大】データ画面の合言葉が公開されていた
+
+- `checklist.html`（GitHub Pagesで誰でも見られるページ）と `PROGRESS.md`（Publicリポジトリ）に、ADMIN_KEY 入りのURLがそのまま書かれていた。
+- その合言葉で本番の `/failures` を開けることを確認（＝現役の合言葉だった）。データ画面・トラブル記録（お客様の氏名・電話・メール）の閲覧や、キャンセル操作が第三者にもできる状態だった。
+- 対応：
+  1. `checklist.html`・`PROGRESS.md` から合言葉を削除し、「key=（合言葉）」という表記に置き換えた。
+  2. VPSの `.env` の ADMIN_KEY を、VPSの中で自動生成した新しいものに変更（チャット・GitHubには一度も出さない）。GitHubの過去の履歴に古い合言葉が残っていても、変更後は使えない。
+- **今後のルール：合言葉（ADMIN_KEY）は、GitHubに上げるファイル（HTML・PROGRESS.md など）にもチャットにも絶対に書かない。** URLを書く時は「key=（合言葉）」とする。
+
+### G-30 テスト用の入口が閉じている → 問題なし
+
+- `/setup`・`/inspect`・`/cancel-booking`・`/complete-orders` の4つとも、本番で「Not Found（404）」になることを確認。
+
+### G-32 決済したのに予約が作れなかった時、お店が気づける → 強化
+
+- それまで：`failures.json` に記録し、データ画面に赤い警告を出すだけ。画面を開くまで気づけなかった。
+- 追加：`notifyFailure()` を作り、その時点でお店のメール（nogikusauna@gmail.com）へ「【NOGIKU・要対応】」という件名のメールを送るようにした（お客様名・電話・メール・日時・プランと、対応手順つき）。
+- あわせて、通信エラーなどで「予約が作れたかどうか分からない」場合も、記録とメール通知を行うようにした（以前はサーバーのログに出るだけだった）。
+- 手元で、メール送信の代わりの仮の仕組みを使って、件名・本文が正しく作られることを確認済み。
+
+### G-31 サーバーが再起動しても動き続ける
+
+- VPSで、サーバーをわざと強制終了して、自動で復帰するかを確認する（結果は下に追記）。
