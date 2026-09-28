@@ -512,9 +512,6 @@
   .sq-terms{display:flex;align-items:flex-start;gap:8px;margin:8px 0 0;padding:12px 14px;background:var(--cream);border-radius:10px;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.6;transition:opacity .2s;}
   .sq-terms input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--ember);flex:0 0 auto;}
   .sq-terms a{color:var(--ember);font-weight:700;text-decoration:underline;}
-  .sq-terms.locked{opacity:.45;cursor:not-allowed;}
-  .sq-terms.locked input{cursor:not-allowed;}
-  .sq-terms-hint{font-size:11px;color:var(--sub);margin:6px 2px 0;text-align:center;}
   .sq-terms-box{
     display:block; margin-top:10px;
     border:1px solid var(--line); border-radius:10px;
@@ -529,6 +526,16 @@
     background:var(--ember-soft); border:1px solid var(--ember); border-radius:8px;
     padding:8px 10px; margin:0 0 10px; font-size:12px; line-height:1.7;
   }
+  .sq-terms-highlight p{margin:0 0 4px;}
+  .sq-terms-highlight-title{font-weight:700;color:var(--ember);}
+  .sq-terms-highlight ul{margin:0;padding-left:18px;}
+  .sq-terms-highlight li{margin-bottom:2px;}
+  .sq-terms-details{margin:0 0 4px;}
+  .sq-terms-details summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ember);padding:6px 2px;text-decoration:underline;list-style:none;}
+  .sq-terms-details summary::-webkit-details-marker{display:none;}
+  .sq-terms-details summary::before{content:"▶ ";font-size:10px;}
+  .sq-terms-details[open] summary::before{content:"▼ ";}
+  .sq-terms-details .sq-terms-box{margin-top:4px;}
   .sq-note{font-size:11px;color:var(--sub);line-height:1.7;margin:8px 0 0;}
   .sq-note a{color:var(--sub);text-decoration:underline;}
   .sq-box .confirm-actions{padding:14px 22px 20px;border-top:1px solid var(--line);margin:0;}
@@ -791,36 +798,46 @@
       <textarea id="confirmNote" class="sq-input sq-textarea" rows="3" placeholder="ご希望・ご質問があればご記入ください（任意）"></textarea>
 
       <div class="sq-section" style="margin-top:18px;">ご利用規約・キャンセルポリシー</div>
-      <p class="sq-terms-hint" id="termsHint">↓ 下記を最後までお読みいただくと、同意のチェックができるようになります</p>
-      <div class="sq-terms-box" id="termsBox">
-        <p class="sq-terms-highlight">小学生以下（小学生を含む）はご利用いただけません／飲酒運転が発覚した場合は通報します／設備を破損した場合は弁償いただきます／キャンセル料は48時間以内50%・24時間以内100%です。</p>
-        <p><b>ご利用上のご注意</b></p>
-        <ol>
-          <li>体調がすぐれない時や不安がある場合は医師に相談し、健康状態に応じてご利用ください。</li>
-          <li>携帯電話や電子機器類は自己責任でお持ち込みください。</li>
-          <li>サウナ室は暗めで、段差のある構造です。昇り降りの際は転倒にご注意ください。段差に物を置かないでください。</li>
-          <li>サウナストーブや防護柵に触れたり、タオルをかけないでください。</li>
-          <li>小学生以下（小学生を含む）お子様は、安全面を考慮いたしまして、ご利用をお断りしております。</li>
-          <li>足腰の悪い方、ご高齢の方はご利用をお控えください。</li>
-          <li>設備を故意または過失で破損・汚損した場合、弁償いただきます。</li>
-          <li>盗難・紛失、事故や怪我、体調管理については一切の責任を負いかねますので、ご了承ください。</li>
-          <li>飲酒はお控えください。店内飲酒、到着前飲酒の場合、ご利用をお断りする場合があります。飲酒運転が発覚した場合、通報いたします。</li>
-          <li>雨天の場合も屋根付きのため、通常通りご利用いただけます。</li>
-          <li>ペットの同伴はご遠慮いただいております。</li>
-          <li>施設内は禁煙です。屋外に喫煙スペースをご用意しております。</li>
-        </ol>
-        <p><b>キャンセルについて</b></p>
-        <p>キャンセルの場合は2日（48時間）以上前にご連絡ください。キャンセルの場合は下記キャンセル料が発生いたします。</p>
+      <div class="sq-terms-highlight">
+        <p class="sq-terms-highlight-title">ご予約前に必ずご確認ください</p>
         <ul>
-          <li>2日（48時間）以内のキャンセル：50%</li>
-          <li>24時間以内のキャンセル：100%</li>
+          <li>小学生以下（小学生を含む）のお子様はご利用いただけません。</li>
+          <li>キャンセル料：48時間前を過ぎると50%、24時間前を過ぎると100%です。</li>
         </ul>
-        <p>※予約変更は24時間以内になると、どんな理由でも対応できません。</p>
-        <div id="termsEnd" style="height:1px;"></div>
       </div>
+      <details class="sq-terms-details">
+        <summary>ご利用規約・キャンセルポリシーの全文を見る（全12項目）</summary>
+        <div class="sq-terms-box">
+          <p><b>ご利用上のご注意</b></p>
+          <ol>
+            <li>体調がすぐれない時や不安がある場合は医師に相談し、健康状態に応じてご利用ください。</li>
+            <li>携帯電話や電子機器類は自己責任でお持ち込みください。</li>
+            <li>サウナ室は暗めで、段差のある構造です。昇り降りの際は転倒にご注意ください。段差に物を置かないでください。</li>
+            <li>サウナストーブや防護柵に触れたり、タオルをかけないでください。</li>
+            <li>小学生以下（小学生を含む）お子様は、安全面を考慮いたしまして、ご利用をお断りしております。</li>
+            <li>足腰の悪い方、ご高齢の方はご利用をお控えください。</li>
+            <li>設備を故意または過失で破損・汚損した場合、弁償いただきます。</li>
+            <li>盗難・紛失、事故や怪我、体調管理については一切の責任を負いかねますので、ご了承ください。</li>
+            <li>飲酒はお控えください。店内飲酒、到着前飲酒の場合、ご利用をお断りする場合があります。飲酒運転が発覚した場合、通報いたします。</li>
+            <li>ペットの同伴はご遠慮いただいております。</li>
+            <li>施設内は禁煙です。屋外に喫煙スペースをご用意しております。</li>
+            <li>次のお客様がいらっしゃいますので、ご利用時間（終了時刻）は必ずお守りください。</li>
+          </ol>
+          <p><b>キャンセルについて</b></p>
+          <ul>
+            <li>ご予約日時の48時間前まで：キャンセル料なし（無料）</li>
+            <li>48時間前を過ぎ、24時間前まで：50%</li>
+            <li>24時間前を過ぎてから：100%</li>
+          </ul>
+          <p>※ご利用人数が減った場合、ご予約日時の24時間前を過ぎてからは、減った人数分の料金を返金できません。</p>
+          <p>※ご予約日時の変更は、48時間前を過ぎると理由にかかわらず対応できません。</p>
+          <p>※施設側の都合（設備の故障・自然災害など）で休業となった場合は、全額返金いたします。</p>
+          <p>※キャンセル・変更のご連絡先：電話 080-3224-3372／メール nogikusauna@gmail.com</p>
+        </div>
+      </details>
 
-      <label class="sq-terms locked" id="termsLabel">
-        <input type="checkbox" id="confirmTerms" disabled>
+      <label class="sq-terms" id="termsLabel">
+        <input type="checkbox" id="confirmTerms">
         <span>上記のご利用規約・キャンセルポリシーに同意します</span>
       </label>
 
@@ -1199,39 +1216,7 @@
     document.getElementById("confirmRemember").checked = false;
   });
 
-  // 規約・キャンセルポリシーの最後まで実際に画面に表示されたら、同意チェックを解放する
-  // （箱の中だけをスクロールする方式は、スマホで指の操作が引っかかって分かりづらいという
-  //   声があったため、画面全体のスクロールで最後まで表示されたか判定する方式に変更）
-  let recheckTermsGate = null;
-  (function(){
-    const scrollArea = document.querySelector(".sq-scroll");
-    const endMark = document.getElementById("termsEnd");
-    const cb = document.getElementById("confirmTerms");
-    const label = document.getElementById("termsLabel");
-    const hint = document.getElementById("termsHint");
-    if(!scrollArea || !endMark || !cb || !label) return;
-    function unlockTerms(){
-      cb.disabled = false;
-      label.classList.remove("locked");
-      if(hint) hint.style.display = "none";
-    }
-    function manualCheck(){
-      const r1 = endMark.getBoundingClientRect();
-      const r2 = scrollArea.getBoundingClientRect();
-      if(r1.top <= r2.bottom) unlockTerms();
-    }
-    if(window.IntersectionObserver){
-      const io = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => { if(entry.isIntersecting) unlockTerms(); });
-      }, { root: scrollArea, threshold: 0 });
-      io.observe(endMark);
-    } else {
-      // 古いブラウザでは判定できないため、チェックをブロックしない
-      unlockTerms();
-    }
-    // 画面がお客様情報入力ステップとして表示された瞬間にも、念のため判定し直す
-    recheckTermsGate = () => requestAnimationFrame(manualCheck);
-  })();
+  // 規約・キャンセルポリシーの同意チェックは、全文スクロールを条件とせず、その場でチェックできる仕様（2026-09-28変更）
 
   // 【1画面目】はい、進む → 【2画面目】お客様情報へ
   confirmNext.addEventListener("click", () => {
@@ -1242,7 +1227,6 @@
     confirmStep1.style.display = "none";
     confirmStep2.style.display = "";
     loadGuest();
-    recheckTermsGate && recheckTermsGate();
     // この時点で枠を確保しておく（入力中に他の人へ取られないように）
     confirmGo.disabled = true;
     fetch(`${API_BASE}/hold?start_at=${encodeURIComponent(pending.startIso)}&team=${encodeURIComponent(pending.team || "")}&plan=${planKey(pending.room, pending.isPlan180)}&people=${pending.people}${holdId ? "&prev=" + holdId : ""}${utmParam}`)
