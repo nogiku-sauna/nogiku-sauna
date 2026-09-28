@@ -601,4 +601,15 @@ SquareのBookings APIには、予約の状態を表す`BookingStatus`という�
 
 ### G-31 サーバーが再起動しても動き続ける
 
-- VPSで、サーバーをわざと強制終了して、自動で復帰するかを確認する（結果は下に追記）。
+- VPSで `systemctl kill -s SIGKILL nogiku`（強制終了）→ 数秒後に `systemctl is-active nogiku` が「active」＝**自動で復帰することを確認**。`systemctl is-enabled nogiku` も「enabled」で、VPS自体の再起動時にも自動で起動する。/health も ok:true。→ **合格**
+
+### VPSでの反映（2026-09-28、しんさんがシリアルコンソールで実施）
+
+- `cd ~/app` → `cp -p .env .env_backup_20260928` → `git pull` → `openssl rand -hex 4`（道具の確認）→ `sed -i "s/^ADMIN_KEY=.*/ADMIN_KEY=ngk-$(openssl rand -hex 16)/" .env` → `systemctl restart nogiku`。
+- 古い合言葉で `/failures`・`/dashboard`・`/notifications` が404になることを確認。
+- 新しい合言葉の画面が一度チャットに写ったため、念のため同じ手順でもう一度入れ替えた。最終的な合言葉はしんさんだけが保管しており、チャット・GitHubには出ていない。新しい合言葉でデータ画面が開けることを、しんさんが確認済み。
+- 注意：`~/app/.env_backup_20260928` には古い合言葉が入っている（すでに無効なので実害はない）。
+
+### これでチェックリスト32項目はすべて完了
+
+- A〜Fはしんさんが検証済み（B-11のスマホ2台同時テストは、しんさんの判断で実施不要とした）。Gは上記のとおり。
