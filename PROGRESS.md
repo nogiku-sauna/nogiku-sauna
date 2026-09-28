@@ -613,3 +613,19 @@ SquareのBookings APIには、予約の状態を表す`BookingStatus`という�
 ### これでチェックリスト32項目はすべて完了
 
 - A〜Fはしんさんが検証済み（B-11のスマホ2台同時テストは、しんさんの判断で実施不要とした）。Gは上記のとおり。
+
+---
+
+## 25. 流入元リンクの追加（スタッフのインスタ・180分旅館のインスタ）（2026-09-28）
+
+しんさんの依頼で、流入元の目印（`?utm=◯◯`）付きリンクを2つ追加。プログラムの変更は無し（目印の言葉を変えるだけで、データ画面の「どこから来たか」に別々に表示される）。
+
+| 用途 | リンク | データ画面での表示 |
+|---|---|---|
+| スタッフのインスタアカウント | `https://nogiku-sauna.github.io/nogiku-sauna/?utm=Instagram_staff` | Instagram_staff |
+| 180分旅館のインスタアカウント | `https://nogiku-sauna.github.io/nogiku-sauna/ryokan180.html?utm=Instagram_180ryokan` | Instagram_180ryokan |
+
+- 本番サイトで2つとも開き、目印が記録され、予約画面（booking.html・ryokan180_booking.html）に移っても引き継がれることを確認済み。
+- スタッフのアカウントは今は1つなので、リンクも1つ。増えた場合は `Instagram_staff_名前` のように分けられる。
+- 公開後、インフルエンサーさんとのコラボ用にも同じ方法でリンクを作れる（例：`?utm=influencer_hanako`）。目印は英小文字・数字・「_」だけにする（日本語はアドレスが崩れやすい）。
+- 既存の媒体ごとのリンク一覧は、しんさんのパソコンの `NOGIKU_流入経路リンク一覧.md`（`Documents\Codex\2026-08-17\nogiku-sauna-booking-site\outputs\`）にある。今回の2つはまだそちらに追記していない。
