@@ -796,9 +796,30 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg) {
     return '15日以上前';
   });
 
+  // 決済完了の予約一覧（支払いがあった新しい順。キャンセルがしやすいように、最近の動きとは別に表示）
+  const paidListHtml = paidAll.slice().sort((a, b) => (a['記録日時(JST)'] < b['記録日時(JST)'] ? 1 : -1)).map(r => {
+    const sid = r['セッションID'] || '';
+    const cancelled = isCancelledRow(r);
+    const action = cancelled
+      ? '<span style="color:#a33;font-weight:700;">キャンセル済み</span><br><a class="uncancel-link" href="/confirm-uncancel?id=' + encodeURIComponent(sid) + '&' + keyQS + '">（取り消しを戻す）</a>'
+      : '<a class="cancel-link" href="/confirm-cancel?id=' + encodeURIComponent(sid) + '&' + keyQS + '">キャンセルにする</a>';
+    return `
+    <tr${cancelled ? ' style="opacity:.5;"' : ''}>
+      <td>${esc(r['記録日時(JST)'] || '')}</td>
+      <td>${esc(r['予約日'] || '')} ${esc(r['予約時刻'] || '')}</td>
+      <td>${esc(r['プラン'] || '')} ${esc(r['部屋'] || '')}</td>
+      <td>${esc(r['人数'] || '')}${r['人数'] ? '名' : ''}</td>
+      <td>${cancelled ? '<s>¥' + yen(r['金額']).toLocaleString() + '</s>' : '¥' + yen(r['金額']).toLocaleString()}</td>
+      <td>${esc(r['流入元'] || '')}</td>
+      <td>${esc((r['都道府県'] || '') + (r['市区町村'] || ''))}</td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('');
+
   // 最近の動き（新しい順に200件。③決済完了の行にはキャンセル操作のリンクを付ける）
   const RECENT_COUNT = 200;
-  const recent = rows.slice(-RECENT_COUNT).reverse().map(r => {
+  //   ※ 2026-09-30：「×入力画面で中断」は数が多く大事な行が埋もれるため一覧には出さない（人数は「どこまで進んだか」に表示）
+  const recent = rows.filter(r => r['段階'] !== '×入力画面で中断').slice(-RECENT_COUNT).reverse().map(r => {
     const stage = r['段階'] || '';
     const sid = r['セッションID'] || '';
     let actionCell = '';
@@ -966,6 +987,16 @@ ${(failures && failures.length) ? `
     <div class="kpi"><div class="label">キャンセル率</div><div class="value" style="color:#a33;">${cancelRate}<span class="unit">%</span></div></div>
   </div>
 
+  <h2>決済完了の予約一覧（支払いがあった新しい順・${esc(periodLabel)}）</h2>
+  <div class="card scroll" style="margin-bottom:26px;max-height:520px;overflow-y:auto;">
+    ${paidAll.length ? `<table>
+      <tr><th>支払日時</th><th>利用日時</th><th>プラン</th><th>人数</th><th>金額</th><th>流入元</th><th>地域</th><th>状態・操作</th></tr>
+      ${paidListHtml}
+    </table>
+    <p class="hint">※ 電話予約は、利用日時を支払日時として表示しています。キャンセル済みの予約は薄い色で表示し、売上には含めていません。</p>`
+    : '<p class="empty">この期間の決済完了の予約はありません</p>'}
+  </div>
+
   <div class="funnel">
     <h2 style="border:none;padding:0;margin:0 0 14px;">お客様がどこまで進んだか</h2>
     <div class="fstep">
@@ -1044,7 +1075,7 @@ ${(failures && failures.length) ? `
     </div>
   </div>
 
-  <h2>最近の動き（新しい順に200件）</h2>
+  <h2>最近の動き（新しい順に200件・入力画面での中断は除く）</h2>
   <div class="card scroll">
     ${rows.length ? `<table>
       <tr><th>記録日時</th><th>段階</th><th>プラン</th><th>人数</th><th>予約日時</th><th>流入元</th><th>地域</th><th>金額</th><th>操作</th></tr>
