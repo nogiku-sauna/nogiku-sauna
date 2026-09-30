@@ -1711,7 +1711,7 @@ const server = http.createServer((req, res) => {
           }]
         },
         checkout_options: {
-          redirect_url: 'https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1',
+          redirect_url: 'https://nogikusauna.com/booking.html?paid=1',
           ask_for_shipping_address: false
         },
         pre_populated_data: Object.keys(prefill).length ? prefill : undefined,
@@ -1838,7 +1838,7 @@ const server = http.createServer((req, res) => {
           location_id: locId,
           line_items: [{ quantity: '1', catalog_object_id: variation }]
         },
-        checkout_options: { redirect_url: 'https://nogiku-sauna.github.io/nogiku-sauna/booking.html?paid=1' },
+        checkout_options: { redirect_url: 'https://nogikusauna.com/booking.html?paid=1' },
         payment_note: MENU[plan].label + ' ' + people + '名 ' + when + '(JST)'
       };
       const r = await sq('POST', '/v2/online-checkout/payment-links', body);

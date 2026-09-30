@@ -63,13 +63,13 @@ Square の標準予約ページの代わりになる、**自社の予約サイ�
 
 ---
 
-## 3. URL 一覧（2026-08-18 更新：独自ドメインに切り替え済み）
+## 3. URL 一覧（2026-09-30 更新：サイト本体も nogikusauna.com に移転）
 
 | 何 | URL |
 |---|---|
-| 予約ページ（120分） | https://nogiku-sauna.github.io/nogiku-sauna/booking.html |
-| 予約ページ（180分旅館） | https://nogiku-sauna.github.io/nogiku-sauna/ryokan180_booking.html |
-| 公開前チェックリスト | https://nogiku-sauna.github.io/nogiku-sauna/checklist.html |
+| 予約ページ（120分） | https://nogikusauna.com/booking.html |
+| 予約ページ（180分旅館） | https://nogikusauna.com/ryokan180_booking.html |
+| 公開前チェックリスト | https://nogikusauna.com/checklist.html |
 | 予約システム本体（新） | https://api.nogikusauna.com |
 | データ分析ダッシュボード | https://api.nogikusauna.com/dashboard?key=（合言葉） |
 | CSVダウンロード | https://api.nogikusauna.com/analytics.csv |
@@ -622,10 +622,10 @@ SquareのBookings APIには、予約の状態を表す`BookingStatus`という�
 
 | 用途 | リンク | データ画面での表示 |
 |---|---|---|
-| スタッフのインスタアカウント | `https://nogiku-sauna.github.io/nogiku-sauna/?utm=Instagram_staff` | Instagram_staff |
-| 180分旅館のインスタアカウント | `https://nogiku-sauna.github.io/nogiku-sauna/ryokan180.html?utm=Instagram_180ryokan` | Instagram_180ryokan |
-| 社長のインスタアカウント（2026-09-30追加） | `https://nogiku-sauna.github.io/nogiku-sauna/?utm=Instagram_president` | Instagram_president |
-| 旧Squareサイト（2026-09-30。以前の `?utm=旧サイト` から統一） | `https://nogiku-sauna.github.io/nogiku-sauna/?utm=square_oldsite` | square_oldsite |
+| スタッフのインスタアカウント | `https://nogikusauna.com/?utm=Instagram_staff` | Instagram_staff |
+| 180分旅館のインスタアカウント | `https://nogikusauna.com/ryokan180.html?utm=Instagram_180ryokan` | Instagram_180ryokan |
+| 社長のインスタアカウント（2026-09-30追加） | `https://nogikusauna.com/?utm=Instagram_president` | Instagram_president |
+| 旧Squareサイト（2026-09-30。以前の `?utm=旧サイト` から統一） | `https://nogikusauna.com/?utm=square_oldsite` | square_oldsite |
 
 - 本番サイトで2つとも開き、目印が記録され、予約画面（booking.html・ryokan180_booking.html）に移っても引き継がれることを確認済み。
 - スタッフのアカウントは今は1つなので、リンクも1つ。増えた場合は `Instagram_staff_名前` のように分けられる。
@@ -726,7 +726,7 @@ SquareのBookings APIには、予約の状態を表す`BookingStatus`という�
 3. 旧Squareサイトの切り替え（旧サイトに新サイトへの案内・トップページの設置）
    - オンライン予約を「オフ」にしても、新サイトの空き表示・決済・カレンダー登録まで問題ないことを2026-09-30に確認済み（しんさん実施）。
    - オンライン予約をオフにする時に、旧Squareサイトのトップ画面に「このサイトからはご予約いただけません」という案内と、新サイトのリンクを貼る（しんさんが作業）。
-   - 旧サイトから来たお客様を数えるため、リンクは目印つきにする：`https://nogiku-sauna.github.io/nogiku-sauna/?utm=square_oldsite`（データ画面では「square_oldsite」と表示）。
+   - 旧サイトから来たお客様を数えるため、リンクは目印つきにする：`https://nogikusauna.com/?utm=square_oldsite`（データ画面では「square_oldsite」と表示）。
    - **実施予定：2026-09-30 23時頃（しんさん）**。変更するのは旧Squareサイトの**3ページ：メインページ・天照の予約ページ・月読の予約ページ**。
      - 一番上：「このサイトからのご予約は終了しました」の画像（しんさんがChatGPTで作成。目安 横2000×縦1000px、文字は中央60%以内。Squareはスマホで左右が切れやすい）
      - その下にテキスト：「誠に恐れ入りますが、こちらのページからのご予約の受付は終了いたしました。ご予約は、下記の新しい予約サイトよりお願いいたします。」＋上記の目印つきリンク
@@ -792,6 +792,34 @@ SquareのBookings APIには、予約の状態を表す`BookingStatus`という�
 
 ## 34. その他の記録（2026-09-30）
 
-- インスタのストーリーズ用の流入元リンクを追加：`https://nogiku-sauna.github.io/nogiku-sauna/?utm=Instagram_story`（データ画面では「Instagram_story」）。フィード投稿・ストーリーズのChatGPT用プロンプトを作成。
+- インスタのストーリーズ用の流入元リンクを追加：`https://nogikusauna.com/?utm=Instagram_story`（データ画面では「Instagram_story」）。フィード投稿・ストーリーズのChatGPT用プロンプトを作成。
 - インスタ投稿用に、予約の流れのスクリーンショット4枚（プランと人数／空いている時間／確認／ご予約手続き、1170×2532）を作成し、しんさんのパソコンの「のぎく公式サイト\インスタ用スクリーンショット」に保存。撮影時はサーバーに仮押さえを送らない形で撮った（予約データへの影響なし）。
 - 社員さん向けのお知らせ「NOGIKU_ネット予約変更のお知らせ.pdf」（A4・1枚）を作成し、「のぎく公式サイト」フォルダに保存。内容：①カレンダーの予約の見え方（新サイトの予約は色が淡い・メモ欄に「Webサイト予約【決済済み】」）②返金は「支払いと請求書」→「お取引」→検索の種類を「顧客」にして名前か電話番号で検索→取引を確認→いつも通り返金。
+
+---
+
+## 35. サイトのアドレスを nogikusauna.com に移転（2026-09-30）
+
+しんさんの判断で、10/1の公開を延期し、公開前にサイトのアドレスを `https://nogiku-sauna.github.io/nogiku-sauna/` から **`https://nogikusauna.com/`** に変更（方法A：GitHub Pagesの独自ドメイン機能。サイトの置き場所はGitHubのまま）。
+
+### DNS（XServer VPS の管理画面 → DNS設定 → nogikusauna.com）
+| ホスト名 | 種別 | 内容 |
+|---|---|---|
+| nogikusauna.com | A | 185.199.108.153 / 185.199.109.153 / 185.199.110.153 / 185.199.111.153（GitHub Pages） |
+| www.nogikusauna.com | CNAME | nogiku-sauna.github.io |
+| api.nogikusauna.com | A | 162.43.28.12（**VPS。変更なし・絶対に消さない**） |
+
+- 以前の `nogikusauna.com A 162.43.28.12` と `www.nogikusauna.com A 162.43.28.12` は削除（使われていなかったため影響なし）。
+- 変更後すぐに、Google の DNS から新しい値が見えることを確認済み。
+
+### GitHub
+- Settings → Pages → Custom domain に `nogikusauna.com` を保存（GitHubが自動で `CNAME` ファイルをリポジトリに追加する。**このファイルは消さないこと**）。「DNS check successful」を確認。
+- HTTPS の証明書はGitHubが自動で発行（数分〜最大1日程度）。発行後に「Enforce HTTPS」にチェック。
+- 古いアドレス（github.io）で開いても、GitHubが自動で新しいアドレスに転送する。
+
+### プログラムの変更
+- server.js：決済後の戻り先（redirect_url）2か所を `https://nogikusauna.com/booking.html?paid=1` に変更（VPSへの反映が必要）。CORS（どのサイトからの問い合わせを受け付けるか）は、以前から nogikusauna.com・www・github.io の3つを許可済み。
+- reservation_landing.html（canonical）・checklist.html（予約ページへのリンク）を新アドレスに変更。
+- 流入元の判定（document.referrer）はページの今のアドレスと比べる作りなので、変更不要。
+- 流入元リンク（第25章の表・第34章）も新アドレスに更新。しんさんのパソコンの `NOGIKU_流入経路リンク一覧.md` も更新する。
+
