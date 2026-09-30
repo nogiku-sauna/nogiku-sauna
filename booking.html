@@ -779,7 +779,8 @@
       <input type="email" id="confirmEmail" class="sq-input" placeholder="メール" autocomplete="email" inputmode="email">
 
       <div class="sq-section">住所</div>
-      <input type="text" id="confirmZip" class="sq-input" placeholder="000-0000（半角）" autocomplete="postal-code" inputmode="numeric">
+      <input type="text" id="confirmZip" class="sq-input" placeholder="郵便番号（例：8795102）" autocomplete="postal-code" inputmode="numeric" maxlength="8">
+      <p class="sq-note" id="zipHint" style="margin:-4px 0 10px;">※ 郵便番号は<b>ハイフン（-）なしの数字7けた</b>で入力してください。都道府県・市区町村などが自動で入ります。</p>
       <select id="confirmPref" class="sq-input sq-select" autocomplete="address-level1">
         <option value="">都道府県</option>
         <option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option><option>秋田県</option><option>山形県</option><option>福島県</option>
@@ -1223,6 +1224,46 @@
     clearGuest(true);
     document.getElementById("confirmRemember").checked = false;
   });
+
+  // ---- 郵便番号から住所を自動入力（2026-09-30追加） ----
+  //   ハイフンなし7けたの数字が入ったら、郵便番号検索サービス（zipcloud・日本郵便のデータ）に問い合わせて
+  //   都道府県・市区町村・町名を自動で入れる。お客様が後から直せるよう、欄はすべて残している。
+  //   調べるのは郵便番号だけで、お名前などは送らない。サービスが使えない時は、今まで通り手入力できる。
+  (function(){
+    const zipEl = document.getElementById("confirmZip");
+    const prefEl = document.getElementById("confirmPref");
+    const cityEl = document.getElementById("confirmCity");
+    const addr1El = document.getElementById("confirmAddr1");
+    const hintEl = document.getElementById("zipHint");
+    if(!zipEl || !prefEl || !cityEl || !addr1El) return;
+    const HINT = hintEl ? hintEl.innerHTML : "";
+    let lastZip = "", lastAutoAddr1 = "";
+    function setHint(html, color){ if(hintEl){ hintEl.innerHTML = html; hintEl.style.color = color || ""; } }
+    zipEl.addEventListener("input", () => {
+      // 全角数字を半角に直し、数字以外（ハイフンなど）は取り除く
+      const digits = zipEl.value.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, "").slice(0, 7);
+      if(zipEl.value !== digits) zipEl.value = digits;
+      if(digits.length < 7){ if(!digits) setHint(HINT); return; }
+      if(digits === lastZip) return;
+      lastZip = digits;
+      setHint("住所を調べています…");
+      const ctrl = window.AbortController ? new AbortController() : null;
+      const timer = setTimeout(() => { if(ctrl) ctrl.abort(); }, 5000);
+      fetch("https://zipcloud.ibsnet.co.jp/api/search?zipcode=" + digits, ctrl ? { signal: ctrl.signal } : {})
+        .then(r => r.json())
+        .then(d => {
+          clearTimeout(timer);
+          const a = d && d.results && d.results[0];
+          if(!a){ setHint("この郵便番号の住所が見つかりませんでした。お手数ですが、下の欄にご入力ください。", "#a33"); return; }
+          prefEl.value = a.address1 || "";
+          cityEl.value = a.address2 || "";
+          if(!addr1El.value.trim() || addr1El.value === lastAutoAddr1){ addr1El.value = a.address3 || ""; lastAutoAddr1 = addr1El.value; }
+          setHint("住所を自動で入力しました。続けて番地・建物名をご入力ください。", "#2f6b4a");
+          try { addr1El.focus(); const n = addr1El.value.length; addr1El.setSelectionRange(n, n); } catch(e){}
+        })
+        .catch(() => { clearTimeout(timer); lastZip = ""; setHint("住所の自動入力ができませんでした。お手数ですが、下の欄にご入力ください。", "#a33"); });
+    });
+  })();
 
   // 規約・キャンセルポリシーの同意チェックは、全文スクロールを条件とせず、その場でチェックできる仕様（2026-09-28変更）
 
