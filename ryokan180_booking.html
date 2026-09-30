@@ -744,7 +744,14 @@
     const HINT = hintEl ? hintEl.innerHTML : "";
     let lastZip = "", lastAutoAddr1 = "";
     function setHint(html, color){ if(hintEl){ hintEl.innerHTML = html; hintEl.style.color = color || ""; } }
-    zipEl.addEventListener("input", () => {
+    // 日本語入力（IME）がオンのまま打った場合、変換中に書き換えると入力が消えてしまうため、
+    // 変換中は何もせず、確定した時（compositionend）や欄を離れた時（change）にも判定する
+    let composing = false;
+    zipEl.addEventListener("compositionstart", () => { composing = true; });
+    zipEl.addEventListener("compositionend", () => { composing = false; handleZip(); });
+    zipEl.addEventListener("input", (e) => { if(composing || (e && e.isComposing)) return; handleZip(); });
+    zipEl.addEventListener("change", handleZip);
+    function handleZip(){
       // 全角数字を半角に直し、数字以外（ハイフンなど）は取り除く
       const digits = zipEl.value.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, "").slice(0, 7);
       if(zipEl.value !== digits) zipEl.value = digits;
@@ -767,7 +774,7 @@
           try { addr1El.focus(); const n = addr1El.value.length; addr1El.setSelectionRange(n, n); } catch(e){}
         })
         .catch(() => { clearTimeout(timer); lastZip = ""; setHint("住所の自動入力ができませんでした。お手数ですが、下の欄にご入力ください。", "#a33"); });
-    });
+    }
   })();
 
   // 規約・キャンセルポリシーの同意チェックは、全文スクロールを条件とせず、その場でチェックできる仕様（2026-09-28変更）
