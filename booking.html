@@ -888,7 +888,14 @@
     if (_u) { utmTag = _u; sessionStorage.setItem(UTM_KEY, _u); }
     else { utmTag = sessionStorage.getItem(UTM_KEY) || ""; }
   } catch (e) {}
-  const utmParam = utmTag ? ("&utm=" + encodeURIComponent(utmTag)) : "";
+  // どこから来たか（外部サイトの参照元）を覚えておく。最初に来たページで記録済みならそれを使う
+  let refTag = "";
+  try {
+    const _r = document.referrer;
+    if (_r && _r.indexOf(location.hostname) < 0 && !sessionStorage.getItem("nogiku_ref")) sessionStorage.setItem("nogiku_ref", _r.slice(0, 300));
+    refTag = sessionStorage.getItem("nogiku_ref") || "";
+  } catch (e) {}
+  const utmParam = (utmTag ? ("&utm=" + encodeURIComponent(utmTag)) : "") + (refTag ? ("&ref=" + encodeURIComponent(refTag)) : "");
   const PRICING180 = { 1: 7000, 2: 11000, 3: 15000, 4: 18000, 5: 20000 };
   function planKey(room, isPlan180){
     return isPlan180 ? ("ryokan180_" + room) : (room + "120");
@@ -1283,7 +1290,7 @@
       const plan = planKey(p.room, p.isPlan180);
       const q = new URLSearchParams({
         plan, people: p.people, start_at: p.startIso, team: p.team || "",
-        name, last_name: lastName, first_name: firstName, tel, email, addr, note, zip, hold: holdId || "", utm: utmTag, terms: "1"
+        name, last_name: lastName, first_name: firstName, tel, email, addr, note, zip, hold: holdId || "", utm: utmTag, ref: refTag, terms: "1"
       });
       const r = await fetch(`${API_BASE}/book?${q.toString()}`);
       const data = await r.json();
