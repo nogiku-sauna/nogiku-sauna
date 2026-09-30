@@ -114,15 +114,42 @@ function pickVariation(plan, people, startAtUtc) {
 
 // ---- 予約可能な「部屋」(スタッフ)だけを使う（オーナー等の個人カレンダーを除外） ----
 let bookableTeamCache = null;
+let bookableTeamCachedAt = 0;
+const BOOKABLE_TEAM_TTL_MS = 60 * 60 * 1000; // 1時間ごとに取り直す（部屋を追加しても再起動不要）
 async function getBookableTeam() {
-  if (bookableTeamCache) return bookableTeamCache;
+  if (bookableTeamCache && Date.now() - bookableTeamCachedAt < BOOKABLE_TEAM_TTL_MS) return bookableTeamCache;
   const r = await sq('GET', '/v2/bookings/team-member-booking-profiles');
   const set = new Set();
   (r.data.team_member_booking_profiles || []).forEach(t => {
     if (t.is_bookable) set.add(t.team_member_id);
   });
-  if (set.size) bookableTeamCache = set;
-  return set;
+  if (set.size) { bookableTeamCache = set; bookableTeamCachedAt = Date.now(); return set; }
+  return bookableTeamCache || set;   // 取り直しに失敗したら、前回の一覧をそのまま使う
+}
+
+// ---- 空き検索（「部屋」のスタッフだけに絞って Square に問い合わせる） ----
+//   2026-09-30：部屋ではない個人スタッフも同じメニューを担当できる設定になっており、
+//   同じ時間に両方が空いていると Square がどちらか一方をランダムに返すため、
+//   部屋の空き枠が表示されないことがあった。team_member_id_filter で部屋だけに絞る。
+//   ・絞り込み用の一覧が空なら、今まで通り絞らずに検索する
+//   ・絞り込み付きの検索がエラーになったら、絞らずにもう一度検索する
+async function searchAvailability(startAt, endAt, locId, variation, teamIds) {
+  const seg = { service_variation_id: variation };
+  const ids = (teamIds || []).filter(Boolean);
+  if (ids.length) seg.team_member_id_filter = { any: ids };
+  const body = { query: { filter: {
+    start_at_range: { start_at: startAt, end_at: endAt },
+    location_id: locId,
+    segment_filters: [seg]
+  } } };
+  let r = await sq('POST', '/v2/bookings/availability/search', body);
+  const failed = !r.ok || (r.data.errors && r.data.errors.length);
+  if (ids.length && failed) {
+    console.error('空き検索（部屋に絞り込み）でエラー。絞り込みなしで再検索:', JSON.stringify(r.data.errors || r.data));
+    delete seg.team_member_id_filter;
+    r = await sq('POST', '/v2/bookings/availability/search', body);
+  }
+  return r;
 }
 
 // ---- 正しい Location ID を Square から取得（入力ミス対策・キャッシュ） ----
@@ -1071,17 +1098,14 @@ const server = http.createServer((req, res) => {
       const startAt = new Date(Math.max(dayStart, now + 60000)).toISOString();
       const endAt = new Date(dayEnd).toISOString();
       const locId = await getLocationId();
-      const body = { query: { filter: {
-        start_at_range: { start_at: startAt, end_at: endAt },
-        location_id: locId,
-        segment_filters: [{ service_variation_id: variation }]
-      } } };
-      // Squareの空き検索はこの枠について結果が不安定なため、数回問い合わせて結果を合体する
+      const bookable = await getBookableTeam();
+      const roomIds = [...bookable];
+      // 念のため数回問い合わせて結果を合体する（部屋に絞り込んだので、結果のぶれは原則起きない）
       const SEARCH_TRIES = 3;
       let r = { status: 0, data: {} };
       const found = [];
       for (let i = 0; i < SEARCH_TRIES; i++) {
-        r = await sq('POST', '/v2/bookings/availability/search', body);
+        r = await searchAvailability(startAt, endAt, locId, variation, roomIds);
         (r.data.availabilities || []).forEach(a => {
           (a.appointment_segments || []).forEach(seg => {
             found.push({ start_at: a.start_at, team: seg.team_member_id });
@@ -1090,7 +1114,6 @@ const server = http.createServer((req, res) => {
       }
       // 短時間キャッシュに覚えさせ、直近に見つかった枠もあわせて表示（ちらつき防止）
       const stable = rememberSlots(plan + '|' + people + '|' + date, found);
-      const bookable = await getBookableTeam();
       const seen = new Set();
       const slots = [];
       const nowMs2 = Date.now();
@@ -1422,16 +1445,10 @@ const server = http.createServer((req, res) => {
       let avail = { ok: false, data: {} };
       let stillFree = false;
       for (let i = 0; i < CHECK_TRIES && !stillFree; i++) {
-        avail = await sq('POST', '/v2/bookings/availability/search', {
-          query: { filter: {
-            start_at_range: {
-              start_at: new Date(t0 - 3600000).toISOString(),
-              end_at: new Date(t0 + 3600000).toISOString()
-            },
-            location_id: locId,
-            segment_filters: [{ service_variation_id: variation }]
-          } }
-        });
+        avail = await searchAvailability(
+          new Date(t0 - 3600000).toISOString(),
+          new Date(t0 + 3600000).toISOString(),
+          locId, variation, team ? [team] : []);
         stillFree = (avail.data.availabilities || []).some(a =>
           new Date(a.start_at).getTime() === t0 &&
           (a.appointment_segments || []).some(sg => sg.team_member_id === team));
