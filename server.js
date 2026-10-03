@@ -446,7 +446,8 @@ function logEvent(row, extras) {
       while (row.length && row[row.length - 1] === '') row.pop();
     }
     const esc = v => {
-      const s = String(v == null ? '' : v);
+      let s = String(v == null ? '' : v);
+      if (/^[=+@\t\r]/.test(s) || /^-[^0-9]/.test(s)) s = "'" + s;  // 表計算ソフトで数式として動かないように
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
     fs.appendFileSync(LOG_PATH, row.map(esc).join(',') + '\n');
@@ -519,7 +520,7 @@ function planParts(plan) {
 }
 // どこから来たお客様か（Instagram・検索・直接など）
 function sourceLabel(ref, utm) {
-  if (utm) return utm;                       // ?utm=... が付いていればそれを優先
+  if (utm) return String(utm).slice(0, 40);  // ?utm=... が付いていればそれを優先
   if (!ref) return '直接・不明';
   const r = String(ref).toLowerCase();
   if (r.includes('instagram') || r.includes('l.instagram')) return 'Instagram';
@@ -962,9 +963,9 @@ ${(failures && failures.length) ? `
   <form method="get" action="/dashboard" style="display:flex;gap:8px;justify-content:center;align-items:center;margin-bottom:24px;flex-wrap:wrap;font-size:13px;color:#83795f;">
     <input type="hidden" name="key" value="${esc(key)}">
     <span>期間を指定：</span>
-    <input type="date" name="from" value="${from}" style="padding:7px 10px;border:1px solid #d9cfae;border-radius:8px;font-size:13px;font-family:inherit;">
+    <input type="date" name="from" value="${esc(from)}" style="padding:7px 10px;border:1px solid #d9cfae;border-radius:8px;font-size:13px;font-family:inherit;">
     <span>〜</span>
-    <input type="date" name="to" value="${to}" style="padding:7px 10px;border:1px solid #d9cfae;border-radius:8px;font-size:13px;font-family:inherit;">
+    <input type="date" name="to" value="${esc(to)}" style="padding:7px 10px;border:1px solid #d9cfae;border-radius:8px;font-size:13px;font-family:inherit;">
     <button type="submit" style="padding:8px 18px;border:none;border-radius:100px;background:#2b2620;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">表示</button>
   </form>
 
@@ -1117,8 +1118,26 @@ ${msg}${form}
 <div class="note">※ この画面のURLは他の人に教えないでください。設定は安全のため1回だけ有効です。</div></div></body></html>`;
 }
 
+// ---- 同じ相手からの連続アクセスを制限（仮押さえの買い占め・いたずら対策） ----
+const RATE = new Map();
+function tooMany(ip, kind, max, windowMs) {
+  const k = kind + '|' + ip, now = Date.now();
+  const arr = (RATE.get(k) || []).filter(t => now - t < windowMs);
+  arr.push(now); RATE.set(k, arr);
+  if (RATE.size > 5000) RATE.clear();
+  return arr.length > max;
+}
+
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
+  const clientIp = String(req.headers['x-real-ip'] || req.socket.remoteAddress || '');
+  const LIMITS = { '/hold': 30, '/book': 15, '/paid-check': 30, '/release': 60, '/slots': 200 };
+  if (LIMITS[url] && tooMany(clientIp, url, LIMITS[url], 10 * 60000)) {
+    res.statusCode = 429;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ ok: false, message: 'アクセスが集中しています。少し時間をおいてお試しください。' }));
+    return;
+  }
 
   // ---- CORS: サイトからの呼び出しを許可 ----
   const origin = req.headers.origin || '';
@@ -1138,7 +1157,7 @@ const server = http.createServer((req, res) => {
   //  ・お客様の個人情報を含む画面は「合言葉」が必要
   // ==========================================================================
   const ADMIN_KEY = config.ADMIN_KEY || '';
-  const CLOSED_PATHS = ['/setup', '/inspect', '/cancel-booking', '/complete-orders'];
+  const CLOSED_PATHS = ['/setup', '/inspect', '/cancel-booking', '/complete-orders', '/paylink', '/availability', '/quote'];
   const SECRET_PATHS = ['/notifications', '/failures', '/dashboard', '/confirm-cancel', '/do-cancel', '/confirm-uncancel', '/do-uncancel',
     '/analytics', '/analytics.csv', '/add-phone', '/add-extra', '/cancel-extra'];
   function notFound() {
@@ -1149,7 +1168,7 @@ const server = http.createServer((req, res) => {
   if (CLOSED_PATHS.indexOf(url) !== -1) { notFound(); return; }
   if (SECRET_PATHS.indexOf(url) !== -1) {
     const givenKey = new URLSearchParams(req.url.split('?')[1] || '').get('key');
-    if (givenKey !== ADMIN_KEY) { notFound(); return; }
+    if (!ADMIN_KEY || ADMIN_KEY.length < 16 || givenKey !== ADMIN_KEY) { notFound(); return; }
   }
 
   if (url === '/health') {
@@ -1289,6 +1308,11 @@ const server = http.createServer((req, res) => {
     const team = q.get('team');
     const prev = q.get('prev'); // 前の仮押さえ（戻る操作のとき解除する）
     if (!startAt || !team) { res.statusCode = 400; res.end(JSON.stringify({ ok: false })); return; }
+    const holdPeople = parseInt(q.get('people') || '0', 10);
+    if (!MENU[q.get('plan')] || !(holdPeople >= 1 && holdPeople <= 10) || isNaN(new Date(startAt).getTime())
+        || !/^[A-Za-z0-9_-]{1,64}$/.test(team)) {
+      res.statusCode = 400; res.end(JSON.stringify({ ok: false })); return;
+    }
 
     let list = loadPending();
     if (prev) list = list.filter(h => h.id !== prev);           // 前の仮押さえを解除
@@ -1304,13 +1328,13 @@ const server = http.createServer((req, res) => {
     const src = sourceLabel(q.get('ref') || '', q.get('utm'));
     const dev = deviceLabel(req.headers['user-agent']);
     list.push({ id: holdId, created_at: now, start_at: startAt, team, stage: 'form',
-                plan: q.get('plan') || '', people: q.get('people') || '',
+                plan: q.get('plan') || '', people: String(holdPeople),
                 src, dev });
     savePending(list);
     // 統計：時間枠が選ばれた（入力画面を開いた）
     const pp = planParts(q.get('plan'));
     const jp = jstParts(startAt);
-    logEvent([jstNow(), '①時間を選択', pp.name, pp.room, q.get('people') || '',
+    logEvent([jstNow(), '①時間を選択', pp.name, pp.room, holdPeople,
               jp.date, jp.time, isHolidayJST(startAt) ? '土日祝' : '平日', '', '', holdId,
               '', src, daysAhead(startAt), dev]);
     res.end(JSON.stringify({ ok: true, hold_id: holdId, minutes: HOLD_MINUTES }));
@@ -1885,4 +1909,4 @@ const server = http.createServer((req, res) => {
   res.end(JSON.stringify({ message: 'NOGIKU booking server is running.' }));
 });
 
-server.listen(PORT, () => console.log('NOGIKU booking server listening on port ' + PORT));
+server.listen(PORT, process.env.HOST || '127.0.0.1', () => console.log('NOGIKU booking server listening on port ' + PORT));
