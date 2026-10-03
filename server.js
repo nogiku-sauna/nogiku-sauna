@@ -1635,151 +1635,161 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (url === '/book' && req.method === 'GET') {
+  // お名前・電話番号などの個人情報は、URLに乗らない POST で受け取る（サーバーの記録に残さないため）。
+  // 古いページ（ブラウザに残っているもの）のために、しばらくは GET も受け付ける。
+  if (url === '/book' && (req.method === 'GET' || req.method === 'POST')) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     if (!isConfigured()) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'not configured' })); return; }
-    const q = new URLSearchParams((req.url.split('?')[1] || ''));
+    const runBook = (q) => {
     const plan = q.get('plan');
-    const people = parseInt(q.get('people') || '0', 10);
-    const startAt = q.get('start_at');
-    const team = q.get('team');
-    const name = (q.get('name') || '').trim().slice(0, 60);
-    const lastName = (q.get('last_name') || '').trim().slice(0, 30);
-    const firstName = (q.get('first_name') || '').trim().slice(0, 30);
-    const tel = (q.get('tel') || '').trim().slice(0, 30);
-    const email = (q.get('email') || '').trim().slice(0, 100);
-    const note = (q.get('note') || '').trim().slice(0, 500);
-    const addr = (q.get('addr') || '').trim().slice(0, 120);
-    const zip = (q.get('zip') || '').trim().slice(0, 12);
-    const termsAgreed = q.get('terms') === '1';
-    if (!plan || !people || !startAt || !team || !name || !tel) {
-      res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'お名前と電話番号は必須です' })); return;
-    }
-    if (!termsAgreed) {
-      res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'ご利用規約・キャンセルポリシーへの同意が必要です' })); return;
-    }
-    const variation = pickVariation(plan, people, startAt);
-    if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'プランを認識できませんでした' })); return; }
-
-    // 自分の仮押さえ（入力画面で確保したもの）は引き継ぐ。他人のものなら断る
-    const myHoldId = q.get('hold');
-    const nowMs = Date.now();
-    const others = loadPending().some(h => !h.done && h.id !== myHoldId
-      && h.start_at === startAt && h.team === team
-      && (nowMs - h.created_at) / 60000 < HOLD_MINUTES);
-    if (others) {
-      res.end(JSON.stringify({ ok: false, message: 'この枠は現在ほかのお客様がお手続き中です。少し時間をおくか、別の時間をお選びください。' }));
-      return;
-    }
-
-    (async () => {
-      const locId = await getLocationId();
-
-      // Square側でまだ空いているか、念のため直前に確認（前後1時間の幅で照合）
-      const t0 = new Date(startAt).getTime();
-      // Squareの返事はぶれるため、複数回たずねて一度でも見つかれば「空き」とみなす
-      //  （本当に埋まっていれば何回聞いても出てこないので、二重予約にはならない）
-      const CHECK_TRIES = 3;
-      let avail = { ok: false, data: {} };
-      let stillFree = false;
-      for (let i = 0; i < CHECK_TRIES && !stillFree; i++) {
-        avail = await searchAvailability(
-          new Date(t0 - 3600000).toISOString(),
-          new Date(t0 + 3600000).toISOString(),
-          locId, variation, team ? [team] : []);
-        stillFree = (avail.data.availabilities || []).some(a =>
-          new Date(a.start_at).getTime() === t0 &&
-          (a.appointment_segments || []).some(sg => sg.team_member_id === team));
+      const people = parseInt(q.get('people') || '0', 10);
+      const startAt = q.get('start_at');
+      const team = q.get('team');
+      const name = (q.get('name') || '').trim().slice(0, 60);
+      const lastName = (q.get('last_name') || '').trim().slice(0, 30);
+      const firstName = (q.get('first_name') || '').trim().slice(0, 30);
+      const tel = (q.get('tel') || '').trim().slice(0, 30);
+      const email = (q.get('email') || '').trim().slice(0, 100);
+      const note = (q.get('note') || '').trim().slice(0, 500);
+      const addr = (q.get('addr') || '').trim().slice(0, 120);
+      const zip = (q.get('zip') || '').trim().slice(0, 12);
+      const termsAgreed = q.get('terms') === '1';
+      if (!plan || !people || !startAt || !team || !name || !tel) {
+        res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'お名前と電話番号は必須です' })); return;
       }
-      // 確認できない場合（APIエラー等）は通す。決済後に作成できなければ /failures に記録される
-      if (avail.ok && !stillFree) {
-        res.end(JSON.stringify({
-          ok: false,
-          message: 'この枠はちょうど埋まってしまいました。別の時間をお選びください。',
-          debug: {
-            asked: startAt, team,
-            found: (avail.data.availabilities || []).map(a => ({
-              start_at: a.start_at, teams: (a.appointment_segments || []).map(x => x.team_member_id)
-            }))
-          }
-        }));
+      if (!termsAgreed) {
+        res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'ご利用規約・キャンセルポリシーへの同意が必要です' })); return;
+      }
+      const variation = pickVariation(plan, people, startAt);
+      if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'プランを認識できませんでした' })); return; }
+  
+      // 自分の仮押さえ（入力画面で確保したもの）は引き継ぐ。他人のものなら断る
+      const myHoldId = q.get('hold');
+      const nowMs = Date.now();
+      const others = loadPending().some(h => !h.done && h.id !== myHoldId
+        && h.start_at === startAt && h.team === team
+        && (nowMs - h.created_at) / 60000 < HOLD_MINUTES);
+      if (others) {
+        res.end(JSON.stringify({ ok: false, message: 'この枠は現在ほかのお客様がお手続き中です。少し時間をおくか、別の時間をお選びください。' }));
         return;
       }
-
-      // 決済ページを作る（※Squareへの予約登録は、決済が終わってから）
-      const jst = new Date(new Date(startAt).getTime() + 9 * 3600000);
-      const when = jst.toISOString().slice(0, 16).replace('T', ' ');
-      const telDigits = tel.replace(/[^0-9]/g, '');
-      const telE164 = telDigits.length >= 10
-        ? (telDigits.startsWith('0') ? '+81' + telDigits.slice(1) : '+' + telDigits) : '';
-      const prefill = {};
-      if (email && /.+@.+\..+/.test(email)) prefill.buyer_email = email;
-      if (/^\+\d{10,15}$/.test(telE164)) prefill.buyer_phone_number = telE164;
-      // 決済ページの「姓」「名」も先に埋めておく
-      // Squareの決済ページは左が「姓」、右が「名」なので、first/last を入れ替えて渡す
-      if (lastName || firstName) {
-        prefill.buyer_address = { country: 'JP' };
-        if (lastName) prefill.buyer_address.first_name = lastName;
-        if (firstName) prefill.buyer_address.last_name = firstName;
-      }
-
-      const linkBody = {
-        idempotency_key: 'pl-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
-        order: {
-          location_id: locId,
-          line_items: [{
-            quantity: '1',
-            catalog_object_id: variation,
-            // 取引一覧でお客様名がすぐ分かるようにする（返金時に探しやすくするため）
-            note: (name ? name + '様 ' : '') + when.slice(5) + ' ' + people + '名'
-          }]
-        },
-        checkout_options: {
-          redirect_url: 'https://nogikusauna.com/booking.html?paid=1',
-          ask_for_shipping_address: false
-        },
-        pre_populated_data: Object.keys(prefill).length ? prefill : undefined,
-        payment_note: name + '様 ' + MENU[plan].label + ' ' + people + '名 ' + when + '(JST)'
-      };
-      const pr = await sq('POST', '/v2/online-checkout/payment-links', linkBody);
-      let link = pr.data.payment_link || {};
-      if (!link.url && Object.keys(prefill).length) {
-        delete linkBody.pre_populated_data;
-        linkBody.idempotency_key = 'pl2-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-        const retry = await sq('POST', '/v2/online-checkout/payment-links', linkBody);
-        link = retry.data.payment_link || {};
-      }
-      if (!link.url) {
-        res.end(JSON.stringify({ ok: false, message: 'お支払いページの作成に失敗しました。時間をおいてお試しください。', errors: pr.data.errors || null }));
-        return;
-      }
-
-      // 仮押さえを「決済待ち」に更新（入力画面で確保した時間から数える）
-      const plist = loadPending().filter(h => h.id !== myHoldId);
-      const prevHold = loadPending().find(h => h.id === myHoldId);
-      const src2 = (prevHold && prevHold.src) || sourceLabel(q.get('ref') || '', q.get('utm'));
-      const dev2 = (prevHold && prevHold.dev) || deviceLabel(req.headers['user-agent']);
-      const holdId = myHoldId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
-      plist.push({
-        id: holdId, created_at: prevHold ? prevHold.created_at : Date.now(),
-        order_id: link.order_id, link_id: link.id,
-        plan, people, start_at: startAt, team, variation,
-        label: MENU[plan].label,
-        name, lastName, firstName, tel, telE164, email, addr, zip, note,
-        terms_agreed_at: jstNow(),
-        src: src2, dev: dev2
-      });
-      savePending(plist);
-
-      // 統計：決済ページへ進んだ
-      const pp2 = planParts(plan);
-      const jp2 = jstParts(startAt);
-      logEvent([jstNow(), '②決済ページへ', pp2.name, pp2.room, people,
-                jp2.date, jp2.time, isHolidayJST(startAt) ? '土日祝' : '平日',
-                prefOnly(addr), '', holdId, '', src2, daysAhead(startAt), dev2], cityOnly(addr));
-
-      res.end(JSON.stringify({ ok: true, hold_id: holdId, url: link.url }));
-    })();
+  
+      (async () => {
+        const locId = await getLocationId();
+  
+        // Square側でまだ空いているか、念のため直前に確認（前後1時間の幅で照合）
+        const t0 = new Date(startAt).getTime();
+        // Squareの返事はぶれるため、複数回たずねて一度でも見つかれば「空き」とみなす
+        //  （本当に埋まっていれば何回聞いても出てこないので、二重予約にはならない）
+        const CHECK_TRIES = 3;
+        let avail = { ok: false, data: {} };
+        let stillFree = false;
+        for (let i = 0; i < CHECK_TRIES && !stillFree; i++) {
+          avail = await searchAvailability(
+            new Date(t0 - 3600000).toISOString(),
+            new Date(t0 + 3600000).toISOString(),
+            locId, variation, team ? [team] : []);
+          stillFree = (avail.data.availabilities || []).some(a =>
+            new Date(a.start_at).getTime() === t0 &&
+            (a.appointment_segments || []).some(sg => sg.team_member_id === team));
+        }
+        // 確認できない場合（APIエラー等）は通す。決済後に作成できなければ /failures に記録される
+        if (avail.ok && !stillFree) {
+          res.end(JSON.stringify({
+            ok: false,
+            message: 'この枠はちょうど埋まってしまいました。別の時間をお選びください。',
+            debug: {
+              asked: startAt, team,
+              found: (avail.data.availabilities || []).map(a => ({
+                start_at: a.start_at, teams: (a.appointment_segments || []).map(x => x.team_member_id)
+              }))
+            }
+          }));
+          return;
+        }
+  
+        // 決済ページを作る（※Squareへの予約登録は、決済が終わってから）
+        const jst = new Date(new Date(startAt).getTime() + 9 * 3600000);
+        const when = jst.toISOString().slice(0, 16).replace('T', ' ');
+        const telDigits = tel.replace(/[^0-9]/g, '');
+        const telE164 = telDigits.length >= 10
+          ? (telDigits.startsWith('0') ? '+81' + telDigits.slice(1) : '+' + telDigits) : '';
+        const prefill = {};
+        if (email && /.+@.+\..+/.test(email)) prefill.buyer_email = email;
+        if (/^\+\d{10,15}$/.test(telE164)) prefill.buyer_phone_number = telE164;
+        // 決済ページの「姓」「名」も先に埋めておく
+        // Squareの決済ページは左が「姓」、右が「名」なので、first/last を入れ替えて渡す
+        if (lastName || firstName) {
+          prefill.buyer_address = { country: 'JP' };
+          if (lastName) prefill.buyer_address.first_name = lastName;
+          if (firstName) prefill.buyer_address.last_name = firstName;
+        }
+  
+        const linkBody = {
+          idempotency_key: 'pl-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+          order: {
+            location_id: locId,
+            line_items: [{
+              quantity: '1',
+              catalog_object_id: variation,
+              // 取引一覧でお客様名がすぐ分かるようにする（返金時に探しやすくするため）
+              note: (name ? name + '様 ' : '') + when.slice(5) + ' ' + people + '名'
+            }]
+          },
+          checkout_options: {
+            redirect_url: 'https://nogikusauna.com/booking.html?paid=1',
+            ask_for_shipping_address: false
+          },
+          pre_populated_data: Object.keys(prefill).length ? prefill : undefined,
+          payment_note: name + '様 ' + MENU[plan].label + ' ' + people + '名 ' + when + '(JST)'
+        };
+        const pr = await sq('POST', '/v2/online-checkout/payment-links', linkBody);
+        let link = pr.data.payment_link || {};
+        if (!link.url && Object.keys(prefill).length) {
+          delete linkBody.pre_populated_data;
+          linkBody.idempotency_key = 'pl2-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+          const retry = await sq('POST', '/v2/online-checkout/payment-links', linkBody);
+          link = retry.data.payment_link || {};
+        }
+        if (!link.url) {
+          res.end(JSON.stringify({ ok: false, message: 'お支払いページの作成に失敗しました。時間をおいてお試しください。', errors: pr.data.errors || null }));
+          return;
+        }
+  
+        // 仮押さえを「決済待ち」に更新（入力画面で確保した時間から数える）
+        const plist = loadPending().filter(h => h.id !== myHoldId);
+        const prevHold = loadPending().find(h => h.id === myHoldId);
+        const src2 = (prevHold && prevHold.src) || sourceLabel(q.get('ref') || '', q.get('utm'));
+        const dev2 = (prevHold && prevHold.dev) || deviceLabel(req.headers['user-agent']);
+        const holdId = myHoldId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+        plist.push({
+          id: holdId, created_at: prevHold ? prevHold.created_at : Date.now(),
+          order_id: link.order_id, link_id: link.id,
+          plan, people, start_at: startAt, team, variation,
+          label: MENU[plan].label,
+          name, lastName, firstName, tel, telE164, email, addr, zip, note,
+          terms_agreed_at: jstNow(),
+          src: src2, dev: dev2
+        });
+        savePending(plist);
+  
+        // 統計：決済ページへ進んだ
+        const pp2 = planParts(plan);
+        const jp2 = jstParts(startAt);
+        logEvent([jstNow(), '②決済ページへ', pp2.name, pp2.room, people,
+                  jp2.date, jp2.time, isHolidayJST(startAt) ? '土日祝' : '平日',
+                  prefOnly(addr), '', holdId, '', src2, daysAhead(startAt), dev2], cityOnly(addr));
+  
+        res.end(JSON.stringify({ ok: true, hold_id: holdId, url: link.url }));
+      })();
+    };
+    if (req.method === 'POST') {
+      let raw = '';
+      req.on('data', c => { raw += c; if (raw.length > 20000) { req.destroy(); } });
+      req.on('end', () => runBook(new URLSearchParams(raw)));
+    } else {
+      runBook(new URLSearchParams((req.url.split('?')[1] || '')));
+    }
     return;
   }
 
