@@ -877,7 +877,7 @@
         plan, people: p.people, start_at: p.startIso, team: p.team || "",
         name, last_name: lastName, first_name: firstName, tel, email, addr, note, zip, hold: holdId || "", utm: utmTag, ref: refTag, terms: "1"
       });
-      const r = await fetch(`${API_BASE}/book?${q.toString()}`);
+      const r = await fetch(`${API_BASE}/book`, { method: "POST", body: q });
       const data = await r.json();
       if(data && data.ok && data.url){
         window.location.href = data.url;
