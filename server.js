@@ -686,7 +686,35 @@ setTimeout(sweepPending, 10 * 1000);  // 起動直後にも1回
 // ==========================================================================
 // データ分析ダッシュボード（お店の判断に使う画面）
 // ==========================================================================
-function dashboardPage(rows, failures, period, from, to, key, allRows, msg) {
+// ==========================================================================
+// サイトに来た人の数（日ごと・流入元ごとの合計だけを残す。個人は記録しない）
+//   visits.json = { "2026-10-06": { "Instagram": 12, "Googleマップ": 3 }, ... }
+// ==========================================================================
+const VISITS_PATH = path.join(__dirname, 'visits.json');
+function loadVisits() { try { return JSON.parse(fs.readFileSync(VISITS_PATH, 'utf8')) || {}; } catch (e) { return {}; } }
+function addVisit(src) {
+  try {
+    const v = loadVisits();
+    const d = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+    const day = v[d] || (v[d] = {});
+    if (!(src in day) && Object.keys(day).length >= 300) src = 'その他';  // いたずらで種類が増えすぎないように
+    day[src] = (day[src] || 0) + 1;
+    fs.writeFileSync(VISITS_PATH, JSON.stringify(v));
+  } catch (e) {}
+}
+// 期間内の合計（from/to は 'YYYY-MM-DD'、空なら制限なし）
+function sumVisits(from, to) {
+  const v = loadVisits(), m = {};
+  Object.keys(v).forEach(d => {
+    if (from && d < from) return;
+    if (to && d > to) return;
+    Object.entries(v[d] || {}).forEach(([k, n]) => { m[k] = (m[k] || 0) + n; });
+  });
+  return m;
+}
+const BOT_UA = /bot|crawl|spider|slurp|preview|headless|lighthouse|facebookexternalhit|embedly|curl|wget|python|monitor/i;
+
+function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visitCounts) {
   period = period || 'all';
   from = from || '';
   to = to || '';
@@ -694,7 +722,7 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg) {
   const keyQS = 'key=' + encodeURIComponent(key);
   const periodLabel = (from || to)
     ? ((from || '最初') + ' 〜 ' + (to || '今日'))
-    : (period === 'day' ? '今日' : period === 'week' ? '今週' : period === 'month' ? '今月' : '全期間');
+    : (period === 'day' ? '今日' : period === 'yesterday' ? '昨日' : period === 'week' ? '今週' : period === 'month' ? '今月' : '全期間');
   const esc = v => String(v == null ? '' : v)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -784,6 +812,19 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg) {
   const prefData   = countBy(paid, '都道府県');
   const cityData   = countBy(paid, null, r => (r['市区町村'] ? (r['都道府県'] || '') + r['市区町村'] : ''));
   const srcClick   = countBy(clicks, '流入元');
+  // サイトに来た人 × 時間を選んだ人 × 予約した人 を、流入元ごとに並べる
+  const vc = visitCounts || {};
+  const clickMap = Object.fromEntries(srcClick), paidMap = Object.fromEntries(countBy(paid, '流入元'));
+  const srcKeys = Array.from(new Set([].concat(Object.keys(vc), Object.keys(clickMap), Object.keys(paidMap))))
+    .sort((a, b) => ((vc[b] || 0) - (vc[a] || 0)) || ((clickMap[b] || 0) - (clickMap[a] || 0)));
+  const vTotal = Object.values(vc).reduce((a, b) => a + b, 0);
+  const visitTableHtml = srcKeys.length ? `<div class="card" style="overflow-x:auto;margin-bottom:26px;"><table>
+    <tr><th>どこから来たか</th><th style="text-align:right;">サイトに来た人</th><th style="text-align:right;">時間を選んだ人</th><th style="text-align:right;">予約した人</th></tr>
+    ${srcKeys.map(k => `<tr><td>${esc(k)}</td><td style="text-align:right;">${vc[k] || 0}人</td><td style="text-align:right;">${clickMap[k] || 0}人</td><td style="text-align:right;">${paidMap[k] || 0}件</td></tr>`).join('')}
+    <tr style="font-weight:700;"><td>合計</td><td style="text-align:right;">${vTotal}人</td><td style="text-align:right;">${clicks.length}人</td><td style="text-align:right;">${paid.length}件</td></tr>
+  </table>
+  <p class="fnote" style="margin-top:10px;">※「サイトに来た人」は、1回の訪問で1人として数えています（同じ人が日を変えて来た場合は、また1人と数えます）。2026年10月6日から数え始めました。電話予約は「電話」として、予約した人にだけ入ります。</p></div>`
+    : '<div class="card" style="margin-bottom:26px;"><p class="empty">まだデータがありません</p></div>';
   const srcPaid    = countBy(paid, '流入元');
   const repeatData = countBy(paid, '新規/リピーター');
   const devData    = countBy(clicks, '端末');
@@ -954,7 +995,7 @@ ${(failures && failures.length) ? `
 
   ${flash ? '<div class="flash ' + flash[0] + '">' + esc(flash[1]) + '</div>' : ''}
   <div style="display:flex;gap:8px;justify-content:center;margin-bottom:22px;flex-wrap:wrap;">
-    ${[['day','今日'],['week','今週'],['month','今月'],['all','全期間']].map(function(p){
+    ${[['day','今日'],['yesterday','昨日'],['week','今週'],['month','今月'],['all','全期間']].map(function(p){
       var v = p[0], l = p[1], on = !(from || to) && (period === v);
       return '<a href="/dashboard?period=' + v + '&' + keyQS + '" style="padding:9px 20px;border-radius:100px;text-decoration:none;font-size:13.5px;font-weight:700;border:1px solid ' + (on ? '#df571d' : '#d9cfae') + ';background:' + (on ? '#df571d' : '#fff') + ';color:' + (on ? '#fff' : '#2b2620') + ';">' + l + '</a>';
     }).join('')}
@@ -998,6 +1039,9 @@ ${(failures && failures.length) ? `
     : '<p class="empty">この期間の決済完了の予約はありません</p>'}
   </div>
 
+  <h2>サイトに来た人（どこから来たか・${esc(periodLabel)}）</h2>
+  ${visitTableHtml}
+
   <div class="funnel">
     <h2 style="border:none;padding:0;margin:0 0 14px;">お客様がどこまで進んだか</h2>
     <div class="fstep">
@@ -1025,10 +1069,10 @@ ${(failures && failures.length) ? `
   <div class="grid">
     <div class="card"><h3>新規 / リピーター</h3>${bars(repeatData)}</div>
     <div class="card"><h3>どこから来たか（流入元・予約した人）</h3>${bars(srcPaid)}</div>
-    <div class="card"><h3>どこから来たか（流入元・見た人）</h3>${bars(srcClick, '人')}</div>
+    <div class="card"><h3>どこから来たか（流入元・時間を選んだ人）</h3>${bars(srcClick, '人')}</div>
     <div class="card"><h3>都道府県</h3>${bars(prefData)}</div>
     <div class="card"><h3>市区町村（ご記入いただいた方のみ）</h3>${bars(cityData)}</div>
-    <div class="card"><h3>端末（見た人）</h3>${bars(devData, '人')}</div>
+    <div class="card"><h3>端末（時間を選んだ人）</h3>${bars(devData, '人')}</div>
     <div class="card"><h3>何日前に予約したか</h3>${bars(aheadData)}</div>
   </div>
 
@@ -1131,7 +1175,7 @@ function tooMany(ip, kind, max, windowMs) {
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
   const clientIp = String(req.headers['x-real-ip'] || req.socket.remoteAddress || '');
-  const LIMITS = { '/hold': 30, '/book': 15, '/paid-check': 30, '/release': 60, '/slots': 200 };
+  const LIMITS = { '/hold': 30, '/book': 15, '/paid-check': 30, '/release': 60, '/slots': 200, '/visit': 60 };
   if (LIMITS[url] && tooMany(clientIp, url, LIMITS[url], 10 * 60000)) {
     res.statusCode = 429;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1169,6 +1213,15 @@ const server = http.createServer((req, res) => {
   if (SECRET_PATHS.indexOf(url) !== -1) {
     const givenKey = new URLSearchParams(req.url.split('?')[1] || '').get('key');
     if (!ADMIN_KEY || ADMIN_KEY.length < 16 || givenKey !== ADMIN_KEY) { notFound(); return; }
+  }
+
+  // ---- サイトに来た人を数える（ページを開いた時に1回だけ呼ばれる。人数を足すだけ） ----
+  if (url === '/visit' && (req.method === 'GET' || req.method === 'POST')) {
+    const q = new URLSearchParams(req.url.split('?')[1] || '');
+    if (!BOT_UA.test(String(req.headers['user-agent'] || ''))) {
+      addVisit(sourceLabel(q.get('ref') || '', q.get('utm')));
+    }
+    res.statusCode = 204; res.end(); return;
   }
 
   if (url === '/health') {
@@ -1433,6 +1486,7 @@ const server = http.createServer((req, res) => {
     const monthStr = nowJ.toISOString().slice(0, 7);
     const dowMon = (nowJ.getUTCDay() + 6) % 7;
     const mondayStr = new Date(nowJ.getTime() - dowMon * 86400000).toISOString().slice(0, 10);
+    const yesterdayStr = new Date(nowJ.getTime() - 86400000).toISOString().slice(0, 10);
     const fromStr = (dq.get('from') || '').slice(0, 10);
     const toStr = (dq.get('to') || '').slice(0, 10);
     if (fromStr || toStr) {
@@ -1448,12 +1502,19 @@ const server = http.createServer((req, res) => {
         const d = (r['記録日時(JST)'] || '').slice(0, 10);
         if (!d) return false;
         if (period === 'day') return d === todayStr;
+        if (period === 'yesterday') return d === yesterdayStr;
         if (period === 'week') return d >= mondayStr;
         if (period === 'month') return d.slice(0, 7) === monthStr;
         return true;
       });
     }
-    res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr, dashKey, allRows, dq.get('msg') || ''));
+    let vFrom = '', vTo = '';
+    if (fromStr || toStr) { vFrom = fromStr; vTo = toStr; }
+    else if (period === 'day') { vFrom = vTo = todayStr; }
+    else if (period === 'yesterday') { vFrom = vTo = yesterdayStr; }
+    else if (period === 'week') { vFrom = mondayStr; }
+    else if (period === 'month') { vFrom = monthStr + '-01'; }
+    res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr, dashKey, allRows, dq.get('msg') || '', sumVisits(vFrom, vTo)));
     return;
   }
 
