@@ -219,7 +219,16 @@ async function isReallyPaid(order) {
   return true;
 }
 
-async function sweepPending() {
+// 決済の確認は、同時に2つ走らないようにする。
+//   （20秒ごとの確認と、お客様が決済から戻った時の確認が重なると、
+//     同じ予約を2回作ろうとして、2回目が「予約できなかった」扱いになるため）
+let sweepRunning = null;
+function sweepPending() {
+  if (sweepRunning) return sweepRunning;          // 実行中なら、その終わりを待つだけ
+  sweepRunning = sweepPendingOnce().finally(() => { sweepRunning = null; });
+  return sweepRunning;
+}
+async function sweepPendingOnce() {
   const list = loadPending();
   if (!list.length) return;
   const now = Date.now();
@@ -263,7 +272,11 @@ async function sweepPending() {
     }
     keep.push(h);                                           // まだ有効 → 継続
   }
-  savePending(keep);
+  // 確認している間に、ほかのお客様が新しく仮押さえ・決済ページへ進んだ分を消さないように、
+  // 最新の一覧から「今回の確認で終わった分（予約済み・時間切れ）」だけを取り除いて保存する
+  const keepIds = new Set(keep.map(h => h.id));
+  const dropIds = new Set(list.filter(h => !keepIds.has(h.id)).map(h => h.id));
+  savePending(loadPending().filter(h => !dropIds.has(h.id)));
 }
 
 // 仮押さえの情報から、Square に本予約を登録する
