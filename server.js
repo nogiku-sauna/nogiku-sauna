@@ -304,7 +304,12 @@ async function createBookingFromHold(h) {
           : { given_name: h.name };
         if (h.email) upd.email_address = h.email;
         if (address) upd.address = address;
-        await sq('PUT', '/v2/customers/' + customerId, upd);
+        const ur = await sq('PUT', '/v2/customers/' + customerId, upd);
+        // 検索では見つかったのに、実際には消えている・統合されているお客様だった場合は、新しく作る
+        if (!ur.ok && (ur.status === 404 || JSON.stringify(ur.data.errors || []).includes('NOT_FOUND'))) {
+          console.error('[やり直し] 検索で見つかったお客様が存在しないため、新しく作ります');
+          customerId = null;
+        }
       }
     }
     if (!customerId) {
@@ -339,10 +344,42 @@ async function createBookingFromHold(h) {
       }]
     };
     if (customerId) booking.customer_id = customerId;
-    const br = await sq('POST', '/v2/bookings', {
+    let br = await sq('POST', '/v2/bookings', {
       idempotency_key: 'bk-' + h.id,   // 同じ仮押さえから二重に作らないための鍵
       booking
     });
+    // ★2026-10-07追加：「お客様が見つからない（customer_id not found）」で失敗した場合のやり直し
+    //   Squareのお客様情報は、作った直後や、統合・削除された直後に、予約の側からまだ見えないことがある。
+    //   その場合は少し待ってもう一度、それでもだめなら、お客様情報を新しく作り直して予約する。
+    const isCustomerError = r => !r.ok && JSON.stringify(r.data.errors || []).includes('customer_id');
+    if (isCustomerError(br)) {
+      console.error('[やり直し] customer_id が見つからないため、3秒後に再試行します');
+      await new Promise(r => setTimeout(r, 3000));
+      br = await sq('POST', '/v2/bookings', { idempotency_key: 'bk-' + h.id + '-r1', booking });
+    }
+    if (isCustomerError(br)) {
+      console.error('[やり直し] お客様情報を作り直して予約します');
+      const nb = {
+        idempotency_key: 'cus2-' + h.id,
+        note: 'Webサイト予約'
+      };
+      if (h.lastName || h.firstName) { nb.family_name = h.lastName || ''; nb.given_name = h.firstName || ''; }
+      else nb.given_name = h.name;
+      if (h.telE164) nb.phone_number = h.telE164;
+      if (h.email) nb.email_address = h.email;
+      if (address) nb.address = address;
+      const cr2 = await sq('POST', '/v2/customers', nb);
+      const newId = cr2.data.customer && cr2.data.customer.id;
+      if (newId) {
+        booking.customer_id = newId;
+        await new Promise(r => setTimeout(r, 2000));
+        br = await sq('POST', '/v2/bookings', { idempotency_key: 'bk-' + h.id + '-r2', booking });
+        if (isCustomerError(br)) {
+          await new Promise(r => setTimeout(r, 5000));
+          br = await sq('POST', '/v2/bookings', { idempotency_key: 'bk-' + h.id + '-r3', booking });
+        }
+      }
+    }
     if (br.ok) {
       notifyStore(h);          // お店へ予約通知（Squareは API 経由だと通知を送らないため）
       // ※「注文の自動完了」はここでは行わない。
