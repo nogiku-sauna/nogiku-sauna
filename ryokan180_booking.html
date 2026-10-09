@@ -185,6 +185,8 @@
     font-family:inherit;color:var(--ink);background:#fff;
   }
   .sq-input:focus{outline:none;border-color:var(--pink-deep);}
+  .sq-input.sq-invalid{border-color:#d33;background:#fff5f5;}
+  .sq-tel-error{color:#c62828;font-size:12.5px;font-weight:700;margin:-4px 0 10px;line-height:1.6;}
   .sq-input::placeholder{color:#a89e86;}
   .sq-select{appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2383795f' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:18px;padding-right:38px;}
   .sq-textarea{resize:vertical;line-height:1.7;}
@@ -326,9 +328,9 @@
 
       <div class="sq-section">連絡先情報</div>
       <div class="sq-tel-row">
-        <div class="sq-tel-cc">🇯🇵 +81</div>
-        <input type="tel" id="confirmTel" class="sq-input" placeholder="電話番号" autocomplete="tel" inputmode="tel">
+                <input type="tel" id="confirmTel" class="sq-input" placeholder="電話番号（例：09012345678）" autocomplete="tel" inputmode="tel">
       </div>
+      <p class="sq-tel-error" id="telError" style="display:none;">電話番号が正しくありません。<b>「0」から始まる数字</b>で入力してください（例：09012345678）</p>
 
       <div class="sq-name-row">
         <input type="text" id="confirmLastName" class="sq-input" placeholder="姓" autocomplete="family-name">
@@ -850,6 +852,22 @@
     if(e.target === confirmOverlay) closeConfirm();
   });
 
+  // ---- 電話番号のチェック（2026-10-10追加）：0から始まる日本の番号だけ受け付ける。入力内容は書き換えない ----
+  function telIsValid(v){
+    const d = String(v || "").replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[\s\-‐－ー―()（）]/g, "");
+    if(!/^0[1-9]\d{8,9}$/.test(d)) return false;
+    return /^0[2-9]0/.test(d) ? d.length === 11 : d.length === 10;
+  }
+  function showTelError(on){
+    document.getElementById("telError").style.display = on ? "block" : "none";
+    document.getElementById("confirmTel").classList.toggle("sq-invalid", on);
+  }
+  (function(){
+    const te = document.getElementById("confirmTel");
+    te.addEventListener("blur", () => { const v = te.value.trim(); showTelError(v !== "" && !telIsValid(v)); });
+    te.addEventListener("input", () => { if(te.classList.contains("sq-invalid") && telIsValid(te.value.trim())) showTelError(false); });
+  })();
+
   // 【2画面目】お支払いへ進む
   confirmGo.addEventListener("click", async () => {
     if(!pending) return;
@@ -865,6 +883,7 @@
     const note = document.getElementById("confirmNote").value.trim();
 
     if(!tel){ alert("電話番号を入力してください"); document.getElementById("confirmTel").focus(); return; }
+    if(!telIsValid(tel)){ showTelError(true); const te = document.getElementById("confirmTel"); te.focus(); te.scrollIntoView({block:"center"}); return; }
     if(!lastName || !firstName){ alert("姓名を入力してください"); document.getElementById("confirmLastName").focus(); return; }
     if(!document.getElementById("confirmTerms").checked){ alert("ご利用規約・キャンセルポリシーへの同意をお願いします"); document.getElementById("confirmTerms").focus(); return; }
 

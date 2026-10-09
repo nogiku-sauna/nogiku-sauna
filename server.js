@@ -219,6 +219,15 @@ async function isReallyPaid(order) {
   return true;
 }
 
+// 全角の数字を半角に
+function toHalfDigits(v) { return String(v || '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)); }
+// 日本の電話番号として正しい形か（ハイフン・空白は無視。0から始まり、携帯など 0X0 は11けた、それ以外は10けた）
+function isValidJpTel(v) {
+  const d = toHalfDigits(v).replace(/[\s\-‐－ー―()（）]/g, '');
+  if (!/^0[1-9]\d{8,9}$/.test(d)) return false;
+  return /^0[2-9]0/.test(d) ? d.length === 11 : d.length === 10;
+}
+
 // 決済の確認は、同時に2つ走らないようにする。
 //   （20秒ごとの確認と、お客様が決済から戻った時の確認が重なると、
 //     同じ予約を2回作ろうとして、2回目が「予約できなかった」扱いになるため）
@@ -1771,6 +1780,11 @@ const server = http.createServer((req, res) => {
       if (!termsAgreed) {
         res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'ご利用規約・キャンセルポリシーへの同意が必要です' })); return;
       }
+      // ★2026-10-10追加：電話番号が正しくないと、Squareにお客様情報が作れず「支払ったのに予約が入らない」になるため、
+      //   お支払いの前に断る（例：最初の0を抜いた「90…」はトルコの番号扱いになっていた）
+      if (!isValidJpTel(tel)) {
+        res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: '電話番号が正しくありません。「0」から始まる数字で入力してください（例：09012345678）' })); return;
+      }
       const variation = pickVariation(plan, people, startAt);
       if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'プランを認識できませんでした' })); return; }
   
@@ -1822,9 +1836,9 @@ const server = http.createServer((req, res) => {
         // 決済ページを作る（※Squareへの予約登録は、決済が終わってから）
         const jst = new Date(new Date(startAt).getTime() + 9 * 3600000);
         const when = jst.toISOString().slice(0, 16).replace('T', ' ');
-        const telDigits = tel.replace(/[^0-9]/g, '');
-        const telE164 = telDigits.length >= 10
-          ? (telDigits.startsWith('0') ? '+81' + telDigits.slice(1) : '+' + telDigits) : '';
+        const telDigits = toHalfDigits(tel).replace(/[^0-9]/g, '');
+        // 日本の電話番号（0から始まる10〜11けた）だけを受け付ける。+81 の形に直してSquareへ渡す
+        const telE164 = isValidJpTel(tel) ? '+81' + telDigits.slice(1) : '';
         const prefill = {};
         if (email && /.+@.+\..+/.test(email)) prefill.buyer_email = email;
         if (/^\+\d{10,15}$/.test(telE164)) prefill.buyer_phone_number = telE164;
