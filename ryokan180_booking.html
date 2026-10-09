@@ -196,6 +196,7 @@
     font-size:15px;font-weight:700;color:var(--ink);background:#fff;white-space:nowrap;margin-bottom:10px;
   }
   .sq-tel-row .sq-input{flex:1;}
+  .sq-tel-row .sq-tel-cc-select{flex:0 0 132px;width:132px;padding-left:10px;padding-right:28px;background-position:right 6px center;font-weight:700;}
   .sq-name-row{display:flex;gap:8px;}
   .sq-name-row .sq-input{flex:1;}
   .sq-save{display:flex;align-items:flex-start;gap:10px;margin:16px 0 0;padding:6px 0;font-size:12.5px;color:var(--ink);cursor:pointer;line-height:1.6;}
@@ -328,9 +329,10 @@
 
       <div class="sq-section">連絡先情報</div>
       <div class="sq-tel-row">
-                <input type="tel" id="confirmTel" class="sq-input" placeholder="電話番号（例：09012345678）" autocomplete="tel" inputmode="tel">
+        <select id="confirmTelCc" class="sq-input sq-select sq-tel-cc-select" aria-label="国番号"><option value="81" selected>日本 +81</option><option value="82">韓国 +82</option><option value="886">台湾 +886</option><option value="86">中国 +86</option><option value="852">香港 +852</option><option value="853">マカオ +853</option><option value="66">タイ +66</option><option value="65">シンガポール +65</option><option value="60">マレーシア +60</option><option value="63">フィリピン +63</option><option value="84">ベトナム +84</option><option value="62">インドネシア +62</option><option value="91">インド +91</option><option value="1">アメリカ・カナダ +1</option><option value="61">オーストラリア +61</option><option value="64">ニュージーランド +64</option><option value="44">イギリス +44</option><option value="353">アイルランド +353</option><option value="33">フランス +33</option><option value="49">ドイツ +49</option><option value="39">イタリア +39</option><option value="34">スペイン +34</option><option value="31">オランダ +31</option><option value="41">スイス +41</option><option value="46">スウェーデン +46</option><option value="55">ブラジル +55</option><option value="52">メキシコ +52</option><option value="971">アラブ首長国連邦 +971</option></select>
+        <input type="tel" id="confirmTel" class="sq-input" placeholder="電話番号（例：09012345678）" autocomplete="tel" inputmode="tel">
       </div>
-      <p class="sq-tel-error" id="telError" style="display:none;">電話番号が正しくありません。<b>「0」から始まる数字</b>で入力してください（例：09012345678）</p>
+      <p class="sq-tel-error" id="telError" style="display:none;">電話番号が正しくありません。<b>左で国を選んで</b>、番号を入力してください（例：日本 09012345678）</p>
 
       <div class="sq-name-row">
         <input type="text" id="confirmLastName" class="sq-input" placeholder="姓" autocomplete="family-name">
@@ -706,7 +708,7 @@
 
   // ---- 入力内容の保存（この端末の中だけ。サーバーには送りません） ----
   const SAVE_KEY = "nogiku_guest_v1";
-  const SAVE_FIELDS = ["confirmTel","confirmLastName","confirmFirstName","confirmEmail",
+  const SAVE_FIELDS = ["confirmTelCc","confirmTel","confirmLastName","confirmFirstName","confirmEmail",
                        "confirmZip","confirmPref","confirmCity","confirmAddr1","confirmAddr2"];
   function loadGuest(){
     let data = null;
@@ -735,7 +737,7 @@
     if(alsoClearForm){
       SAVE_FIELDS.forEach(id => {
         const el = document.getElementById(id);
-        if(el) el.value = "";
+        if(el) el.value = (id === "confirmTelCc") ? "81" : "";
       });
     }
   }
@@ -853,11 +855,20 @@
   });
 
   // ---- 電話番号のチェック（2026-10-10追加）：0から始まる日本の番号だけ受け付ける。入力内容は書き換えない ----
-  function telIsValid(v){
-    const d = String(v || "").replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[\s\-‐－ー―()（）]/g, "");
-    if(!/^0[1-9]\d{8,9}$/.test(d)) return false;
-    return /^0[2-9]0/.test(d) ? d.length === 11 : d.length === 10;
+  // 国番号＋番号を、Squareと同じ世界共通の書き方（+81…）にする。正しくなければ null
+  //   日本の番号は「090…」「90…」どちらでも同じ番号（世界のルールで、国番号をつける時は最初の0を取る）
+  function telToE164(cc, v){
+    let raw = String(v || "").replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[\s\-‐－ー―()（）.]/g, "");
+    if(!/^\+?\d+$/.test(raw)) return null;
+    let d = raw.startsWith("+") ? raw.slice(1) : String(cc) + raw.replace(/^0/, "");
+    if(d.startsWith("81")){
+      const n = d.slice(2).replace(/^0/, "");
+      if(!/^[1-9]\d{8,9}$/.test(n)) return null;
+      return (/^[2-9]0/.test(n) ? n.length === 10 : n.length === 9) ? "+81" + n : null;
+    }
+    return /^[1-9]\d{7,14}$/.test(d) ? "+" + d : null;
   }
+  function telIsValid(v){ return !!telToE164(document.getElementById("confirmTelCc").value, v); }
   function showTelError(on){
     document.getElementById("telError").style.display = on ? "block" : "none";
     document.getElementById("confirmTel").classList.toggle("sq-invalid", on);
@@ -866,6 +877,7 @@
     const te = document.getElementById("confirmTel");
     te.addEventListener("blur", () => { const v = te.value.trim(); showTelError(v !== "" && !telIsValid(v)); });
     te.addEventListener("input", () => { if(te.classList.contains("sq-invalid") && telIsValid(te.value.trim())) showTelError(false); });
+    document.getElementById("confirmTelCc").addEventListener("change", () => { const v = te.value.trim(); if(v !== "") showTelError(!telIsValid(v)); });
   })();
 
   // 【2画面目】お支払いへ進む
@@ -884,6 +896,7 @@
 
     if(!tel){ alert("電話番号を入力してください"); document.getElementById("confirmTel").focus(); return; }
     if(!telIsValid(tel)){ showTelError(true); const te = document.getElementById("confirmTel"); te.focus(); te.scrollIntoView({block:"center"}); return; }
+    const telSend = telToE164(document.getElementById("confirmTelCc").value, tel);   // 例：+819012345678
     if(!lastName || !firstName){ alert("姓名を入力してください"); document.getElementById("confirmLastName").focus(); return; }
     if(!document.getElementById("confirmTerms").checked){ alert("ご利用規約・キャンセルポリシーへの同意をお願いします"); document.getElementById("confirmTerms").focus(); return; }
 
@@ -897,7 +910,7 @@
       const plan = planKey(p.room, p.isPlan180);
       const q = new URLSearchParams({
         plan, people: p.people, start_at: p.startIso, team: p.team || "",
-        name, last_name: lastName, first_name: firstName, tel, email, addr, note, zip, hold: holdId || "", utm: utmTag, ref: refTag, terms: "1"
+        name, last_name: lastName, first_name: firstName, tel: telSend, email, addr, note, zip, hold: holdId || "", utm: utmTag, ref: refTag, terms: "1"
       });
       const r = await fetch(`${API_BASE}/book`, { method: "POST", body: q });
       const data = await r.json();

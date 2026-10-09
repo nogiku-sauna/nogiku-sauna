@@ -221,11 +221,26 @@ async function isReallyPaid(order) {
 
 // 全角の数字を半角に
 function toHalfDigits(v) { return String(v || '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)); }
-// 日本の電話番号として正しい形か（ハイフン・空白は無視。0から始まり、携帯など 0X0 は11けた、それ以外は10けた）
-function isValidJpTel(v) {
-  const d = toHalfDigits(v).replace(/[\s\-‐－ー―()（）]/g, '');
-  if (!/^0[1-9]\d{8,9}$/.test(d)) return false;
-  return /^0[2-9]0/.test(d) ? d.length === 11 : d.length === 10;
+// 電話番号を、Squareと同じ「世界共通の書き方（+国番号…）」にそろえる（2026-10-10）
+//   予約ページは「国を選ぶ欄＋番号」で、+81… の形で送ってくる。古いページの「0から始まる日本の番号」も受け付ける。
+//   正しくない番号なら null（お支払いの前に断る）。display はお店向けの表示（日本の番号は 0 から始まる形）。
+function normalizeTel(v) {
+  const raw = toHalfDigits(v).replace(/[\s\-‐－ー―()（）.]/g, '');
+  let e164 = null;
+  if (/^\+\d+$/.test(raw)) {
+    const d = raw.slice(1);
+    if (d.startsWith('81')) {
+      const n = d.slice(2).replace(/^0/, '');      // +81 0 90… と書かれた場合も同じ番号
+      if (/^[1-9]\d{8,9}$/.test(n) && (/^[2-9]0/.test(n) ? n.length === 10 : n.length === 9)) e164 = '+81' + n;
+    } else if (/^[1-9]\d{7,14}$/.test(d)) {
+      e164 = '+' + d;
+    }
+  } else if (/^0[1-9]\d{8,9}$/.test(raw) && (/^0[2-9]0/.test(raw) ? raw.length === 11 : raw.length === 10)) {
+    e164 = '+81' + raw.slice(1);                      // 古いページ：0から始まる日本の番号
+  }
+  if (!e164) return null;
+  const display = e164.startsWith('+81') ? '0' + e164.slice(3) : e164;
+  return { e164, display };
 }
 
 // 決済の確認は、同時に2つ走らないようにする。
@@ -1768,13 +1783,13 @@ const server = http.createServer((req, res) => {
       const name = (q.get('name') || '').trim().slice(0, 60);
       const lastName = (q.get('last_name') || '').trim().slice(0, 30);
       const firstName = (q.get('first_name') || '').trim().slice(0, 30);
-      const tel = (q.get('tel') || '').trim().slice(0, 30);
+      const telRaw = (q.get('tel') || '').trim().slice(0, 30);
       const email = (q.get('email') || '').trim().slice(0, 100);
       const note = (q.get('note') || '').trim().slice(0, 500);
       const addr = (q.get('addr') || '').trim().slice(0, 120);
       const zip = (q.get('zip') || '').trim().slice(0, 12);
       const termsAgreed = q.get('terms') === '1';
-      if (!plan || !people || !startAt || !team || !name || !tel) {
+      if (!plan || !people || !startAt || !team || !name || !telRaw) {
         res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'お名前と電話番号は必須です' })); return;
       }
       if (!termsAgreed) {
@@ -1782,9 +1797,11 @@ const server = http.createServer((req, res) => {
       }
       // ★2026-10-10追加：電話番号が正しくないと、Squareにお客様情報が作れず「支払ったのに予約が入らない」になるため、
       //   お支払いの前に断る（例：最初の0を抜いた「90…」はトルコの番号扱いになっていた）
-      if (!isValidJpTel(tel)) {
-        res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: '電話番号が正しくありません。「0」から始まる数字で入力してください（例：09012345678）' })); return;
+      const telN = normalizeTel(telRaw);
+      if (!telN) {
+        res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: '電話番号が正しくありません。国を選んで、番号を正しく入力してください（例：日本 09012345678）' })); return;
       }
+      const tel = telN.display;
       const variation = pickVariation(plan, people, startAt);
       if (!variation) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, message: 'プランを認識できませんでした' })); return; }
   
@@ -1836,9 +1853,7 @@ const server = http.createServer((req, res) => {
         // 決済ページを作る（※Squareへの予約登録は、決済が終わってから）
         const jst = new Date(new Date(startAt).getTime() + 9 * 3600000);
         const when = jst.toISOString().slice(0, 16).replace('T', ' ');
-        const telDigits = toHalfDigits(tel).replace(/[^0-9]/g, '');
-        // 日本の電話番号（0から始まる10〜11けた）だけを受け付ける。+81 の形に直してSquareへ渡す
-        const telE164 = isValidJpTel(tel) ? '+81' + telDigits.slice(1) : '';
+        const telE164 = telN.e164;   // Squareへは世界共通の書き方で渡す
         const prefill = {};
         if (email && /.+@.+\..+/.test(email)) prefill.buyer_email = email;
         if (/^\+\d{10,15}$/.test(telE164)) prefill.buyer_phone_number = telE164;
