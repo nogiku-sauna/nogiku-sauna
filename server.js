@@ -1081,6 +1081,10 @@ ${(failures && failures.length) ? `
   <header>
     <h1>NOGIKU 予約データ</h1>
     <p>${new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} 現在（${periodLabel}）</p>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
+      <a href="/dashboard?${(from || to) ? 'from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to) : 'period=' + encodeURIComponent(period)}&${keyQS}" style="padding:8px 20px;border-radius:100px;text-decoration:none;font-size:13.5px;font-weight:700;background:#2b2620;color:#fff;">↻ 最新に更新</a>
+      <a href="/analytics.csv?${keyQS}" style="padding:8px 20px;border-radius:100px;text-decoration:none;font-size:13.5px;font-weight:700;border:1px solid #d9cfae;background:#fff;color:#2b2620;">CSVでダウンロード</a>
+    </div>
   </header>
 
   ${flash ? '<div class="flash ' + flash[0] + '">' + esc(flash[1]) + '</div>' : ''}
@@ -1220,7 +1224,6 @@ ${(failures && failures.length) ? `
 
   <div class="actions">
     <a href="/analytics.csv?${keyQS}">CSVでダウンロード</a>
-    <a href="/dashboard?${keyQS}" class="sub">最新に更新</a>
   </div>
 
 </div></body></html>`;
