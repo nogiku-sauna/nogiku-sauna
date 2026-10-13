@@ -593,8 +593,20 @@ function planParts(plan) {
   return { name: '120分', room: ROOM_LABEL[plan.replace('120', '')] || '' };
 }
 // どこから来たお客様か（Instagram・検索・直接など）
+// 流入元の名前をそろえる（2026-10-13）
+//   アプリによっては日本語の目印が「Google%E3%83%9E…」のように記号のまま届くので、日本語に戻す
+function normSrc(k) {
+  let u = String(k == null ? '' : k);
+  for (let i = 0; i < 3 && /%[0-9A-Fa-f]{2}/.test(u); i++) {
+    try { const d = decodeURIComponent(u); if (d === u) break; u = d; } catch (e) { break; }
+  }
+  return u;
+}
+// Squareの決済ページから戻ってきた人（すでに支払い済み）は、新しく来た人として数えない
+const isCheckoutReturn = k => /checkout\.square\.site|square\.link/i.test(String(k || ''));
+
 function sourceLabel(ref, utm) {
-  if (utm) return String(utm).slice(0, 40);  // ?utm=... が付いていればそれを優先
+  if (utm) return normSrc(utm).slice(0, 40);  // ?utm=... が付いていればそれを優先
   if (!ref) return '直接・不明';
   const r = String(ref).toLowerCase();
   if (r.includes('instagram') || r.includes('l.instagram')) return 'Instagram';
@@ -782,7 +794,11 @@ function sumVisits(from, to) {
   Object.keys(v).forEach(d => {
     if (from && d < from) return;
     if (to && d > to) return;
-    Object.entries(v[d] || {}).forEach(([k, n]) => { m[k] = (m[k] || 0) + n; });
+    Object.entries(v[d] || {}).forEach(([k, n]) => {
+      if (isCheckoutReturn(k)) return;          // 決済から戻ってきた人は除く（これまでの分も）
+      const kk = normSrc(k);                    // 記号のままの「Googleマップ」もまとめる
+      m[kk] = (m[kk] || 0) + n;
+    });
   });
   return m;
 }
@@ -1292,7 +1308,7 @@ const server = http.createServer((req, res) => {
   // ---- サイトに来た人を数える（ページを開いた時に1回だけ呼ばれる。人数を足すだけ） ----
   if (url === '/visit' && (req.method === 'GET' || req.method === 'POST')) {
     const q = new URLSearchParams(req.url.split('?')[1] || '');
-    if (!BOT_UA.test(String(req.headers['user-agent'] || ''))) {
+    if (!BOT_UA.test(String(req.headers['user-agent'] || '')) && !isCheckoutReturn(q.get('ref'))) {
       addVisit(sourceLabel(q.get('ref') || '', q.get('utm')));
     }
     res.statusCode = 204; res.end(); return;
@@ -1550,6 +1566,7 @@ const server = http.createServer((req, res) => {
       });
     } catch (e) {}
     // キャンセル状態などは期間に関係なく「全部の記録」から判定するため、絞り込む前の一覧を残しておく
+    rows.forEach(r => { if (r['流入元']) r['流入元'] = normSrc(r['流入元']); });   // これまでの記録も表示ではまとめる
     const allRows = rows;
     // ---- 期間の絞り込み（今日／今週／今月／全期間） ----
     const dq = new URLSearchParams(req.url.split('?')[1] || '');
