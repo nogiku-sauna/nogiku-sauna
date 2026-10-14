@@ -238,6 +238,25 @@
   .pay-methods-title{font-size:11px;font-weight:700;color:var(--sub);margin-bottom:2px;}
   .pay-methods-list{font-size:11.5px;color:var(--ink);line-height:1.7;}
   .pay-methods-note{font-size:10px;color:var(--sub);line-height:1.6;margin-top:2px;}
+
+  /* ---- 部屋の写真ギャラリー（2026-10-14追加：画面の上に重ねて表示。閉じても選んだ内容はそのまま） ---- */
+  .room-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;}
+  .room-head h4{margin:0;}
+  .gal-open{flex:0 0 auto;border:1px solid var(--pink-deep);color:var(--pink-deep);background:#fff;border-radius:100px;padding:6px 14px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;}
+  .gal-open::before{content:"";display:inline-block;width:13px;height:11px;margin-right:6px;vertical-align:-1px;border:1.6px solid currentColor;border-radius:3px;box-sizing:border-box;background:radial-gradient(circle at 50% 55%,currentColor 0 2px,transparent 2.6px);}
+  .gal-overlay{position:fixed;inset:0;z-index:9999;background:rgba(20,17,14,.97);display:none;flex-direction:column;}
+  .gal-overlay.open{display:flex;}
+  .gal-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#fff;}
+  .gal-title{font-size:15px;font-weight:700;letter-spacing:.04em;}
+  .gal-close{width:44px;height:44px;border:none;border-radius:50%;background:rgba(255,255,255,.15);color:#fff;font-size:26px;line-height:44px;cursor:pointer;padding:0;}
+  .gal-track{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .gal-track::-webkit-scrollbar{display:none;}
+  .gal-slide{flex:0 0 100%;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 12px;box-sizing:border-box;}
+  .gal-slide img{max-width:100%;max-height:68vh;border-radius:10px;object-fit:contain;}
+  .gal-cap{color:#f3ead7;font-size:14px;margin-top:12px;text-align:center;}
+  .gal-bottom{display:flex;align-items:center;justify-content:center;gap:18px;padding:12px 16px 22px;color:#fff;}
+  .gal-nav{width:44px;height:44px;border:1px solid rgba(255,255,255,.4);border-radius:50%;background:transparent;color:#fff;font-size:20px;cursor:pointer;}
+  .gal-count{font-size:13px;min-width:56px;text-align:center;}
 </style>
 <script>try{if(location.protocol==="https:"&&!sessionStorage.getItem("nogiku_visit")){sessionStorage.setItem("nogiku_visit","1");var vq=new URLSearchParams(location.search),vr=document.referrer||"";if(vr.indexOf(location.hostname)>=0)vr="";var vp=new URLSearchParams({utm:vq.get("utm")||sessionStorage.getItem("nogiku_utm")||"",ref:(vr||sessionStorage.getItem("nogiku_ref")||"").slice(0,300)});fetch("https://api.nogikusauna.com/visit?"+vp.toString(),{mode:"no-cors",keepalive:true}).catch(function(){});}}catch(e){}</script>
 </head>
@@ -292,13 +311,19 @@
       <div class="result-tag" id="resultTag"></div>
 
       <div class="room-result">
-        <h4 id="titleAmaterasu">天照 AMATERASU</h4>
+        <div class="room-head">
+          <h4 id="titleAmaterasu">天照 AMATERASU</h4>
+          <button type="button" class="gal-open" data-room="amaterasu">写真を見る</button>
+        </div>
         <div class="price-line" id="priceAmaterasu"></div>
         <div class="slot-row" id="slotsAmaterasu"></div>
       </div>
 
       <div class="room-result">
-        <h4 id="titleTsukuyomi">月読 TSUKUYOMI</h4>
+        <div class="room-head">
+          <h4 id="titleTsukuyomi">月読 TSUKUYOMI</h4>
+          <button type="button" class="gal-open" data-room="tsukuyomi">写真を見る</button>
+        </div>
         <div class="price-line" id="priceTsukuyomi"></div>
         <div class="slot-row" id="slotsTsukuyomi"></div>
       </div>
@@ -944,6 +969,45 @@
       history.replaceState(null, "", location.pathname);
     });
   }
+</script>
+
+<!-- 部屋の写真ギャラリー -->
+<div class="gal-overlay" id="galOverlay" role="dialog" aria-modal="true" aria-label="お部屋の写真">
+  <div class="gal-top"><div class="gal-title" id="galTitle"></div><button type="button" class="gal-close" id="galClose" aria-label="閉じる">×</button></div>
+  <div class="gal-track" id="galTrack"></div>
+  <div class="gal-bottom"><button type="button" class="gal-nav" id="galPrev" aria-label="前の写真">‹</button><span class="gal-count" id="galCount"></span><button type="button" class="gal-nav" id="galNext" aria-label="次の写真">›</button></div>
+</div>
+<script>
+(function(){
+  const PHOTOS = {
+    amaterasu: { title: "天照 AMATERASU", list: [["amaterasu.jpg","天照"],["amaterasu_sauna.jpg","サウナ室"],["amaterasu_coldbath.jpg","水風呂"],["amaterasu_outdoor.jpg","外気浴スペース"],["amaterasu_onsen.jpg","温泉"],["amaterasu_changing.jpg","脱衣所"],["amaterasu_water.jpg","ウォーターサーバー"]] },
+    tsukuyomi: { title: "月読 TSUKUYOMI", list: [["tsukuyomi.jpg","月読"],["tsukuyomi_sauna.jpg","サウナ室"],["tsukuyomi_coldbath.jpg","水風呂"],["tsukuyomi_outdoor.jpg","外気浴スペース"],["tsukuyomi_onsen.jpg","温泉"],["tsukuyomi_changing.jpg","脱衣所"],["tsukuyomi_water.jpg","ウォーターサーバー"]] }
+  };
+  const ov = document.getElementById("galOverlay"), track = document.getElementById("galTrack");
+  const countEl = document.getElementById("galCount");
+  let total = 0, savedOverflow = "";
+  function current(){ return Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); }
+  function updateCount(){ countEl.textContent = (Math.min(total, current() + 1)) + " / " + total; }
+  function open(room){
+    const g = PHOTOS[room]; if(!g) return;
+    document.getElementById("galTitle").textContent = g.title;
+    track.innerHTML = g.list.map(p => '<div class="gal-slide"><img src="' + p[0] + '" alt="' + g.title + ' ' + p[1] + '" loading="lazy"><div class="gal-cap">' + p[1] + '</div></div>').join("");
+    total = g.list.length;
+    savedOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";        // 後ろの画面が動かないように
+    ov.classList.add("open");
+    track.scrollLeft = 0; updateCount();
+  }
+  function close(){ ov.classList.remove("open"); document.body.style.overflow = savedOverflow; }
+  function go(d){ const i = Math.max(0, Math.min(total - 1, current() + d)); track.scrollTo({ left: i * track.clientWidth, behavior: "smooth" }); }
+  document.querySelectorAll(".gal-open").forEach(b => b.addEventListener("click", () => open(b.dataset.room)));
+  document.getElementById("galClose").addEventListener("click", close);
+  document.getElementById("galPrev").addEventListener("click", () => go(-1));
+  document.getElementById("galNext").addEventListener("click", () => go(1));
+  track.addEventListener("scroll", () => requestAnimationFrame(updateCount));
+  ov.addEventListener("click", e => { if(e.target === ov || e.target.classList.contains("gal-slide")) close(); });
+  document.addEventListener("keydown", e => { if(!ov.classList.contains("open")) return; if(e.key === "Escape") close(); if(e.key === "ArrowRight") go(1); if(e.key === "ArrowLeft") go(-1); });
+})();
 </script>
 </body>
 </html>
