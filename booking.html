@@ -687,6 +687,8 @@
   .room-head h4{margin:0;}
   .gal-open{flex:0 0 auto;border:1px solid var(--ember);color:var(--ember);background:#fff;border-radius:100px;padding:6px 14px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;}
   .gal-open::before{content:"";display:inline-block;width:13px;height:11px;margin-right:6px;vertical-align:-1px;border:1.6px solid currentColor;border-radius:3px;box-sizing:border-box;background:radial-gradient(circle at 50% 55%,currentColor 0 2px,transparent 2.6px);}
+  .plan-info{margin-top:10px;padding:5px 12px;font-size:11.5px;}
+  .plan-info::before{display:none;}
   .gal-overlay{position:fixed;inset:0;z-index:9999;background:rgba(20,17,14,.97);display:none;flex-direction:column;}
   .gal-overlay.open{display:flex;}
   .gal-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#fff;}
@@ -730,6 +732,7 @@
       <div class="plan-card" data-plan="180min">
         <div class="plan-title">180分旅館</div>
         <div class="plan-sub">120分貸切サウナ＋60分旅館休憩</div>
+        <button type="button" class="gal-open plan-info" data-room="ryokan180">180分旅館とは？</button>
       </div>
     </div>
     <p class="step-alert" id="planAlert">まず、こちらでご利用プランをお選びください。</p>
@@ -1430,7 +1433,7 @@
   });
 </script>
 <!-- 部屋の写真ギャラリー -->
-<div class="gal-overlay" id="galOverlay" role="dialog" aria-modal="true" aria-label="お部屋の写真">
+<div class="gal-overlay" id="galOverlay" role="dialog" aria-modal="true" aria-label="写真">
   <div class="gal-top"><div class="gal-title" id="galTitle"></div><button type="button" class="gal-close" id="galClose" aria-label="閉じる">×</button></div>
   <div class="gal-track" id="galTrack"></div>
   <div class="gal-bottom"><button type="button" class="gal-nav" id="galPrev" aria-label="前の写真">‹</button><span class="gal-count" id="galCount"></span><button type="button" class="gal-nav" id="galNext" aria-label="次の写真">›</button></div>
@@ -1439,7 +1442,8 @@
 (function(){
   const PHOTOS = {
     amaterasu: { title: "天照 AMATERASU", video: ["amaterasu_video.mp4","amaterasu_video.webm","amaterasu.jpg"], list: [["amaterasu.jpg","天照"],["amaterasu_sauna.jpg","サウナ室"],["amaterasu_coldbath.jpg","水風呂"],["amaterasu_outdoor.jpg","外気浴スペース"],["amaterasu_onsen.jpg","温泉"],["amaterasu_changing.jpg","脱衣所"],["amaterasu_water.jpg","ウォーターサーバー"]] },
-    tsukuyomi: { title: "月読 TSUKUYOMI", video: ["tsukuyomi_video.mp4","tsukuyomi_video.webm","tsukuyomi.jpg"], list: [["tsukuyomi.jpg","月読"],["tsukuyomi_sauna.jpg","サウナ室"],["tsukuyomi_coldbath.jpg","水風呂"],["tsukuyomi_outdoor.jpg","外気浴スペース"],["tsukuyomi_onsen.jpg","温泉"],["tsukuyomi_changing.jpg","脱衣所"],["tsukuyomi_water.jpg","ウォーターサーバー"]] }
+    tsukuyomi: { title: "月読 TSUKUYOMI", video: ["tsukuyomi_video.mp4","tsukuyomi_video.webm","tsukuyomi.jpg"], list: [["tsukuyomi.jpg","月読"],["tsukuyomi_sauna.jpg","サウナ室"],["tsukuyomi_coldbath.jpg","水風呂"],["tsukuyomi_outdoor.jpg","外気浴スペース"],["tsukuyomi_onsen.jpg","温泉"],["tsukuyomi_changing.jpg","脱衣所"],["tsukuyomi_water.jpg","ウォーターサーバー"]] },
+    ryokan180: { title: "180分旅館", list: [["ryokan180_hero.jpg","たしなむ程度に、旅館する"],["ryokan180_dekiru.jpg","180分旅館でできるコト"],["ryokan180_erabu.jpg","選べる2つのプライベート空間"],["ryokan180_kissa.jpg","喫茶室で、浴衣を着て、旅館時間を"],["ryokan180_photo.jpg","旅館フォト"]] }
   };
   const ov = document.getElementById("galOverlay"), track = document.getElementById("galTrack");
   const countEl = document.getElementById("galCount");
@@ -1468,7 +1472,7 @@
   function stopVideo(){ const vid = document.getElementById("galVideo"), pb = document.getElementById("galPlay"); if(vid && !vid.paused){ vid.pause(); if(pb) pb.style.display = ""; } }
   function close(){ stopVideo(); ov.classList.remove("open"); document.body.style.overflow = savedOverflow; track.innerHTML = ""; }
   function go(d){ const i = Math.max(0, Math.min(total - 1, current() + d)); track.scrollTo({ left: i * track.clientWidth, behavior: "smooth" }); }
-  document.querySelectorAll(".gal-open").forEach(b => b.addEventListener("click", () => open(b.dataset.room)));
+  document.querySelectorAll(".gal-open").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); open(b.dataset.room); }));  // プランのカードの中のボタンは、押してもプランを選んだことにしない
   document.getElementById("galClose").addEventListener("click", close);
   document.getElementById("galPrev").addEventListener("click", () => go(-1));
   document.getElementById("galNext").addEventListener("click", () => go(1));
