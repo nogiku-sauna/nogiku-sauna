@@ -696,6 +696,9 @@
   .gal-track::-webkit-scrollbar{display:none;}
   .gal-slide{flex:0 0 100%;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 12px;box-sizing:border-box;}
   .gal-slide img{max-width:100%;max-height:68vh;border-radius:10px;object-fit:contain;}
+  .gal-video{position:relative;width:100%;display:flex;justify-content:center;}
+  .gal-video video{max-width:100%;max-height:68vh;border-radius:10px;background:#000;}
+  .gal-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:72px;height:72px;border-radius:50%;border:2px solid rgba(255,255,255,.85);background:rgba(0,0,0,.45);color:#fff;font-size:28px;padding-left:6px;cursor:pointer;}
   .gal-cap{color:#f3ead7;font-size:14px;margin-top:12px;text-align:center;}
   .gal-bottom{display:flex;align-items:center;justify-content:center;gap:18px;padding:12px 16px 22px;color:#fff;}
   .gal-nav{width:44px;height:44px;border:1px solid rgba(255,255,255,.4);border-radius:50%;background:transparent;color:#fff;font-size:20px;cursor:pointer;}
@@ -760,7 +763,7 @@
       <div class="room-result">
         <div class="room-head">
           <h4 id="titleAmaterasu">天照 AMATERASU</h4>
-          <button type="button" class="gal-open" data-room="amaterasu">写真を見る</button>
+          <button type="button" class="gal-open" data-room="amaterasu">写真・動画</button>
         </div>
         <div class="price-line" id="priceAmaterasu"></div>
         <div class="slot-row" id="slotsAmaterasu"></div>
@@ -769,7 +772,7 @@
       <div class="room-result">
         <div class="room-head">
           <h4 id="titleTsukuyomi">月読 TSUKUYOMI</h4>
-          <button type="button" class="gal-open" data-room="tsukuyomi">写真を見る</button>
+          <button type="button" class="gal-open" data-room="tsukuyomi">写真・動画</button>
         </div>
         <div class="price-line" id="priceTsukuyomi"></div>
         <div class="slot-row" id="slotsTsukuyomi"></div>
@@ -1435,8 +1438,8 @@
 <script>
 (function(){
   const PHOTOS = {
-    amaterasu: { title: "天照 AMATERASU", list: [["amaterasu.jpg","天照"],["amaterasu_sauna.jpg","サウナ室"],["amaterasu_coldbath.jpg","水風呂"],["amaterasu_outdoor.jpg","外気浴スペース"],["amaterasu_onsen.jpg","温泉"],["amaterasu_changing.jpg","脱衣所"],["amaterasu_water.jpg","ウォーターサーバー"]] },
-    tsukuyomi: { title: "月読 TSUKUYOMI", list: [["tsukuyomi.jpg","月読"],["tsukuyomi_sauna.jpg","サウナ室"],["tsukuyomi_coldbath.jpg","水風呂"],["tsukuyomi_outdoor.jpg","外気浴スペース"],["tsukuyomi_onsen.jpg","温泉"],["tsukuyomi_changing.jpg","脱衣所"],["tsukuyomi_water.jpg","ウォーターサーバー"]] }
+    amaterasu: { title: "天照 AMATERASU", video: ["amaterasu_video.mp4","amaterasu_video.webm","amaterasu.jpg"], list: [["amaterasu.jpg","天照"],["amaterasu_sauna.jpg","サウナ室"],["amaterasu_coldbath.jpg","水風呂"],["amaterasu_outdoor.jpg","外気浴スペース"],["amaterasu_onsen.jpg","温泉"],["amaterasu_changing.jpg","脱衣所"],["amaterasu_water.jpg","ウォーターサーバー"]] },
+    tsukuyomi: { title: "月読 TSUKUYOMI", video: ["tsukuyomi_video.mp4","tsukuyomi_video.webm","tsukuyomi.jpg"], list: [["tsukuyomi.jpg","月読"],["tsukuyomi_sauna.jpg","サウナ室"],["tsukuyomi_coldbath.jpg","水風呂"],["tsukuyomi_outdoor.jpg","外気浴スペース"],["tsukuyomi_onsen.jpg","温泉"],["tsukuyomi_changing.jpg","脱衣所"],["tsukuyomi_water.jpg","ウォーターサーバー"]] }
   };
   const ov = document.getElementById("galOverlay"), track = document.getElementById("galTrack");
   const countEl = document.getElementById("galCount");
@@ -1446,20 +1449,30 @@
   function open(room){
     const g = PHOTOS[room]; if(!g) return;
     document.getElementById("galTitle").textContent = g.title;
-    track.innerHTML = g.list.map(p => '<div class="gal-slide"><img src="' + p[0] + '" alt="' + g.title + ' ' + p[1] + '" loading="lazy"><div class="gal-cap">' + p[1] + '</div></div>').join("");
-    total = g.list.length;
+    // 1枚目は動画（押したときだけ読み込んで再生。音なし）
+    const v = g.video;
+    const videoSlide = v ? '<div class="gal-slide"><div class="gal-video"><video id="galVideo" preload="none" muted playsinline loop poster="' + v[2] + '"><source src="' + v[0] + '" type="video/mp4"><source src="' + v[1] + '" type="video/webm"></video><button type="button" class="gal-play" id="galPlay" aria-label="動画を再生">▶</button></div><div class="gal-cap">動画（音は出ません）</div></div>' : '';
+    track.innerHTML = videoSlide + g.list.map(p => '<div class="gal-slide"><img src="' + p[0] + '" alt="' + g.title + ' ' + p[1] + '" loading="lazy"><div class="gal-cap">' + p[1] + '</div></div>').join("");
+    total = g.list.length + (v ? 1 : 0);
+    const pb = document.getElementById("galPlay"), vid = document.getElementById("galVideo");
+    if(pb && vid){
+      const playIt = () => { vid.play().then(() => { pb.style.display = "none"; }).catch(() => { vid.controls = true; pb.style.display = "none"; }); };
+      pb.addEventListener("click", playIt);
+      vid.addEventListener("click", () => { if(vid.paused) playIt(); else { vid.pause(); pb.style.display = ""; } });
+    }
     savedOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";        // 後ろの画面が動かないように
     ov.classList.add("open");
     track.scrollLeft = 0; updateCount();
   }
-  function close(){ ov.classList.remove("open"); document.body.style.overflow = savedOverflow; }
+  function stopVideo(){ const vid = document.getElementById("galVideo"), pb = document.getElementById("galPlay"); if(vid && !vid.paused){ vid.pause(); if(pb) pb.style.display = ""; } }
+  function close(){ stopVideo(); ov.classList.remove("open"); document.body.style.overflow = savedOverflow; track.innerHTML = ""; }
   function go(d){ const i = Math.max(0, Math.min(total - 1, current() + d)); track.scrollTo({ left: i * track.clientWidth, behavior: "smooth" }); }
   document.querySelectorAll(".gal-open").forEach(b => b.addEventListener("click", () => open(b.dataset.room)));
   document.getElementById("galClose").addEventListener("click", close);
   document.getElementById("galPrev").addEventListener("click", () => go(-1));
   document.getElementById("galNext").addEventListener("click", () => go(1));
-  track.addEventListener("scroll", () => requestAnimationFrame(updateCount));
+  track.addEventListener("scroll", () => requestAnimationFrame(() => { updateCount(); if(current() !== 0) stopVideo(); }));
   ov.addEventListener("click", e => { if(e.target === ov || e.target.classList.contains("gal-slide")) close(); });
   document.addEventListener("keydown", e => { if(!ov.classList.contains("open")) return; if(e.key === "Escape") close(); if(e.key === "ArrowRight") go(1); if(e.key === "ArrowLeft") go(-1); });
 })();
