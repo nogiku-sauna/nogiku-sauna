@@ -926,3 +926,4 @@ SquareのBookings APIには、予約の状態を表す`BookingStatus`という�
 - （2026-10-17）「ページ内で見られたもの」を数える仕組みを追加。
   - booking.html：sendView(k) が https://api.nogikusauna.com/view?k=… を1訪問1回（sessionStorage）送る。r180＝「180分旅館とは？」を開いた／ama・tsu_photo＝写真スライドへ移動／ama・tsu_video＝▶再生。
   - server.js：/view（決まった5つのキーのみ・ボット除外・10分60回まで）→ views.json に日ごと合計。ダッシュボードの「サイトに来た人」表の下に、押すと開く「ページ内で見られたもの（期間）」を追加。
+- （2026-10-17）「詳しく見る」の押された回数も追加。index.html（top_ama / top_tsu / top_r180）と ryokan180.html（r180p_ama / r180p_tsu）のリンクに data-count を付け、押すたびに /view?k=… を送る。ダッシュボードでは「回」で表示（上の5つは「人」）。

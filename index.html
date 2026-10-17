@@ -718,7 +718,7 @@
       <div class="en">AMATERASU ・ 陽</div>
       <h2>天照</h2>
       <p class="copy">天照大神をイメージした、光と明るさを楽しむサウナ。</p>
-      <a class="detail-link" href="amaterasu.html">天照を詳しく見る →</a>
+      <a class="detail-link" href="amaterasu.html" data-count="top_ama">天照を詳しく見る →</a>
     </div>
   </div>
 
@@ -728,7 +728,7 @@
       <div class="en">TSUKUYOMI ・ 陰</div>
       <h2>月読</h2>
       <p class="copy">月夜見尊をイメージした、月と静けさを感じられる空間。</p>
-      <a class="detail-link" href="tsukuyomi.html">月読を詳しく見る →</a>
+      <a class="detail-link" href="tsukuyomi.html" data-count="top_tsu">月読を詳しく見る →</a>
     </div>
   </div>
   </div>
@@ -744,7 +744,7 @@
       <div class="en">180MIN RYOKAN</div>
       <h2>180分旅館</h2>
       <p class="copy">泊まらない旅館。天照・月読を、いつもより長く、贅沢に。自分らしくくつろぐ180分。</p>
-      <a class="detail-link" href="ryokan180.html">180分旅館を詳しく見る →</a>
+      <a class="detail-link" href="ryokan180.html" data-count="top_r180">180分旅館を詳しく見る →</a>
     </div>
   </div>
   </div>
@@ -932,6 +932,14 @@
       if(target) target.scrollIntoView({behavior:"smooth", block:"start"});
     });
   });
+</script>
+<script>
+// 「詳しく見る」が押された回数を数える（押されるたびに1回。個人の情報は送らない）
+document.querySelectorAll("a[data-count]").forEach(function(a){
+  a.addEventListener("click", function(){
+    try{ if(location.protocol === "https:") fetch("https://api.nogikusauna.com/view?k=" + a.getAttribute("data-count"), { mode: "no-cors", keepalive: true }).catch(function(){}); }catch(e){}
+  });
+});
 </script>
 </body>
 </html>

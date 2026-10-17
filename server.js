@@ -805,7 +805,10 @@ function sumVisits(from, to) {
 // 予約ページの中で見られたもの（180分旅館とは？／部屋の写真・動画）。日ごと・項目ごとの人数だけを残す
 //   views.json = { "2026-10-17": { "r180": 3, "ama_photo": 5, ... } }
 const VIEWS_PATH = path.join(__dirname, 'views.json');
-const VIEW_KEYS = { r180: '180分旅館とは？', ama_photo: 'アマテラス　写真', ama_video: 'アマテラス　動画', tsu_photo: 'ツクヨミ　写真', tsu_video: 'ツクヨミ　動画' };
+const VIEW_KEYS = { r180: '180分旅館とは？', ama_photo: 'アマテラス　写真', ama_video: 'アマテラス　動画', tsu_photo: 'ツクヨミ　写真', tsu_video: 'ツクヨミ　動画',
+  top_ama: 'トップ「天照を詳しく見る」', top_tsu: 'トップ「月読を詳しく見る」', top_r180: 'トップ「180分旅館を詳しく見る」',
+  r180p_ama: '180分旅館ページ「天照を詳しく見る」', r180p_tsu: '180分旅館ページ「月読を詳しく見る」' };
+const VIEW_CLICK = { top_ama: 1, top_tsu: 1, top_r180: 1, r180p_ama: 1, r180p_tsu: 1 };  // これは「押された回数」で数える
 function loadViews() { try { return JSON.parse(fs.readFileSync(VIEWS_PATH, 'utf8')) || {}; } catch (e) { return {}; } }
 function addView(k) {
   if (!VIEW_KEYS[k]) return;                     // 決まった5つ以外は数えない
@@ -943,10 +946,10 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   const vw = viewCounts || {};
   const viewsHtml = `<details class="card" style="margin-bottom:26px;"><summary style="cursor:pointer;font-weight:700;">ページ内で見られたもの（${esc(periodLabel)}）</summary>
     <table style="margin-top:12px;">
-    <tr><th>見たもの</th><th style="text-align:right;">見た人</th></tr>
-    ${Object.keys(VIEW_KEYS).map(k => `<tr><td>${VIEW_KEYS[k]}</td><td style="text-align:right;">${vw[k] || 0}人</td></tr>`).join('')}
+    <tr><th>見たもの</th><th style="text-align:right;">数</th></tr>
+    ${Object.keys(VIEW_KEYS).map(k => `<tr${VIEW_CLICK[k] && !VIEW_CLICK[Object.keys(VIEW_KEYS)[Object.keys(VIEW_KEYS).indexOf(k) - 1]] ? ' style="border-top:2px solid #cbbd9c;"' : ''}><td>${VIEW_KEYS[k]}</td><td style="text-align:right;">${vw[k] || 0}${VIEW_CLICK[k] ? '回' : '人'}</td></tr>`).join('')}
     </table>
-    <p class="fnote" style="margin-top:10px;">※ 予約ページ（通常）で数えています。「180分旅館とは？」は開いた人。部屋の写真＝スワイプして写真を1枚以上見た人、動画＝▶を押して再生した人（部屋は、開いただけで閉じた人は入りません）。1回の訪問で、同じものは1人として数えます。2026年10月17日から数え始めました。</p>
+    <p class="fnote" style="margin-top:10px;">※ 上の5つは予約ページ（通常）で数えています。「180分旅館とは？」は開いた人。部屋の写真＝スワイプして写真を1枚以上見た人、動画＝▶を押して再生した人（部屋は、開いただけで閉じた人は入りません）。1回の訪問で、同じものは1人として数えます。下の「詳しく見る」は、トップページと180分旅館ページで押された回数です（同じ人が2回押したら2回）。2026年10月17日から数え始めました。</p>
   </details>`;
   const srcPaid    = countBy(paid, '流入元');
   const repeatData = countBy(paid, '新規/リピーター');

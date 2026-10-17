@@ -380,8 +380,8 @@
   <div class="full-image reveal"><img src="ryokan180_dekiru.jpg" alt="180分旅館でできるコト"></div>
   <div class="full-image reveal"><img src="ryokan180_erabu.jpg" alt="選べる2つのプライベート空間"></div>
   <div class="room-links reveal">
-    <a href="ryokan180_amaterasu.html">天照を詳しく見る →</a>
-    <a href="ryokan180_tsukuyomi.html">月読を詳しく見る →</a>
+    <a href="ryokan180_amaterasu.html" data-count="r180p_ama">天照を詳しく見る →</a>
+    <a href="ryokan180_tsukuyomi.html" data-count="r180p_tsu">月読を詳しく見る →</a>
   </div>
   <div class="full-image reveal"><img src="ryokan180_kissa.jpg" alt="喫茶室で、浴衣を着て、旅館時間を"></div>
   <div class="full-image reveal"><img src="ryokan180_photo.jpg" alt="旅館フォト"></div>
@@ -561,6 +561,14 @@
       if(target) target.scrollIntoView({behavior:"smooth", block:"start"});
     });
   });
+</script>
+<script>
+// 「詳しく見る」が押された回数を数える（押されるたびに1回。個人の情報は送らない）
+document.querySelectorAll("a[data-count]").forEach(function(a){
+  a.addEventListener("click", function(){
+    try{ if(location.protocol === "https:") fetch("https://api.nogikusauna.com/view?k=" + a.getAttribute("data-count"), { mode: "no-cors", keepalive: true }).catch(function(){}); }catch(e){}
+  });
+});
 </script>
 </body>
 </html>
