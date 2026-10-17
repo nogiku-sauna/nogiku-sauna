@@ -1449,11 +1449,22 @@
   };
   const ov = document.getElementById("galOverlay"), track = document.getElementById("galTrack");
   const countEl = document.getElementById("galCount");
-  let total = 0, savedOverflow = "";
+  let total = 0, savedOverflow = "", curRoom = "";
+  // 見られたものを数える（項目ごとに、1回の訪問で1回だけ送る。個人の情報は送らない）
+  const VIEW_ID = { amaterasu: "ama", tsukuyomi: "tsu" };
+  function sendView(k){
+    try{
+      if(location.protocol !== "https:" || sessionStorage.getItem("nogiku_view_" + k)) return;
+      sessionStorage.setItem("nogiku_view_" + k, "1");
+      fetch("https://api.nogikusauna.com/view?k=" + k, { mode: "no-cors", keepalive: true }).catch(function(){});
+    }catch(e){}
+  }
   function current(){ return Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); }
   function updateCount(){ countEl.textContent = (Math.min(total, current() + 1)) + " / " + total; }
   function open(room){
     const g = PHOTOS[room]; if(!g) return;
+    curRoom = room;
+    if(room === "ryokan180") sendView("r180");
     document.getElementById("galTitle").textContent = g.title;
     // 1枚目は動画（押したときだけ読み込んで再生。音なし）
     const v = g.video;
@@ -1463,7 +1474,7 @@
     ov.classList.toggle("single", total === 1);   // 1枚だけのときは ‹ › と枚数を出さない
     const pb = document.getElementById("galPlay"), vid = document.getElementById("galVideo");
     if(pb && vid){
-      const playIt = () => { vid.play().then(() => { pb.style.display = "none"; }).catch(() => { vid.controls = true; pb.style.display = "none"; }); };
+      const playIt = () => { if(VIEW_ID[curRoom]) sendView(VIEW_ID[curRoom] + "_video"); vid.play().then(() => { pb.style.display = "none"; }).catch(() => { vid.controls = true; pb.style.display = "none"; }); };
       pb.addEventListener("click", playIt);
       vid.addEventListener("click", () => { if(vid.paused) playIt(); else { vid.pause(); pb.style.display = ""; } });
     }
@@ -1479,7 +1490,7 @@
   document.getElementById("galClose").addEventListener("click", close);
   document.getElementById("galPrev").addEventListener("click", () => go(-1));
   document.getElementById("galNext").addEventListener("click", () => go(1));
-  track.addEventListener("scroll", () => requestAnimationFrame(() => { updateCount(); if(current() !== 0) stopVideo(); }));
+  track.addEventListener("scroll", () => requestAnimationFrame(() => { updateCount(); if(current() !== 0){ stopVideo(); if(VIEW_ID[curRoom] && ov.classList.contains("open")) sendView(VIEW_ID[curRoom] + "_photo"); } }));
   ov.addEventListener("click", e => { if(e.target === ov || e.target.classList.contains("gal-slide")) close(); });
   document.addEventListener("keydown", e => { if(!ov.classList.contains("open")) return; if(e.key === "Escape") close(); if(e.key === "ArrowRight") go(1); if(e.key === "ArrowLeft") go(-1); });
 })();

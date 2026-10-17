@@ -802,9 +802,33 @@ function sumVisits(from, to) {
   });
   return m;
 }
+// 予約ページの中で見られたもの（180分旅館とは？／部屋の写真・動画）。日ごと・項目ごとの人数だけを残す
+//   views.json = { "2026-10-17": { "r180": 3, "ama_photo": 5, ... } }
+const VIEWS_PATH = path.join(__dirname, 'views.json');
+const VIEW_KEYS = { r180: '180分旅館とは？', ama_photo: 'アマテラス　写真', ama_video: 'アマテラス　動画', tsu_photo: 'ツクヨミ　写真', tsu_video: 'ツクヨミ　動画' };
+function loadViews() { try { return JSON.parse(fs.readFileSync(VIEWS_PATH, 'utf8')) || {}; } catch (e) { return {}; } }
+function addView(k) {
+  if (!VIEW_KEYS[k]) return;                     // 決まった5つ以外は数えない
+  try {
+    const v = loadViews();
+    const d = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+    const day = v[d] || (v[d] = {});
+    day[k] = (day[k] || 0) + 1;
+    fs.writeFileSync(VIEWS_PATH, JSON.stringify(v));
+  } catch (e) {}
+}
+function sumViews(from, to) {
+  const v = loadViews(), m = {};
+  Object.keys(v).forEach(d => {
+    if (from && d < from) return;
+    if (to && d > to) return;
+    Object.entries(v[d] || {}).forEach(([k, n]) => { m[k] = (m[k] || 0) + n; });
+  });
+  return m;
+}
 const BOT_UA = /bot|crawl|spider|slurp|preview|headless|lighthouse|facebookexternalhit|embedly|curl|wget|python|monitor/i;
 
-function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visitCounts) {
+function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visitCounts, viewCounts) {
   period = period || 'all';
   from = from || '';
   to = to || '';
@@ -915,6 +939,15 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   </table>
   <p class="fnote" style="margin-top:10px;">※「サイトに来た人」は、1回の訪問で1人として数えています（同じ人が日を変えて来た場合は、また1人と数えます）。2026年10月6日から数え始めました。電話予約は「電話」として、予約した人にだけ入ります。</p></div>`
     : '<div class="card" style="margin-bottom:26px;"><p class="empty">まだデータがありません</p></div>';
+  // 予約ページの中で見られたもの（ふだんは閉じておき、押したら開く）
+  const vw = viewCounts || {};
+  const viewsHtml = `<details class="card" style="margin-bottom:26px;"><summary style="cursor:pointer;font-weight:700;">ページ内で見られたもの（${esc(periodLabel)}）</summary>
+    <table style="margin-top:12px;">
+    <tr><th>見たもの</th><th style="text-align:right;">見た人</th></tr>
+    ${Object.keys(VIEW_KEYS).map(k => `<tr><td>${VIEW_KEYS[k]}</td><td style="text-align:right;">${vw[k] || 0}人</td></tr>`).join('')}
+    </table>
+    <p class="fnote" style="margin-top:10px;">※ 予約ページ（通常）で数えています。「180分旅館とは？」は開いた人。部屋の写真＝スワイプして写真を1枚以上見た人、動画＝▶を押して再生した人（部屋は、開いただけで閉じた人は入りません）。1回の訪問で、同じものは1人として数えます。2026年10月17日から数え始めました。</p>
+  </details>`;
   const srcPaid    = countBy(paid, '流入元');
   const repeatData = countBy(paid, '新規/リピーター');
   const devData    = countBy(clicks, '端末');
@@ -1135,6 +1168,7 @@ ${(failures && failures.length) ? `
 
   <h2>サイトに来た人（どこから来たか・${esc(periodLabel)}）</h2>
   ${visitTableHtml}
+  ${viewsHtml}
 
   <div class="funnel">
     <h2 style="border:none;padding:0;margin:0 0 14px;">お客様がどこまで進んだか</h2>
@@ -1268,7 +1302,7 @@ function tooMany(ip, kind, max, windowMs) {
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
   const clientIp = String(req.headers['x-real-ip'] || req.socket.remoteAddress || '');
-  const LIMITS = { '/hold': 30, '/book': 15, '/paid-check': 30, '/release': 60, '/slots': 200, '/visit': 60 };
+  const LIMITS = { '/hold': 30, '/book': 15, '/paid-check': 30, '/release': 60, '/slots': 200, '/visit': 60, '/view': 60 };
   if (LIMITS[url] && tooMany(clientIp, url, LIMITS[url], 10 * 60000)) {
     res.statusCode = 429;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1314,6 +1348,13 @@ const server = http.createServer((req, res) => {
     if (!BOT_UA.test(String(req.headers['user-agent'] || '')) && !isCheckoutReturn(q.get('ref'))) {
       addVisit(sourceLabel(q.get('ref') || '', q.get('utm')));
     }
+    res.statusCode = 204; res.end(); return;
+  }
+
+  // ---- 予約ページの中で見られたものを数える（項目ごとに1回の訪問で1回だけ呼ばれる） ----
+  if (url === '/view' && (req.method === 'GET' || req.method === 'POST')) {
+    const q = new URLSearchParams(req.url.split('?')[1] || '');
+    if (!BOT_UA.test(String(req.headers['user-agent'] || ''))) addView(String(q.get('k') || ''));
     res.statusCode = 204; res.end(); return;
   }
 
@@ -1608,7 +1649,7 @@ const server = http.createServer((req, res) => {
     else if (period === 'yesterday') { vFrom = vTo = yesterdayStr; }
     else if (period === 'week') { vFrom = mondayStr; }
     else if (period === 'month') { vFrom = monthStr + '-01'; }
-    res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr, dashKey, allRows, dq.get('msg') || '', sumVisits(vFrom, vTo)));
+    res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr, dashKey, allRows, dq.get('msg') || '', sumVisits(vFrom, vTo), sumViews(vFrom, vTo)));
     return;
   }
 

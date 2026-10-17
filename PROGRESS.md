@@ -923,3 +923,6 @@ SquareのBookings APIには、予約の状態を表す`BookingStatus`という�
 - 押すと部屋ギャラリーと同じ重ね表示で、180分旅館ページの画像5枚（hero / dekiru / erabu / kissa / photo）をスワイプ表示。×で元の画面へ。
 - ボタンを押してもプランは選ばれない（stopPropagation）。サーバー変更なし。
 - （2026-10-17）「180分旅館とは？」の画像を、しん作成の1枚 ryokan180_plus60.jpg（＋60分で、これ全部。）に差し替え。5枚は外した（ryokan180.html には残っている）。1枚のときは ‹ › と枚数を非表示（.gal-overlay.single）。
+- （2026-10-17）「ページ内で見られたもの」を数える仕組みを追加。
+  - booking.html：sendView(k) が https://api.nogikusauna.com/view?k=… を1訪問1回（sessionStorage）送る。r180＝「180分旅館とは？」を開いた／ama・tsu_photo＝写真スライドへ移動／ama・tsu_video＝▶再生。
+  - server.js：/view（決まった5つのキーのみ・ボット除外・10分60回まで）→ views.json に日ごと合計。ダッシュボードの「サイトに来た人」表の下に、押すと開く「ページ内で見られたもの（期間）」を追加。
