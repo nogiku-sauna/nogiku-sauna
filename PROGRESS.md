@@ -922,3 +922,4 @@ SquareのBookings APIには、予約の状態を表す`BookingStatus`という�
 - booking.html の①プラン選択「180分旅館」カード内に「180分旅館とは？」ボタンを追加（通常予約ページのみ）。
 - 押すと部屋ギャラリーと同じ重ね表示で、180分旅館ページの画像5枚（hero / dekiru / erabu / kissa / photo）をスワイプ表示。×で元の画面へ。
 - ボタンを押してもプランは選ばれない（stopPropagation）。サーバー変更なし。
+- （2026-10-17）「180分旅館とは？」の画像を、しん作成の1枚 ryokan180_plus60.jpg（＋60分で、これ全部。）に差し替え。5枚は外した（ryokan180.html には残っている）。1枚のときは ‹ › と枚数を非表示（.gal-overlay.single）。

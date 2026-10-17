@@ -704,6 +704,8 @@
   .gal-cap{color:#f3ead7;font-size:14px;margin-top:12px;text-align:center;}
   .gal-bottom{display:flex;align-items:center;justify-content:center;gap:18px;padding:12px 16px 22px;color:#fff;}
   .gal-nav{width:44px;height:44px;border:1px solid rgba(255,255,255,.4);border-radius:50%;background:transparent;color:#fff;font-size:20px;cursor:pointer;}
+  .gal-overlay.single .gal-bottom{display:none;}
+  .gal-overlay.single .gal-slide img{max-height:84vh;}
   .gal-count{font-size:13px;min-width:56px;text-align:center;}
 </style>
 <script>try{if(location.protocol==="https:"&&!sessionStorage.getItem("nogiku_visit")){sessionStorage.setItem("nogiku_visit","1");var vq=new URLSearchParams(location.search),vr=document.referrer||"";if(vr.indexOf(location.hostname)>=0)vr="";var vp=new URLSearchParams({utm:vq.get("utm")||sessionStorage.getItem("nogiku_utm")||"",ref:(vr||sessionStorage.getItem("nogiku_ref")||"").slice(0,300)});fetch("https://api.nogikusauna.com/visit?"+vp.toString(),{mode:"no-cors",keepalive:true}).catch(function(){});}}catch(e){}</script>
@@ -1443,7 +1445,7 @@
   const PHOTOS = {
     amaterasu: { title: "天照 AMATERASU", video: ["amaterasu_video.mp4","amaterasu_video.webm","amaterasu.jpg"], list: [["amaterasu.jpg","天照"],["amaterasu_sauna.jpg","サウナ室"],["amaterasu_coldbath.jpg","水風呂"],["amaterasu_outdoor.jpg","外気浴スペース"],["amaterasu_onsen.jpg","温泉"],["amaterasu_changing.jpg","脱衣所"],["amaterasu_water.jpg","ウォーターサーバー"]] },
     tsukuyomi: { title: "月読 TSUKUYOMI", video: ["tsukuyomi_video.mp4","tsukuyomi_video.webm","tsukuyomi.jpg"], list: [["tsukuyomi.jpg","月読"],["tsukuyomi_sauna.jpg","サウナ室"],["tsukuyomi_coldbath.jpg","水風呂"],["tsukuyomi_outdoor.jpg","外気浴スペース"],["tsukuyomi_onsen.jpg","温泉"],["tsukuyomi_changing.jpg","脱衣所"],["tsukuyomi_water.jpg","ウォーターサーバー"]] },
-    ryokan180: { title: "180分旅館", list: [["ryokan180_hero.jpg","たしなむ程度に、旅館する"],["ryokan180_dekiru.jpg","180分旅館でできるコト"],["ryokan180_erabu.jpg","選べる2つのプライベート空間"],["ryokan180_kissa.jpg","喫茶室で、浴衣を着て、旅館時間を"],["ryokan180_photo.jpg","旅館フォト"]] }
+    ryokan180: { title: "180分旅館", list: [["ryokan180_plus60.jpg","","180分旅館 ＋60分で、これ全部。コーヒー・お茶、アイスバー、お菓子、レトロゲーム、パウダールーム"]] }
   };
   const ov = document.getElementById("galOverlay"), track = document.getElementById("galTrack");
   const countEl = document.getElementById("galCount");
@@ -1456,8 +1458,9 @@
     // 1枚目は動画（押したときだけ読み込んで再生。音なし）
     const v = g.video;
     const videoSlide = v ? '<div class="gal-slide"><div class="gal-video"><video id="galVideo" preload="none" muted playsinline loop poster="' + v[2] + '"><source src="' + v[0] + '" type="video/mp4"><source src="' + v[1] + '" type="video/webm"></video><button type="button" class="gal-play" id="galPlay" aria-label="動画を再生">▶</button></div><div class="gal-cap">動画（音は出ません）</div></div>' : '';
-    track.innerHTML = videoSlide + g.list.map(p => '<div class="gal-slide"><img src="' + p[0] + '" alt="' + g.title + ' ' + p[1] + '" loading="lazy"><div class="gal-cap">' + p[1] + '</div></div>').join("");
+    track.innerHTML = videoSlide + g.list.map(p => '<div class="gal-slide"><img src="' + p[0] + '" alt="' + (p[2] || (g.title + ' ' + p[1])) + '" loading="lazy">' + (p[1] ? '<div class="gal-cap">' + p[1] + '</div>' : '') + '</div>').join("");
     total = g.list.length + (v ? 1 : 0);
+    ov.classList.toggle("single", total === 1);   // 1枚だけのときは ‹ › と枚数を出さない
     const pb = document.getElementById("galPlay"), vid = document.getElementById("galVideo");
     if(pb && vid){
       const playIt = () => { vid.play().then(() => { pb.style.display = "none"; }).catch(() => { vid.controls = true; pb.style.display = "none"; }); };
