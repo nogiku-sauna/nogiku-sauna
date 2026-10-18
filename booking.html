@@ -708,6 +708,7 @@
   .gal-overlay.single .gal-slide img{max-height:84vh;}
   .gal-count{font-size:13px;min-width:56px;text-align:center;}
 </style>
+<script>/* どこから来たかの印を30日間覚える（pr_で始まる印＝インフルエンサーは、ほかの印では上書きしない） */try{(function(){var D=30*864e5,n=Date.now(),K="nogiku_src",s={},L=null;try{L=window.localStorage;s=JSON.parse(L.getItem(K)||"{}")||{};}catch(e){s={};}["first","last","inf","utm"].forEach(function(k){if(!s[k]||!(n-s[k].t<D))delete s[k];});var u=(new URLSearchParams(location.search).get("utm")||"").slice(0,60),r=document.referrer||"";if(r.indexOf(location.hostname)>=0||/square\.site|square\.link|squareup\.com/i.test(r))r="";r=r.slice(0,300);if(u){sessionStorage.setItem("nogiku_utm",u);s.utm={u:u,t:n};if(/^pr_/i.test(u))s.inf={u:u,t:n};}if(r&&!sessionStorage.getItem("nogiku_ref"))sessionStorage.setItem("nogiku_ref",r);var fresh=!sessionStorage.getItem("nogiku_touch");if(fresh||u){sessionStorage.setItem("nogiku_touch","1");var tc={u:u,r:u?"":(r||sessionStorage.getItem("nogiku_ref")||""),t:n};s.last=tc;if(!s.first)s.first=tc;}if(L)L.setItem(K,JSON.stringify(s));})();}catch(e){}</script>
 <script>try{if(location.protocol==="https:"&&!sessionStorage.getItem("nogiku_visit")){sessionStorage.setItem("nogiku_visit","1");var vq=new URLSearchParams(location.search),vr=document.referrer||"";if(vr.indexOf(location.hostname)>=0)vr="";var vp=new URLSearchParams({utm:vq.get("utm")||sessionStorage.getItem("nogiku_utm")||"",ref:(vr||sessionStorage.getItem("nogiku_ref")||"").slice(0,300)});fetch("https://api.nogikusauna.com/visit?"+vp.toString(),{mode:"no-cors",keepalive:true}).catch(function(){});}}catch(e){}</script>
 </head>
 <body>
@@ -932,21 +933,23 @@
   const API_BASE = "https://api.nogikusauna.com";
 
   // ---- 流入元の印（?utm=◯◯）を覚えておく ----
+  //   ページの最初で、印を30日間スマホに覚えさせている（nogiku_src）。
+  //   報酬の判定に使う印：インフルエンサー（pr_〜）の印 → なければ最後に押したリンクの印 → なければ今回来た場所
   const UTM_KEY = "nogiku_utm";
-  let utmTag = "";
+  let utmTag = "", refTag = "", srcFirst = {}, srcLast = {};
   try {
     const _u = new URLSearchParams(location.search).get("utm");
-    if (_u) { utmTag = _u; sessionStorage.setItem(UTM_KEY, _u); }
-    else { utmTag = sessionStorage.getItem(UTM_KEY) || ""; }
-  } catch (e) {}
-  // どこから来たか（外部サイトの参照元）を覚えておく。最初に来たページで記録済みならそれを使う
-  let refTag = "";
-  try {
-    const _r = document.referrer;
-    if (_r && _r.indexOf(location.hostname) < 0 && !sessionStorage.getItem("nogiku_ref")) sessionStorage.setItem("nogiku_ref", _r.slice(0, 300));
+    utmTag = _u || sessionStorage.getItem(UTM_KEY) || "";
     refTag = sessionStorage.getItem("nogiku_ref") || "";
   } catch (e) {}
-  const utmParam = (utmTag ? ("&utm=" + encodeURIComponent(utmTag)) : "") + (refTag ? ("&ref=" + encodeURIComponent(refTag)) : "");
+  try {
+    const st = JSON.parse(localStorage.getItem("nogiku_src") || "{}") || {};
+    if (st.inf && st.inf.u) utmTag = st.inf.u;
+    else if (st.utm && st.utm.u) utmTag = st.utm.u;
+    srcFirst = st.first || {}; srcLast = st.last || {};
+  } catch (e) {}
+  const srcParams = { utm: utmTag, ref: refTag, fu: srcFirst.u || "", fr: srcFirst.r || "", lu: srcLast.u || "", lr: srcLast.r || "" };
+  const utmParam = Object.keys(srcParams).filter(k => srcParams[k]).map(k => "&" + k + "=" + encodeURIComponent(srcParams[k])).join("");
   const PRICING180 = { 1: 7000, 2: 11000, 3: 15000, 4: 18000, 5: 20000 };
   function planKey(room, isPlan180){
     return isPlan180 ? ("ryokan180_" + room) : (room + "120");
@@ -1417,7 +1420,7 @@
       const plan = planKey(p.room, p.isPlan180);
       const q = new URLSearchParams({
         plan, people: p.people, start_at: p.startIso, team: p.team || "",
-        name, last_name: lastName, first_name: firstName, tel: telSend, email, addr, note, zip, hold: holdId || "", utm: utmTag, ref: refTag, terms: "1"
+        name, last_name: lastName, first_name: firstName, tel: telSend, email, addr, note, zip, hold: holdId || "", utm: utmTag, ref: refTag, fu: srcParams.fu, fr: srcParams.fr, lu: srcParams.lu, lr: srcParams.lr, terms: "1"
       });
       const r = await fetch(`${API_BASE}/book`, { method: "POST", body: q });
       const data = await r.json();

@@ -280,7 +280,7 @@ async function sweepPendingOnce() {
                   jp.date, jp.time, isHolidayJST(h.start_at) ? '土日祝' : '平日',
                   prefOnly(h.addr), total, h.id,
                   h.repeat || '', h.src || '', daysAhead(h.start_at), h.dev || ''],
-                  { '市区町村': cityOnly(h.addr), '支払い方法': 'Web事前決済' });
+                  { '市区町村': cityOnly(h.addr), '支払い方法': 'Web事前決済', '最初の流入': h.first || '', '最後の流入': h.last || '' });
         continue;
       }
     } catch (e) {}
@@ -483,7 +483,7 @@ function notifyFailure(h, reason) {
 //   どの枠が選ばれたか／どこまで進んだか／どの地域からか
 // ==========================================================================
 const LOG_PATH = path.join(__dirname, 'analytics.csv');
-const LOG_HEADER = '記録日時(JST),段階,プラン,部屋,人数,予約日,予約時刻,曜日区分,都道府県,金額,セッションID,新規/リピーター,流入元,何日前,端末,市区町村,支払い方法\n';
+const LOG_HEADER = '記録日時(JST),段階,プラン,部屋,人数,予約日,予約時刻,曜日区分,都道府県,金額,セッションID,新規/リピーター,流入元,何日前,端末,市区町村,支払い方法,最初の流入,最後の流入\n';
 const LOG_NAMES = LOG_HEADER.trim().split(',');
 const LOG_COLS = LOG_NAMES.length;
 // 2026-09-28に「市区町村」列を追加。古いanalytics.csvの見出し行に列名が無ければ、最初の1回だけ見出しを付け足す
@@ -499,7 +499,7 @@ function ensureLogHeader() {
     const first = (nl >= 0 ? csv.slice(0, nl) : csv).replace(/\r$/, '');
     // 後から追加した列（市区町村・支払い方法）のうち、見出しに無いものを右端に付け足す
     const have = first.replace(/^\ufeff/, '').split(',');
-    const missing = ['市区町村', '支払い方法'].filter(c => have.indexOf(c) === -1);
+    const missing = ['市区町村', '支払い方法', '最初の流入', '最後の流入'].filter(c => have.indexOf(c) === -1);
     if (!missing.length) return;
     fs.writeFileSync(LOG_PATH, first + ',' + missing.join(',') + (nl >= 0 ? csv.slice(nl) : '\n'));
   } catch (e) {}
@@ -618,6 +618,12 @@ function sourceLabel(ref, utm) {
   if (r.includes('tiktok')) return 'TikTok';
   if (r.includes('nogiku')) return 'サイト内';
   try { return new URL(ref).hostname; } catch (e) { return 'その他'; }
+}
+// 30日間覚えている「最初に来た場所」「最後に来た場所」（予約ページから fu/fr・lu/lr で届く）
+function touchLabels(q) {
+  const lab = (u, r) => (u || r) ? sourceLabel(r || '', u || '') : '直接・不明';
+  const has = k => !!(q.get(k + 'u') || q.get(k + 'r'));
+  return { first: has('f') ? lab(q.get('fu'), q.get('fr')) : '', last: has('l') ? lab(q.get('lu'), q.get('lr')) : '' };
 }
 // スマホかパソコンか
 function deviceLabel(ua) {
@@ -940,7 +946,7 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     ${srcKeys.map(k => `<tr><td>${esc(k)}</td><td style="text-align:right;">${vc[k] || 0}人</td><td style="text-align:right;">${clickMap[k] || 0}人</td><td style="text-align:right;">${paidMap[k] || 0}件</td></tr>`).join('')}
     <tr style="font-weight:700;"><td>合計</td><td style="text-align:right;">${vTotal}人</td><td style="text-align:right;">${clicks.length}人</td><td style="text-align:right;">${paid.length}件</td></tr>
   </table>
-  <p class="fnote" style="margin-top:10px;">※「サイトに来た人」は、1回の訪問で1人として数えています（同じ人が日を変えて来た場合は、また1人と数えます）。2026年10月6日から数え始めました。電話予約は「電話」として、予約した人にだけ入ります。</p></div>`
+  <p class="fnote" style="margin-top:10px;">※「サイトに来た人」は、1回の訪問で1人として数えています（同じ人が日を変えて来た場合は、また1人と数えます）。2026年10月6日から数え始めました。電話予約は「電話」として、予約した人にだけ入ります。2026年10月18日から、リンクの印を30日間覚えるようにしました（一度閉じて後日ほかの所から予約した人も、30日以内に押したリンク（いちばん新しいもの）の方に入ります。インフルエンサーの印〈pr_〜〉は、ほかのリンクでは上書きしません）。</p></div>`
     : '<div class="card" style="margin-bottom:26px;"><p class="empty">まだデータがありません</p></div>';
   // 予約ページの中で見られたもの（ふだんは閉じておき、押したら開く）
   const vw = viewCounts || {};
@@ -965,6 +971,13 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   });
 
   // 決済完了の予約一覧（支払いがあった新しい順。キャンセルがしやすいように、最近の動きとは別に表示）
+  // 最初と最後に来た場所が、決め手（流入元）と違うときだけ小さく出す
+  const srcPath = r => {
+    const f = normSrc(r['最初の流入'] || ''), l = normSrc(r['最後の流入'] || ''), m = r['流入元'] || '';
+    if (!f && !l) return '';
+    if (f === m && l === m) return '';
+    return '<br><span style="font-size:11px;color:#8a7f6e;">最初：' + esc(f || '―') + ' ／ 最後：' + esc(l || '―') + '</span>';
+  };
   const paidListHtml = paidAll.slice().sort((a, b) => (a['記録日時(JST)'] < b['記録日時(JST)'] ? 1 : -1)).map(r => {
     const sid = r['セッションID'] || '';
     const cancelled = isCancelledRow(r);
@@ -978,7 +991,7 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
       <td>${esc(r['プラン'] || '')} ${esc(r['部屋'] || '')}</td>
       <td>${esc(r['人数'] || '')}${r['人数'] ? '名' : ''}</td>
       <td>${cancelled ? '<s>¥' + yen(r['金額']).toLocaleString() + '</s>' : '¥' + yen(r['金額']).toLocaleString()}</td>
-      <td>${esc(r['流入元'] || '')}</td>
+      <td>${esc(r['流入元'] || '')}${srcPath(r)}</td>
       <td>${esc((r['都道府県'] || '') + (r['市区町村'] || ''))}</td>
       <td>${action}</td>
     </tr>`;
@@ -1517,16 +1530,17 @@ const server = http.createServer((req, res) => {
     const holdId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     const src = sourceLabel(q.get('ref') || '', q.get('utm'));
     const dev = deviceLabel(req.headers['user-agent']);
+    const tl = touchLabels(q);
     list.push({ id: holdId, created_at: now, start_at: startAt, team, stage: 'form',
                 plan: q.get('plan') || '', people: String(holdPeople),
-                src, dev });
+                src, dev, first: tl.first, last: tl.last });
     savePending(list);
     // 統計：時間枠が選ばれた（入力画面を開いた）
     const pp = planParts(q.get('plan'));
     const jp = jstParts(startAt);
     logEvent([jstNow(), '①時間を選択', pp.name, pp.room, holdPeople,
               jp.date, jp.time, isHolidayJST(startAt) ? '土日祝' : '平日', '', '', holdId,
-              '', src, daysAhead(startAt), dev]);
+              '', src, daysAhead(startAt), dev], { '最初の流入': tl.first, '最後の流入': tl.last });
     res.end(JSON.stringify({ ok: true, hold_id: holdId, minutes: HOLD_MINUTES }));
     return;
   }
@@ -1965,6 +1979,8 @@ const server = http.createServer((req, res) => {
         const prevHold = loadPending().find(h => h.id === myHoldId);
         const src2 = (prevHold && prevHold.src) || sourceLabel(q.get('ref') || '', q.get('utm'));
         const dev2 = (prevHold && prevHold.dev) || deviceLabel(req.headers['user-agent']);
+        const tl2 = touchLabels(q);
+        const first2 = (prevHold && prevHold.first) || tl2.first, last2 = (prevHold && prevHold.last) || tl2.last;
         const holdId = myHoldId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
         plist.push({
           id: holdId, created_at: prevHold ? prevHold.created_at : Date.now(),
@@ -1973,7 +1989,7 @@ const server = http.createServer((req, res) => {
           label: MENU[plan].label,
           name, lastName, firstName, tel, telE164, email, addr, zip, note,
           terms_agreed_at: jstNow(),
-          src: src2, dev: dev2
+          src: src2, dev: dev2, first: first2, last: last2
         });
         savePending(plist);
   
@@ -1982,7 +1998,7 @@ const server = http.createServer((req, res) => {
         const jp2 = jstParts(startAt);
         logEvent([jstNow(), '②決済ページへ', pp2.name, pp2.room, people,
                   jp2.date, jp2.time, isHolidayJST(startAt) ? '土日祝' : '平日',
-                  prefOnly(addr), '', holdId, '', src2, daysAhead(startAt), dev2], cityOnly(addr));
+                  prefOnly(addr), '', holdId, '', src2, daysAhead(startAt), dev2], { '市区町村': cityOnly(addr), '最初の流入': first2, '最後の流入': last2 });
   
         res.end(JSON.stringify({ ok: true, hold_id: holdId, url: link.url }));
       })();

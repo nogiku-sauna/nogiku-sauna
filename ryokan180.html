@@ -7,7 +7,6 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
 <meta charset="UTF-8">
-<script>try{var u=new URLSearchParams(location.search).get("utm");if(u)sessionStorage.setItem("nogiku_utm",u);var rf=document.referrer;if(rf&&rf.indexOf(location.hostname)<0&&!sessionStorage.getItem("nogiku_ref"))sessionStorage.setItem("nogiku_ref",rf.slice(0,300));}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>180分旅館｜サウナの後、休憩しませんか</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -340,6 +339,7 @@
   }
   a[href^="tel:"],a[href^="mailto:"]{color:inherit;text-decoration:underline;text-underline-offset:2px;}
 </style>
+<script>/* どこから来たかの印を30日間覚える（pr_で始まる印＝インフルエンサーは、ほかの印では上書きしない） */try{(function(){var D=30*864e5,n=Date.now(),K="nogiku_src",s={},L=null;try{L=window.localStorage;s=JSON.parse(L.getItem(K)||"{}")||{};}catch(e){s={};}["first","last","inf","utm"].forEach(function(k){if(!s[k]||!(n-s[k].t<D))delete s[k];});var u=(new URLSearchParams(location.search).get("utm")||"").slice(0,60),r=document.referrer||"";if(r.indexOf(location.hostname)>=0||/square\.site|square\.link|squareup\.com/i.test(r))r="";r=r.slice(0,300);if(u){sessionStorage.setItem("nogiku_utm",u);s.utm={u:u,t:n};if(/^pr_/i.test(u))s.inf={u:u,t:n};}if(r&&!sessionStorage.getItem("nogiku_ref"))sessionStorage.setItem("nogiku_ref",r);var fresh=!sessionStorage.getItem("nogiku_touch");if(fresh||u){sessionStorage.setItem("nogiku_touch","1");var tc={u:u,r:u?"":(r||sessionStorage.getItem("nogiku_ref")||""),t:n};s.last=tc;if(!s.first)s.first=tc;}if(L)L.setItem(K,JSON.stringify(s));})();}catch(e){}</script>
 <script>try{if(location.protocol==="https:"&&!sessionStorage.getItem("nogiku_visit")){sessionStorage.setItem("nogiku_visit","1");var vq=new URLSearchParams(location.search),vr=document.referrer||"";if(vr.indexOf(location.hostname)>=0)vr="";var vp=new URLSearchParams({utm:vq.get("utm")||sessionStorage.getItem("nogiku_utm")||"",ref:(vr||sessionStorage.getItem("nogiku_ref")||"").slice(0,300)});fetch("https://api.nogikusauna.com/visit?"+vp.toString(),{mode:"no-cors",keepalive:true}).catch(function(){});}}catch(e){}</script>
 </head>
 <body>
