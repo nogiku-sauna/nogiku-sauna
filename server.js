@@ -10,6 +10,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const ENV_PATH = path.join(__dirname, '.env');
@@ -175,13 +176,61 @@ function loadPending() { try { return JSON.parse(fs.readFileSync(PENDING_PATH, '
 function savePending(list) { try { fs.writeFileSync(PENDING_PATH, JSON.stringify(list)); } catch (e) {} }
 
 // 期限切れを取り除いた、有効な仮押さえだけを返す
+//   superseded（同じお客様が予約し直したため使わなくなった古い決済ページの記録）は、枠をふさがない。
+//   ただし「支払われていないか」の見張りは sweepPending が続ける（2026-10-31）
 function activeHolds() {
   const now = Date.now();
-  return loadPending().filter(h => !h.done && (now - h.created_at) / 60000 < HOLD_MINUTES);
+  return loadPending().filter(h => !h.done && !h.superseded && (now - h.created_at) / 60000 < HOLD_MINUTES);
 }
-// その枠が今、他の人に仮押さえされているか
-function isHeld(startAt, team) {
-  return activeHolds().some(h => h.start_at === startAt && h.team === team);
+// その枠が今、他の人に仮押さえされているか（mineId＝そのお客様自身の仮押さえは除く）
+function isHeld(startAt, team, mineId) {
+  return activeHolds().some(h => h.start_at === startAt && h.team === team && (!mineId || h.id !== mineId));
+}
+// 仮押さえの番号（お客様の端末に保存される「引換券」。推測されにくい乱数で作る）
+function newHoldId() {
+  return Date.now().toString(36) + crypto.randomBytes(8).toString('hex');
+}
+function validHoldId(v) { return typeof v === 'string' && /^[a-z0-9]{6,40}$/.test(v); }
+
+// ---- 同じお客様が予約し直したときの「古い決済ページ」の後始末（2026-10-31追加） ----
+//   ① まず支払い済みか確認する（支払い済みなら消さない＝"paid"）
+//   ② 未払いなら決済ページを削除し、念のためもう一度支払い状況を確認する
+//      （削除の直前に支払いが完了していた場合を取りこぼさないため）
+//   戻り値：'paid' / 'deleted' / 'failed' / 'none'
+async function retireOldLink(h) {
+  if (!h || !h.order_id || !h.link_id) return 'none';
+  const checkPaid = async () => {
+    const or = await sq('GET', '/v2/orders/' + h.order_id);
+    if (!or.ok) return null;                       // 確認できなかった
+    return await isReallyPaid(or.data.order || {});
+  };
+  try {
+    const before = await checkPaid();
+    if (before === null) return 'failed';
+    if (before) return 'paid';
+    const del = await sq('DELETE', '/v2/online-checkout/payment-links/' + h.link_id);
+    const after = await checkPaid();
+    if (after) return 'paid';
+    return del.ok ? 'deleted' : 'failed';
+  } catch (e) { return 'failed'; }
+}
+// 後始末の結果に合わせて、仮押さえの一覧を直す
+//   paid    → 記録は残す（sweepPending が本予約を作る）。枠をふさぐ扱いにも戻す
+//   deleted → 記録を消す
+//   failed  → 「使わない記録」として残し、見張りを続ける＋お店に知らせる
+async function retireAndRecord(h, why) {
+  const r = await retireOldLink(h);
+  const list = loadPending();
+  const cur = list.find(x => x.id === h.id);
+  if (r === 'deleted') {
+    savePending(list.filter(x => x.id !== h.id));
+  } else if (r === 'paid') {
+    if (cur) { delete cur.superseded; savePending(list); }
+  } else if (r === 'failed') {
+    if (cur) { cur.superseded = true; savePending(list); }
+    notifyRetireFailure(h, why);
+  }
+  return r;
 }
 
 // ---- 空き枠の短時間キャッシュ ----
@@ -476,6 +525,37 @@ function notifyFailure(h, reason) {
     child.stdin.write(body);
     child.stdin.end();
   } catch (e) { console.error('要対応メールのエラー:', String(e)); }
+}
+
+// 予約し直しで古い決済ページを消せなかった時、お店に知らせる（2026-10-31追加）
+//   二重払いが起きる可能性があるため。起きなければ対応は不要。
+function notifyRetireFailure(h, why) {
+  try {
+    const jp = jstParts(h.start_at);
+    const body = [
+      '【NOGIKU・確認のお願い】古い決済ページを無効にできませんでした',
+      '',
+      'お客様が予約をし直した際、前に開いた決済ページを自動で消せませんでした（' + (why || '') + '）。',
+      'このお客様が古いページでも支払った場合、同じ予約で2回お支払いが発生する可能性があります。',
+      '',
+      'プラン : ' + (h.label || ''),
+      '人数   : ' + (h.people || '') + '名',
+      '日時   : ' + jp.date + ' ' + jp.time + '〜',
+      'お名前 : ' + (h.name || '') + ' 様',
+      'お電話 : ' + (h.tel || ''),
+      '',
+      '▼ 対応のお願い',
+      'Squareの「お取引」で、このお客様の同じ日時のお支払いが2件ないか確認してください。',
+      '2件あれば、1件を返金してください。1件だけなら対応は不要です。'
+    ].join('\n');
+    const { execFile } = require('child_process');
+    const subject = '【NOGIKU・確認】決済ページの二重化の可能性（' + jp.date + ' ' + jp.time + '）';
+    const child = execFile('mail', ['-s', subject, STORE_EMAIL], (err) => {
+      if (err) console.error('確認メール送信エラー:', err.message);
+    });
+    child.stdin.write(body);
+    child.stdin.end();
+  } catch (e) { console.error('確認メールのエラー:', String(e)); }
 }
 
 // ==========================================================================
@@ -1448,6 +1528,7 @@ const server = http.createServer((req, res) => {
     const plan = q.get('plan');
     const people = parseInt(q.get('people') || '0', 10);
     const date = q.get('date'); // YYYY-MM-DD（日本時間の日付）
+    const mineHold = validHoldId(q.get('mine')) ? q.get('mine') : null; // ご本人の仮押さえ（端末に保存された引換券）
     if (!plan || !people || !date) { res.statusCode = 400; res.end(JSON.stringify({ error: 'plan, people, date required' })); return; }
     const noonUtc = date + 'T03:00:00Z'; // その日の正午(JST)で平日/休日を判定
     const variation = pickVariation(plan, people, noonUtc);
@@ -1484,8 +1565,8 @@ const server = http.createServer((req, res) => {
         if (!bookable.has(av.team)) return;
         // すでに過ぎた時間は出さない
         if (new Date(av.start_at).getTime() <= nowMs2) return;
-        // 他のお客様がお手続き中（仮押さえ）の枠は表示しない
-        if (!seen.has(av.start_at) && !isHeld(av.start_at, av.team)) {
+        // 他のお客様がお手続き中（仮押さえ）の枠は表示しない（ご本人の仮押さえ＝mine は表示する）
+        if (!seen.has(av.start_at) && !isHeld(av.start_at, av.team, mineHold)) {
           seen.add(av.start_at);
           slots.push({ start_at: av.start_at, team: av.team });
         }
@@ -1518,16 +1599,35 @@ const server = http.createServer((req, res) => {
     }
 
     let list = loadPending();
-    if (prev) list = list.filter(h => h.id !== prev);           // 前の仮押さえを解除
     const now = Date.now();
-    const held = list.some(h => !h.done && h.start_at === startAt && h.team === team
+    // 前の仮押さえ（同じお客様の端末に保存されていた引換券）の扱い（2026-10-31変更）
+    const prevHold = validHoldId(prev) ? list.find(h => h.id === prev && !h.done) : null;
+    if (prevHold && prevHold.order_id) {
+      // すでに決済ページまで進んでいた仮押さえ
+      if (!prevHold.superseded && prevHold.start_at === startAt && prevHold.team === team
+          && (now - prevHold.created_at) / 60000 < HOLD_MINUTES) {
+        // 同じ枠に戻ってきたご本人 → そのまま引き継ぐ（古い決済ページは「お支払いへ進む」のときに後始末する）
+        prevHold.created_at = now;
+        savePending(list);
+        res.end(JSON.stringify({ ok: true, hold_id: prevHold.id, minutes: HOLD_MINUTES }));
+        return;
+      }
+      // 別の枠を選び直した → 古い決済ページを後始末（支払い済みなら残す）
+      prevHold.superseded = true;
+      savePending(list);
+      retireAndRecord(prevHold, '別の時間を選び直したため').catch(() => {});
+      list = loadPending();
+    } else if (prevHold) {
+      list = list.filter(h => h.id !== prev);                   // 入力画面だけの仮押さえ → 解除
+    }
+    const held = list.some(h => !h.done && !h.superseded && h.start_at === startAt && h.team === team
       && (now - h.created_at) / 60000 < HOLD_MINUTES);
     if (held) {
       savePending(list);
       res.end(JSON.stringify({ ok: false, message: 'この枠は現在ほかのお客様がお手続き中です。少し時間をおくか、別の時間をお選びください。' }));
       return;
     }
-    const holdId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const holdId = newHoldId();
     const src = sourceLabel(q.get('ref') || '', q.get('utm'));
     const dev = deviceLabel(req.headers['user-agent']);
     const tl = touchLabels(q);
@@ -1558,7 +1658,16 @@ const server = http.createServer((req, res) => {
         logEvent([jstNow(), '×入力画面で中断', pp.name, pp.room, h.people || '',
                   jp.date, jp.time, isHolidayJST(h.start_at) ? '土日祝' : '平日', '', '', id]);
       }
-      savePending(loadPending().filter(x => x.id !== id));
+      if (h && h.order_id) {
+        // 決済ページまで進んでいた仮押さえ → 記録はすぐ消さず、古い決済ページを後始末する（2026-10-31変更）
+        //   （以前は記録だけ消していたため、古いページで支払われると予約が作られない恐れがあった）
+        const list2 = loadPending();
+        const cur = list2.find(x => x.id === id);
+        if (cur) { cur.superseded = true; savePending(list2); }
+        retireAndRecord(h, '入力画面を閉じたため').catch(() => {});
+      } else {
+        savePending(loadPending().filter(x => x.id !== id));
+      }
     }
     res.end(JSON.stringify({ ok: true }));
     return;
@@ -1886,7 +1995,7 @@ const server = http.createServer((req, res) => {
       // 自分の仮押さえ（入力画面で確保したもの）は引き継ぐ。他人のものなら断る
       const myHoldId = q.get('hold');
       const nowMs = Date.now();
-      const others = loadPending().some(h => !h.done && h.id !== myHoldId
+      const others = loadPending().some(h => !h.done && !h.superseded && h.id !== myHoldId
         && h.start_at === startAt && h.team === team
         && (nowMs - h.created_at) / 60000 < HOLD_MINUTES);
       if (others) {
@@ -1928,6 +2037,26 @@ const server = http.createServer((req, res) => {
           return;
         }
   
+        // ご本人が前に開いた決済ページがあれば、新しく作る前に後始末する（2026-10-31追加）
+        //   支払い済みなら新しいページは作らない（二重払いを防ぐ）
+        let retireResult = 'none';
+        const oldMine = myHoldId ? loadPending().find(h => h.id === myHoldId && h.order_id) : null;
+        if (oldMine) {
+          retireResult = await retireOldLink(oldMine);
+          if (retireResult === 'paid') {
+            const l3 = loadPending(); const c3 = l3.find(x => x.id === oldMine.id);
+            if (c3) { delete c3.superseded; savePending(l3); }
+            res.end(JSON.stringify({ ok: false, message: 'このご予約は、すでにお支払いが完了しています。確認のメールをご確認ください。ご不明な点はお電話（080-3224-3372）でお問い合わせください。' }));
+            return;
+          }
+          if (retireResult === 'failed') {
+            // 消せなかった古いページは「使わない記録」として別の番号で残し、支払われないか見張り続ける
+            const l4 = loadPending(); const c4 = l4.find(x => x.id === oldMine.id);
+            if (c4) { c4.id = oldMine.id + 'x'; c4.superseded = true; savePending(l4); }
+            notifyRetireFailure(oldMine, '予約し直しのため');
+          }
+        }
+
         // 決済ページを作る（※Squareへの予約登録は、決済が終わってから）
         const jst = new Date(new Date(startAt).getTime() + 9 * 3600000);
         const when = jst.toISOString().slice(0, 16).replace('T', ' ');
@@ -1976,14 +2105,15 @@ const server = http.createServer((req, res) => {
   
         // 仮押さえを「決済待ち」に更新（入力画面で確保した時間から数える）
         const plist = loadPending().filter(h => h.id !== myHoldId);
-        const prevHold = loadPending().find(h => h.id === myHoldId);
+        const prevHold = loadPending().find(h => h.id === myHoldId) || oldMine;
         const src2 = (prevHold && prevHold.src) || sourceLabel(q.get('ref') || '', q.get('utm'));
         const dev2 = (prevHold && prevHold.dev) || deviceLabel(req.headers['user-agent']);
         const tl2 = touchLabels(q);
         const first2 = (prevHold && prevHold.first) || tl2.first, last2 = (prevHold && prevHold.last) || tl2.last;
-        const holdId = myHoldId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+        const holdId = validHoldId(myHoldId) ? myHoldId : newHoldId();
         plist.push({
-          id: holdId, created_at: prevHold ? prevHold.created_at : Date.now(),
+          // 予約し直し（前の決済ページがあった）なら、新しい決済ページのために10分を数え直す
+          id: holdId, created_at: (prevHold && !oldMine) ? prevHold.created_at : Date.now(),
           order_id: link.order_id, link_id: link.id,
           plan, people, start_at: startAt, team, variation,
           label: MENU[plan].label,

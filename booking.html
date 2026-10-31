@@ -986,6 +986,7 @@
 
   // ---- 決済完了で戻ってきたとき ----
   if(new URLSearchParams(location.search).get("paid") === "1"){
+    try{ localStorage.removeItem("nogiku_hold"); }catch(e){}   // お支払い完了 → 引換券は不要
     fetch(`${API_BASE}/paid-check`).catch(()=>{});
     const done = document.createElement("div");
     done.style.cssText = "position:fixed;inset:0;background:rgba(43,38,32,.55);display:flex;align-items:center;justify-content:center;z-index:400;padding:20px;";
@@ -1117,8 +1118,8 @@
       let okA = false, okT = false;
       try {
         const [ra, rt] = await Promise.all([
-          fetch(`${API_BASE}/slots?plan=${planKey("amaterasu", isPlan180)}&people=${selectedNum}&date=${selectedDate}`),
-          fetch(`${API_BASE}/slots?plan=${planKey("tsukuyomi", isPlan180)}&people=${selectedNum}&date=${selectedDate}`)
+          fetch(`${API_BASE}/slots?plan=${planKey("amaterasu", isPlan180)}&people=${selectedNum}&date=${selectedDate}${nogikuHoldMine()}`),
+          fetch(`${API_BASE}/slots?plan=${planKey("tsukuyomi", isPlan180)}&people=${selectedNum}&date=${selectedDate}${nogikuHoldMine()}`)
         ]);
         okA = ra.ok; okT = rt.ok;
         dataA = await ra.json();
@@ -1214,7 +1215,20 @@
   const confirmBack = document.getElementById("confirmBack");
   const confirmBack2 = document.getElementById("confirmBack2");
   let pending = null;
-  let holdId = null;   // 入力画面で確保した枠のID
+  // ---- 仮押さえの「引換券」をこの端末に10分間だけ保存する（2026-10-31追加） ----
+  //   決済ページから戻ったり画面を閉じたりしても、同じ端末なら「ご本人の仮押さえ」として予約し直せるようにする
+  function nogikuHoldLoad(){
+    try{
+      const d = JSON.parse(localStorage.getItem("nogiku_hold") || "null");
+      if(d && d.id && Date.now() - d.t < 10 * 60000) return d.id;
+      localStorage.removeItem("nogiku_hold");
+    }catch(e){}
+    return null;
+  }
+  function nogikuHoldSave(id){ try{ if(id) localStorage.setItem("nogiku_hold", JSON.stringify({ id: id, t: Date.now() })); }catch(e){} }
+  function nogikuHoldClear(){ try{ localStorage.removeItem("nogiku_hold"); }catch(e){} }
+  function nogikuHoldMine(){ const id = nogikuHoldLoad(); return id ? "&mine=" + encodeURIComponent(id) : ""; }
+  let holdId = nogikuHoldLoad();   // 入力画面で確保した枠のID（この端末に保存されていれば引き継ぐ）
 
   function closeConfirm(){
     confirmOverlay.classList.remove("open");
@@ -1223,6 +1237,7 @@
     pending = null;
     if(holdId){                        // 確保していた枠を解放する
       fetch(`${API_BASE}/release?id=${holdId}`).catch(()=>{});
+      nogikuHoldClear();
       holdId = null;
     }
   }
@@ -1342,7 +1357,7 @@
       .then(r => r.json())
       .then(d => {
         confirmGo.disabled = false;
-        if(d && d.ok){ holdId = d.hold_id; }
+        if(d && d.ok){ holdId = d.hold_id; nogikuHoldSave(holdId); }
         else {
           alert((d && d.message) || "この枠はただ今お手続き中です。別の時間をお選びください。");
           closeConfirm();
@@ -1357,6 +1372,7 @@
     confirmStep1.style.display = "";
     if(holdId){
       fetch(`${API_BASE}/release?id=${holdId}`).catch(()=>{});
+      nogikuHoldClear();
       holdId = null;
     }
   });
@@ -1425,6 +1441,7 @@
       const r = await fetch(`${API_BASE}/book`, { method: "POST", body: q });
       const data = await r.json();
       if(data && data.ok && data.url){
+        nogikuHoldSave(data.hold_id || holdId);   // 決済ページから戻っても、ご本人として予約し直せるように
         window.location.href = data.url; // 予約確保済み → Squareの安全な決済ページへ
         return;
       }
