@@ -517,13 +517,8 @@ function notifyFailure(h, reason) {
       '   Squareの「お取引」からの返金をお願いします。',
       '※ データ画面の上部にも、赤い警告として表示されています。'
     ].join('\n');
-    const { execFile } = require('child_process');
     const subject = '【NOGIKU・要対応】決済済みの予約で問題（' + jp.date + ' ' + jp.time + '）';
-    const child = execFile('mail', ['-s', subject, STORE_EMAIL], (err) => {
-      if (err) console.error('要対応メール送信エラー:', err.message);
-    });
-    child.stdin.write(body);
-    child.stdin.end();
+    sendStoreAlert(subject, body);
   } catch (e) { console.error('要対応メールのエラー:', String(e)); }
 }
 
@@ -548,13 +543,8 @@ function notifyRetireFailure(h, why) {
       'Squareの「お取引」で、このお客様の同じ日時のお支払いが2件ないか確認してください。',
       '2件あれば、1件を返金してください。1件だけなら対応は不要です。'
     ].join('\n');
-    const { execFile } = require('child_process');
     const subject = '【NOGIKU・確認】決済ページの二重化の可能性（' + jp.date + ' ' + jp.time + '）';
-    const child = execFile('mail', ['-s', subject, STORE_EMAIL], (err) => {
-      if (err) console.error('確認メール送信エラー:', err.message);
-    });
-    child.stdin.write(body);
-    child.stdin.end();
+    sendStoreAlert(subject, body);
   } catch (e) { console.error('確認メールのエラー:', String(e)); }
 }
 
@@ -793,40 +783,32 @@ async function completeOrder(orderId) {
 //   （サーバーの mail コマンドを使用。届かない場合は notifications.json に残る）
 // ==========================================================================
 const STORE_EMAIL = 'nogikusauna@gmail.com';
+
+// ---- お店への緊急連絡（Googleの仕組み経由で Gmail に届ける）（2026-11-02追加） ----
+//   以前はサーバーから直接メールを送っていたが、Gmail に「送り主の身元が確認できない」として
+//   すべて拒否されていた（550-5.7.26）。そのため Google Apps Script の URL に内容を送り、
+//   Google から nogikusauna@gmail.com に届けてもらう。
+//   URL は alert_url.txt（このファイルと同じ場所・GitHubには置かない）に1行で保存する。
+const ALERT_PATH = path.join(__dirname, 'alert_url.txt');
+function sendStoreAlert(subject, body) {
+  let url = '';
+  try { url = fs.readFileSync(ALERT_PATH, 'utf8').trim(); } catch (e) {}
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url)) {
+    console.error('[お店への連絡が未設定] ' + subject);
+    return;
+  }
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ subject: subject, body: body }), redirect: 'follow' })
+    .then(r => { if (!r.ok) console.error('お店への連絡に失敗:', r.status, subject); })
+    .catch(e => console.error('お店への連絡に失敗:', String(e), subject));
+}
 const NOTIFY_PATH = path.join(__dirname, 'notifications.json');
 function notifyStore(h) {
+  // 新しい予約のお知らせメールは送らない（2026-11-02変更）
+  //   Square から同じ内容の通知が届くため。以前のメールは Gmail に拒否されて届かず、
+  //   お客様情報を含む返送メールがサーバー内にたまる原因になっていた。
+  //   ここでは、お客様情報を含まない記録（日時・プラン・人数）だけを残す。
   const jp = jstParts(h.start_at);
-  const wd = ['日','月','火','水','木','金','土'][new Date(jp.date + 'T00:00:00Z').getUTCDay()];
-  const body = [
-    '【NOGIKU】新しいご予約が入りました',
-    '',
-    'プラン : ' + h.label,
-    '人数   : ' + h.people + '名',
-    '日時   : ' + jp.date + '（' + wd + '）' + jp.time + '〜',
-    '',
-    'お名前 : ' + (h.name || '') + ' 様',
-    'お電話 : ' + (h.tel || ''),
-    'メール : ' + (h.email || '（未入力）'),
-    'ご住所 : ' + (h.addr || '（未入力）'),
-    'ご要望 : ' + (h.note || 'なし'),
-    '',
-    '※ お支払いは完了しています。',
-    '※ Squareの予約カレンダーにも登録済みです。'
-  ].join('\n');
-
-  try {
-    // ※ シェルを経由せず mail コマンドを直接呼び出す（お客様の入力がコマンドとして
-    //    実行されてしまう「コマンドインジェクション」を防ぐため。本文は標準入力で渡す）
-    const { execFile } = require('child_process');
-    const subject = '【NOGIKU】新しいご予約（' + jp.date + ' ' + jp.time + '）';
-    const child = execFile('mail', ['-s', subject, STORE_EMAIL], (err) => {
-      if (err) console.error('通知メール送信エラー:', err.message);
-    });
-    child.stdin.write(body);
-    child.stdin.end();
-  } catch (e) { console.error('通知エラー:', String(e)); }
-
-  // 送信できなかった場合に備えて記録も残す（個人情報は保存しない：日時・プラン・人数のみ）
   try {
     let list = [];
     try { list = JSON.parse(fs.readFileSync(NOTIFY_PATH, 'utf8')); } catch (e) {}
