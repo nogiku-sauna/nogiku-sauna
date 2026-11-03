@@ -553,7 +553,7 @@ function notifyRetireFailure(h, why) {
 //   どの枠が選ばれたか／どこまで進んだか／どの地域からか
 // ==========================================================================
 const LOG_PATH = path.join(__dirname, 'analytics.csv');
-const LOG_HEADER = '記録日時(JST),段階,プラン,部屋,人数,予約日,予約時刻,曜日区分,都道府県,金額,セッションID,新規/リピーター,流入元,何日前,端末,市区町村,支払い方法,最初の流入,最後の流入\n';
+const LOG_HEADER = '記録日時(JST),段階,プラン,部屋,人数,予約日,予約時刻,曜日区分,都道府県,金額,セッションID,新規/リピーター,流入元,何日前,端末,市区町村,支払い方法,最初の流入,最後の流入,返金額\n';
 const LOG_NAMES = LOG_HEADER.trim().split(',');
 const LOG_COLS = LOG_NAMES.length;
 // 2026-09-28に「市区町村」列を追加。古いanalytics.csvの見出し行に列名が無ければ、最初の1回だけ見出しを付け足す
@@ -569,7 +569,7 @@ function ensureLogHeader() {
     const first = (nl >= 0 ? csv.slice(0, nl) : csv).replace(/\r$/, '');
     // 後から追加した列（市区町村・支払い方法）のうち、見出しに無いものを右端に付け足す
     const have = first.replace(/^\ufeff/, '').split(',');
-    const missing = ['市区町村', '支払い方法', '最初の流入', '最後の流入'].filter(c => have.indexOf(c) === -1);
+    const missing = ['市区町村', '支払い方法', '最初の流入', '最後の流入', '返金額'].filter(c => have.indexOf(c) === -1);
     if (!missing.length) return;
     fs.writeFileSync(LOG_PATH, first + ',' + missing.join(',') + (nl >= 0 ? csv.slice(nl) : '\n'));
   } catch (e) {}
@@ -651,6 +651,97 @@ function simpleConfirmPage(heading, bodyHtml, actionHref, actionLabel, backHref)
     <a class="btn back" href="${backHref}">戻る</a>
   </div>
 </div></div></body></html>`;
+}
+// キャンセル・一部返金で「お客様に返した金額」を入れる画面（2026-11-03追加）
+//   kind：'cancel'（キャンセルにする）／'partial'（キャンセルせず一部だけ返す）
+//   入れるのは「返した金額」。Squareで返金するときに打ち込む数字と同じにして、書き写しやすくしている
+function refundFormPage(kind, target, id, key, current) {
+  const amt = parseInt(target['金額'] || '0', 10) || 0;
+  const isCancel = kind === 'cancel';
+  const heading = isCancel ? 'キャンセルの記録' : '一部返金の記録';
+  const action = isCancel ? '/do-cancel' : '/do-refund';
+  const half = Math.round(amt / 2);
+  const cur = (current === undefined || current === null) ? null : current;
+  // 最初に選んでおく項目（すでに記録があれば、その内容）
+  let sel = isCancel ? 'full' : 'custom';
+  if (cur !== null) sel = (isCancel && cur === amt) ? 'full' : (isCancel && cur === half) ? 'half' : 'custom';
+  const v = cur !== null && sel === 'custom' ? cur : '';
+  const chk = m => (sel === m ? ' checked' : '');
+  const opts = isCancel ? `
+      <label class="opt"><input type="radio" name="mode" value="full"${chk('full')}> 全額を返した（¥${amt.toLocaleString()}）</label>
+      <label class="opt"><input type="radio" name="mode" value="half"${chk('half')}> 半額を返した（¥${half.toLocaleString()}）</label>
+      <label class="opt"><input type="radio" name="mode" value="custom"${chk('custom')}> 金額を入力する</label>`
+    : `<input type="hidden" name="mode" value="custom">`;
+  return `<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escHtml(heading)} - NOGIKU 予約データ</title>
+<style>
+  body{margin:0;background:#efe8d4;color:#2b2620;font-family:"Hiragino Sans","Yu Gothic",-apple-system,sans-serif;line-height:1.8;}
+  .wrap{max-width:520px;margin:60px auto;padding:0 20px;}
+  .card{background:#fff;border:1px solid #d9cfae;border-radius:16px;padding:28px 24px;}
+  h1{font-size:18px;margin:0 0 16px;}
+  p{font-size:14px;margin:0 0 12px;}
+  .opt{display:block;padding:10px 12px;border:1px solid #d9cfae;border-radius:10px;margin:0 0 8px;font-size:14px;cursor:pointer;}
+  .amt{display:flex;align-items:center;gap:8px;margin:4px 0 14px;font-size:14px;}
+  .amt input{width:140px;padding:9px 10px;border:1px solid #d9cfae;border-radius:8px;font-size:16px;font-family:inherit;}
+  .left{background:#f6f1e3;border-radius:10px;padding:12px 14px;font-size:14px;margin:0 0 6px;}
+  .left b{font-size:18px;}
+  .btn{display:inline-block;padding:11px 22px;border-radius:100px;text-decoration:none;font-weight:800;font-size:14px;margin:6px 8px 0 0;border:none;cursor:pointer;font-family:inherit;}
+  .btn.go{background:#a33;color:#fff;}
+  .btn.back{background:#fff;color:#2b2620;border:1px solid #d9cfae;}
+</style></head>
+<body><div class="wrap"><div class="card">
+  <h1>${escHtml(heading)}</h1>
+  <p>${escHtml(target['予約日'])} ${escHtml(target['予約時刻'])}〜<br>
+  ${escHtml(target['プラン'])} ${escHtml(target['部屋'])} / ${escHtml(target['人数'])}名<br>
+  お支払い金額：¥${amt.toLocaleString()}</p>
+  <form method="get" action="${action}" id="f">
+    <input type="hidden" name="id" value="${escHtml(id)}">
+    <input type="hidden" name="key" value="${escHtml(key)}">
+    <p style="font-weight:700;margin-top:18px;">お客様に返した金額</p>
+    ${opts}
+    <div class="amt" id="amtRow"><span>¥</span><input type="number" name="refund" id="refund" min="0" max="${amt}" step="1" inputmode="numeric" value="${v}" placeholder="例：5000"></div>
+    <div class="left">売上として残る金額：<b id="left">—</b></div>
+    <p style="font-size:12.5px;color:#83795f;">※ ここで記録しても、お客様への返金は行われません。返金はSquareで行い、そのとき返した金額をここに入れてください。${isCancel ? '<br>※ 後から「返金額を直す」「キャンセルを取り消す」で直せます。' : '<br>※ 0を入れると「一部返金なし」に戻ります。'}</p>
+    <div style="margin-top:16px;">
+      <button type="submit" class="btn go">この内容で記録する</button>
+      <a class="btn back" href="/dashboard?key=${encodeURIComponent(key)}">戻る</a>
+    </div>
+  </form>
+</div></div>
+<script>
+  (function(){
+    var amt = ${amt}, half = ${half};
+    var f = document.getElementById('f'), inp = document.getElementById('refund'), row = document.getElementById('amtRow'), left = document.getElementById('left');
+    function mode(){ var m = f.querySelector('input[name="mode"]:checked') || f.querySelector('input[name="mode"]'); return m ? m.value : 'custom'; }
+    function back(){ var m = mode(); if (m === 'full') return amt; if (m === 'half') return half; var n = parseInt(inp.value, 10); return isNaN(n) ? null : n; }
+    function upd(){
+      row.style.display = mode() === 'custom' ? '' : 'none';
+      var b = back();
+      if (b === null) { left.textContent = '—'; return; }
+      if (b < 0 || b > amt) { left.textContent = '金額が正しくありません（0〜' + amt.toLocaleString() + '円）'; return; }
+      left.textContent = '¥' + (amt - b).toLocaleString();
+    }
+    f.addEventListener('change', upd); inp.addEventListener('input', upd);
+    f.addEventListener('submit', function(e){
+      var b = back();
+      if (b === null || b < 0 || b > amt) { e.preventDefault(); alert('返した金額を、0〜' + amt.toLocaleString() + '円で入力してください'); inp.focus(); }
+    });
+    upd();
+  })();
+</script>
+</body></html>`;
+}
+// 返金額の入力を読み取る（全額・半額・金額指定）。正しくなければ null
+function readRefund(q, amt) {
+  const mode = q.get('mode');
+  if (mode === 'full') return amt;
+  if (mode === 'half') return Math.round(amt / 2);
+  const raw = String(q.get('refund') || '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, '');
+  if (raw === '') return null;
+  const n = parseInt(raw, 10);
+  return (n >= 0 && n <= amt) ? n : null;
 }
 function jstParts(isoUtc) {
   const d = new Date(new Date(isoUtc).getTime() + 9 * 3600000);
@@ -923,15 +1014,29 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   //     （以前は、予約した月とキャンセルした月が違うと、キャンセルが反映されなかった）
   const stateRows = allRows || rows;
   const cancelStatus = {};
+  const cancelRefundRaw = {};   // キャンセル時にお客様へ返した金額（2026-11-03追加。空欄＝昔の記録＝全額返金）
+  const partialRefund = {};     // キャンセルせずに一部だけ返した金額（2026-11-03追加。一番新しい記録が今の金額）
   const extraCancelled = {};
   stateRows.forEach(r => {
     const sid = r['セッションID'];
     if (!sid) return;
     if (r['段階'] === '④キャンセル' || r['段階'] === '④キャンセル取消') cancelStatus[sid] = (r['段階'] === '④キャンセル');
+    if (r['段階'] === '④キャンセル') cancelRefundRaw[sid] = (r['返金額'] || '');
+    if (r['段階'] === '⑥一部返金') partialRefund[sid] = (parseInt(r['返金額'] || '0', 10) || 0);
     if (r['段階'] === '⑤追加売上取消') extraCancelled[sid] = true;
   });
   const isCancelledRow = r => !!(r['セッションID'] && cancelStatus[r['セッションID']]);
   const yen = v => (parseInt(v || '0', 10) || 0);
+  // キャンセルした予約で、お客様に返した金額（記録が無い昔のキャンセルは全額返金とみなす）
+  const cancelRefundOf = r => {
+    const raw = cancelRefundRaw[r['セッションID']];
+    const amt = yen(r['金額']);
+    if (raw === undefined || raw === '') return amt;
+    return Math.min(amt, yen(raw));
+  };
+  const cancelFeeOf = r => isCancelledRow(r) ? Math.max(0, yen(r['金額']) - cancelRefundOf(r)) : 0;    // 残ったキャンセル料
+  const partialOf = r => (!isCancelledRow(r) && r['セッションID']) ? Math.min(yen(r['金額']), partialRefund[r['セッションID']] || 0) : 0;
+  const netOf = r => isCancelledRow(r) ? cancelFeeOf(r) : yen(r['金額']) - partialOf(r);   // 売上として残る金額
 
   const paidAll = rows.filter(r => r['段階'] === '③決済完了');
   const paid = paidAll.filter(r => !isCancelledRow(r));           // キャンセル済みは集計から除外
@@ -940,8 +1045,10 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   const paidOnline = paid.filter(r => !isPhone(r));               // ネット予約だけ（成約率・進み具合に使う）
   const phoneCount = paid.length - paidOnline.length;
 
-  const sales = paid.reduce((a, r) => a + yen(r['金額']), 0);                 // 予約の売上（キャンセル分を除く）
-  const cancelledSales = cancelledList.reduce((a, r) => a + yen(r['金額']), 0);
+  const bookingSales = paid.reduce((a, r) => a + netOf(r), 0);              // キャンセルしていない予約の売上（一部返金を引いた後）
+  const cancelFeeSales = cancelledList.reduce((a, r) => a + cancelFeeOf(r), 0);  // キャンセル料として残った売上
+  const sales = bookingSales + cancelFeeSales;                                 // 予約の売上（返金した分を除く）
+  const refundTotal = cancelledList.reduce((a, r) => a + cancelRefundOf(r), 0) + paid.reduce((a, r) => a + partialOf(r), 0);
   const extraList = rows.filter(r => r['段階'] === '⑤追加売上' && !extraCancelled[r['セッションID']]);
   // 追加売上込みの客単価・追加売上は、追加売上を月ごとに入れる仕組みのため「今月」「全期間」「期間指定」で表示する
   //  （「今日」「今週」では、月末日付の追加売上が紛れ込まないように数えない）
@@ -949,7 +1056,7 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   const extraSales = showCust ? extraList.reduce((a, r) => a + yen(r['金額']), 0) : 0;   // 追加売上（月ごとの合計）
   const totalSales = sales + extraSales;
   const cvr = clicks.length ? Math.round(paidOnline.length / clicks.length * 1000) / 10 : 0;
-  const avg = paid.length ? Math.round(sales / paid.length) : 0;
+  const avg = paid.length ? Math.round(bookingSales / paid.length) : 0;
   const custAvg = paid.length ? Math.round(totalSales / paid.length) : 0;
   const cancelRate = paidAll.length ? Math.round(cancelledList.length / paidAll.length * 1000) / 10 : 0;
   // 追加売上の入力済み一覧（期間に関係なく、新しい月から）
@@ -960,7 +1067,11 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     phone_ng: ['ng', '電話予約を追加できませんでした。日付・時間・人数・金額を確認してください。'],
     extra_ok: ['ok', '追加売上を追加しました。'],
     extra_ng: ['ng', '追加売上を追加できませんでした。月と金額を確認してください。'],
-    extra_cancel: ['ok', '追加売上を取り消しました。']
+    extra_cancel: ['ok', '追加売上を取り消しました。'],
+    cancel_ok: ['ok', 'キャンセルを記録しました。'],
+    cancel_ng: ['ng', 'キャンセルを記録できませんでした。返金した金額を確認してください。'],
+    refund_ok: ['ok', '一部返金を記録しました。'],
+    refund_ng: ['ng', '一部返金を記録できませんでした。返金した金額を確認してください。']
   };
   const flash = MSGS[msg];
   const thisMonth = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 7);
@@ -1040,19 +1151,41 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     if (f === m && l === m) return '';
     return '<br><span style="font-size:11px;color:#8a7f6e;">最初：' + esc(f || '―') + ' ／ 最後：' + esc(l || '―') + '</span>';
   };
-  const paidListHtml = paidAll.slice().sort((a, b) => (a['記録日時(JST)'] < b['記録日時(JST)'] ? 1 : -1)).map(r => {
+  // 金額欄：キャンセル・一部返金があれば、返した金額と残った金額も出す
+  const amountHtml = r => {
+    const amt = yen(r['金額']);
+    if (isCancelledRow(r)) {
+      const back = cancelRefundOf(r), fee = cancelFeeOf(r);
+      return '<s>¥' + amt.toLocaleString() + '</s><br><span class="rf">返金 −¥' + back.toLocaleString() + '</span>'
+        + (fee ? '<br><b>残り ¥' + fee.toLocaleString() + '</b>' : '');
+    }
+    const pr = partialOf(r);
+    if (pr) return '<s>¥' + amt.toLocaleString() + '</s><br><span class="rf">一部返金 −¥' + pr.toLocaleString() + '</span><br><b>残り ¥' + (amt - pr).toLocaleString() + '</b>';
+    return '¥' + amt.toLocaleString();
+  };
+  // 状態・操作欄
+  const actionHtml = r => {
     const sid = r['セッションID'] || '';
+    const idq = encodeURIComponent(sid) + '&' + keyQS;
+    if (isCancelledRow(r)) {
+      const fee = cancelFeeOf(r);
+      return '<span style="color:#a33;font-weight:700;">' + (fee ? 'キャンセル（一部返金）' : 'キャンセル（全額返金）') + '</span><br>'
+        + '<a class="uncancel-link" href="/confirm-cancel?id=' + idq + '">（返金額を直す）</a><br>'
+        + '<a class="uncancel-link" href="/confirm-uncancel?id=' + idq + '">（キャンセルを取り消す）</a>';
+    }
+    return '<a class="cancel-link" href="/confirm-cancel?id=' + idq + '">キャンセルにする</a><br>'
+      + '<a class="uncancel-link" href="/confirm-refund?id=' + idq + '">' + (partialOf(r) ? '（一部返金を直す）' : '（一部返金を記録）') + '</a>';
+  };
+  const paidListHtml = paidAll.slice().sort((a, b) => (a['記録日時(JST)'] < b['記録日時(JST)'] ? 1 : -1)).map(r => {
     const cancelled = isCancelledRow(r);
-    const action = cancelled
-      ? '<span style="color:#a33;font-weight:700;">キャンセル済み</span><br><a class="uncancel-link" href="/confirm-uncancel?id=' + encodeURIComponent(sid) + '&' + keyQS + '">（取り消しを戻す）</a>'
-      : '<a class="cancel-link" href="/confirm-cancel?id=' + encodeURIComponent(sid) + '&' + keyQS + '">キャンセルにする</a>';
+    const action = actionHtml(r);
     return `
-    <tr${cancelled ? ' style="opacity:.5;"' : ''}>
+    <tr${cancelled ? ' style="opacity:' + (cancelFeeOf(r) ? '.75' : '.5') + ';"' : ''}>
       <td>${esc(r['記録日時(JST)'] || '')}</td>
       <td>${esc(r['予約日'] || '')} ${esc(r['予約時刻'] || '')}</td>
       <td>${esc(r['プラン'] || '')} ${esc(r['部屋'] || '')}</td>
       <td>${esc(r['人数'] || '')}${r['人数'] ? '名' : ''}</td>
-      <td>${cancelled ? '<s>¥' + yen(r['金額']).toLocaleString() + '</s>' : '¥' + yen(r['金額']).toLocaleString()}</td>
+      <td>${amountHtml(r)}</td>
       <td>${esc(r['流入元'] || '')}${srcPath(r)}</td>
       <td>${esc((r['都道府県'] || '') + (r['市区町村'] || ''))}</td>
       <td>${action}</td>
@@ -1068,7 +1201,15 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     let actionCell = '';
     const amt = yen(r['金額']);
     let amountCell = r['金額'] ? '¥' + amt.toLocaleString() : '';
-    if (stage === '④キャンセル' && amt) amountCell = '<span style="color:#a33;font-weight:700;">−¥' + amt.toLocaleString() + '</span>';
+    if (stage === '④キャンセル' && amt) {
+      const back = (r['返金額'] !== undefined && r['返金額'] !== '') ? Math.min(amt, yen(r['返金額'])) : amt;
+      amountCell = '<span style="color:#a33;font-weight:700;">返金 −¥' + back.toLocaleString() + '</span>'
+        + (back < amt ? '<br><span style="font-size:11px;">（残り ¥' + (amt - back).toLocaleString() + '）</span>' : '');
+    }
+    if (stage === '⑥一部返金') {
+      const back = yen(r['返金額']);
+      amountCell = back ? '<span style="color:#a33;font-weight:700;">返金 −¥' + back.toLocaleString() + '</span>' : '<span style="color:#2f6b4a;">（一部返金をなしに戻す）</span>';
+    }
     if (stage === '④キャンセル取消' && amt) amountCell = '<span style="color:#2f6b4a;">（¥' + amt.toLocaleString() + ' を戻す）</span>';
     if (stage === '⑤追加売上') {
       amountCell = '<span style="color:#2f6b4a;font-weight:700;">+¥' + amt.toLocaleString() + '</span>';
@@ -1076,14 +1217,7 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
         : '<a class="uncancel-link" href="/cancel-extra?id=' + encodeURIComponent(sid) + '&' + keyQS + '">（取り消す）</a>';
     }
     if (stage === '⑤追加売上取消' && amt) amountCell = '<span style="color:#a33;">−¥' + amt.toLocaleString() + '</span>';
-    if (stage === '③決済完了' && sid) {
-      if (isCancelledRow(r)) {
-        actionCell = '<span style="color:#a33;font-weight:700;">キャンセル済み</span><br>'
-          + '<a class="uncancel-link" href="/confirm-uncancel?id=' + encodeURIComponent(sid) + '&' + keyQS + '">（取り消しを戻す）</a>';
-      } else {
-        actionCell = '<a class="cancel-link" href="/confirm-cancel?id=' + encodeURIComponent(sid) + '&' + keyQS + '">キャンセルにする</a>';
-      }
-    }
+    if (stage === '③決済完了' && sid) actionCell = actionHtml(r);
     return `
     <tr>
       <td>${esc(r['記録日時(JST)'] || '')}</td>
@@ -1153,6 +1287,8 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   .stage.s×{background:#f3e6e6;color:#a33;}
   .stage.s④{background:#f3e6e6;color:#a33;}
   .stage.s⑤{background:#eef0e0;color:#5b6b1f;}
+  .stage.s⑥{background:#f3e6e6;color:#a33;}
+  .rf{color:#a33;font-size:12px;}
   .kpi .note{font-size:11px;color:var(--sub);line-height:1.5;margin-top:2px;}
   .flash{border-radius:12px;padding:12px 16px;margin-bottom:18px;font-size:13.5px;font-weight:700;}
   .flash.ok{background:#e3ede4;color:#2f6b4a;} .flash.ng{background:#fdecea;color:#a33;}
@@ -1219,7 +1355,7 @@ ${(failures && failures.length) ? `
     <div class="kpi"><div class="label">予約件数</div><div class="value">${paid.length}<span class="unit">件</span></div>
       <div class="note">${phoneCount ? 'うち電話予約 ' + phoneCount + '件' : 'キャンセル分を除く'}</div></div>
     <div class="kpi"><div class="label">予約の売上</div><div class="value">¥${sales.toLocaleString()}</div>
-      <div class="note">${cancelledSales ? '¥' + (sales + cancelledSales).toLocaleString() + ' − キャンセル ¥' + cancelledSales.toLocaleString() : 'キャンセル分を除く'}</div></div>
+      <div class="note">${refundTotal ? '返金 ¥' + refundTotal.toLocaleString() + ' を除く' + (cancelFeeSales ? '（キャンセル料 ¥' + cancelFeeSales.toLocaleString() + ' を含む）' : '') : 'キャンセル分を除く'}</div></div>
     <div class="kpi"><div class="label">追加売上</div><div class="value">${showCust ? '¥' + extraSales.toLocaleString() : '—'}</div>
       <div class="note">${showCust ? 'レンタル品・ドリンクなど（月ごとの合計）' : '「今月」か月単位の期間で表示'}</div></div>
     <div class="kpi"><div class="label">合計の売上</div><div class="value">¥${totalSales.toLocaleString()}</div>
@@ -1227,7 +1363,7 @@ ${(failures && failures.length) ? `
     <div class="kpi"><div class="label">成約率</div><div class="value">${cvr}<span class="unit">%</span></div>
       <div class="note">ネット予約のみ</div></div>
     <div class="kpi"><div class="label">平均単価（予約のみ）</div><div class="value">¥${avg.toLocaleString()}</div>
-      <div class="note">予約の売上 ÷ 予約件数</div></div>
+      <div class="note">キャンセル料を除いた予約の売上 ÷ 予約件数</div></div>
     <div class="kpi"><div class="label">客単価（追加売上込み）</div><div class="value">${showCust ? '¥' + custAvg.toLocaleString() : '—'}</div>
       <div class="note">${showCust ? '合計の売上 ÷ 予約件数' : '「今月」か月単位の期間で表示'}</div></div>
     <div class="kpi"><div class="label">キャンセル件数</div><div class="value" style="color:#a33;">${cancelledList.length}<span class="unit">件</span></div></div>
@@ -1240,7 +1376,8 @@ ${(failures && failures.length) ? `
       <tr><th>支払日時</th><th>利用日時</th><th>プラン</th><th>人数</th><th>金額</th><th>流入元</th><th>地域</th><th>状態・操作</th></tr>
       ${paidListHtml}
     </table>
-    <p class="hint">※ 電話予約は、利用日時を支払日時として表示しています。キャンセル済みの予約は薄い色で表示し、売上には含めていません。</p>`
+    <p class="hint">※ 電話予約は、利用日時を支払日時として表示しています。キャンセル済みの予約は薄い色で表示し、残ったキャンセル料だけを売上に含めます。一部返金した予約は、返した金額を引いて売上に含めます。<br>
+    ※ ここで記録しても、お客様への返金は行われません。返金はSquareで行ってください。</p>`
     : '<p class="empty">この期間の決済完了の予約はありません</p>'}
   </div>
 
@@ -1301,6 +1438,7 @@ ${(failures && failures.length) ? `
         <label>時間<input type="time" name="time" value="11:00" step="1800" required></label>
         <label>プラン<select name="plan"><option>120分</option><option>180分旅館</option></select></label>
         <label>部屋<select name="room"><option>天照</option><option>月読</option></select></label>
+        <label>新規／リピーター<select name="repeat" required><option value="" selected disabled>選んでください</option><option>新規</option><option>リピーター</option><option value="不明">わからない</option></select></label>
         <label>人数<select name="people">${[1,2,3,4,5].map(n => '<option value="' + n + '"' + (n === 2 ? ' selected' : '') + '>' + n + '名</option>').join('')}</select></label>
         <label>金額（円）<input type="number" name="amount" min="0" step="100" required style="width:110px;"></label>
         <label>都道府県（任意）<input type="text" name="pref" placeholder="大分県" style="width:90px;"></label>
@@ -1309,7 +1447,7 @@ ${(failures && failures.length) ? `
       </form>
       <p class="hint">※ 流入元は「電話」、支払い方法は「当日現地払い」として記録し、利用日の売上として数えます。<br>
       ※ ここに入力しても、Squareのカレンダーには登録されません。カレンダーへの登録はSquareで行ってください。<br>
-      ※ 間違えた場合は、下の「最近の動き」から「キャンセルにする」で取り消せます。</p>
+      ※ 間違えた場合は、上の「決済完了の予約一覧」から「キャンセルにする」→「全額を返した」で取り消せます。</p>
     </div>
     <div class="card">
       <h3>追加売上（レンタル品・ドリンクなど）を入力する</h3>
@@ -1408,7 +1546,7 @@ const server = http.createServer((req, res) => {
   const ADMIN_KEY = config.ADMIN_KEY || '';
   const CLOSED_PATHS = ['/setup', '/inspect', '/cancel-booking', '/complete-orders', '/paylink', '/availability', '/quote'];
   const SECRET_PATHS = ['/notifications', '/failures', '/dashboard', '/confirm-cancel', '/do-cancel', '/confirm-uncancel', '/do-uncancel',
-    '/analytics', '/analytics.csv', '/add-phone', '/add-extra', '/cancel-extra'];
+    '/analytics', '/analytics.csv', '/add-phone', '/add-extra', '/cancel-extra', '/confirm-refund', '/do-refund'];
   function notFound() {
     res.statusCode = 404;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -1776,12 +1914,14 @@ const server = http.createServer((req, res) => {
     const amount = parseInt(String(q.get('amount') || '').replace(/[^0-9]/g, ''), 10);
     const pref = (q.get('pref') || '').trim().slice(0, 10);
     const city = (q.get('city') || '').trim().slice(0, 20);
+    const repeatIn = q.get('repeat');
+    const repeat = (repeatIn === '新規' || repeatIn === 'リピーター') ? repeatIn : '';   // 「わからない」は空欄（集計では（不明））
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time) || !(people >= 1 && people <= 10)
         || !(amount >= 0 && amount <= 1000000)) { back('phone_ng'); return; }
     const visitUtc = new Date(date + 'T' + time + ':00+09:00').toISOString();
     const sid = 'tel' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     logEvent([date + ' ' + time + ':00', '③決済完了', planName, room, people, date, time,
-              isHolidayJST(visitUtc) ? '土日祝' : '平日', pref, amount, sid, '', '電話', daysAhead(visitUtc), ''],
+              isHolidayJST(visitUtc) ? '土日祝' : '平日', pref, amount, sid, repeat, '電話', daysAhead(visitUtc), ''],
              { '市区町村': city, '支払い方法': '当日現地払い' });
     back('phone_ok');
     return;
@@ -1844,14 +1984,14 @@ const server = http.createServer((req, res) => {
       res.end(simpleConfirmPage('見つかりませんでした', '<p>対象の予約データが見つかりませんでした。すでに処理済みか、IDが間違っている可能性があります。</p>', '', '', '/dashboard?' + keyQS));
       return;
     }
-    const body = `<p>以下の予約をキャンセル扱いにします。よろしいですか？</p>
-      <p>${escHtml(target['予約日'])} ${escHtml(target['予約時刻'])}〜<br>
-      ${escHtml(target['プラン'])} ${escHtml(target['部屋'])} / ${escHtml(target['人数'])}名<br>
-      金額：${target['金額'] ? '¥' + Number(target['金額']).toLocaleString() : ''}</p>
-      <p style="color:#a33;font-size:13px;">※ この操作は後から「取り消しを戻す」で元に戻せます。</p>`;
-    res.end(simpleConfirmPage('キャンセル処理の確認', body,
-      '/do-cancel?id=' + encodeURIComponent(id) + '&' + keyQS, 'キャンセルにする',
-      '/dashboard?' + keyQS));
+    // すでにキャンセル済みなら、その時の返金額を最初から入れておく（「返金額を直す」用）
+    let current = null, isCancelled = false;
+    rows.forEach(r => {
+      if (r['セッションID'] !== id) return;
+      if (r['段階'] === '④キャンセル') { isCancelled = true; current = (r['返金額'] !== undefined && r['返金額'] !== '') ? (parseInt(r['返金額'], 10) || 0) : (parseInt(target['金額'] || '0', 10) || 0); }
+      if (r['段階'] === '④キャンセル取消') { isCancelled = false; current = null; }
+    });
+    res.end(refundFormPage('cancel', target, id, key, isCancelled ? current : null));
     return;
   }
 
@@ -1862,15 +2002,64 @@ const server = http.createServer((req, res) => {
     const key = q.get('key') || '';
     const rows = loadAnalyticsRows();
     const target = rows.find(r => r['セッションID'] === id && r['段階'] === '③決済完了');
+    let msg = 'cancel_ng';
     if (target) {
-      logEvent([jstNow(), '④キャンセル', target['プラン'] || '', target['部屋'] || '', target['人数'] || '',
-        target['予約日'] || '', target['予約時刻'] || '', target['曜日区分'] || '',
-        target['都道府県'] || '', target['金額'] || '', id,
-        target['新規/リピーター'] || '', target['流入元'] || '', target['何日前'] || '', target['端末'] || ''],
-        { '市区町村': target['市区町村'] || '', '支払い方法': target['支払い方法'] || '' });
+      const refund = readRefund(q, parseInt(target['金額'] || '0', 10) || 0);
+      if (refund !== null) {
+        logEvent([jstNow(), '④キャンセル', target['プラン'] || '', target['部屋'] || '', target['人数'] || '',
+          target['予約日'] || '', target['予約時刻'] || '', target['曜日区分'] || '',
+          target['都道府県'] || '', target['金額'] || '', id,
+          target['新規/リピーター'] || '', target['流入元'] || '', target['何日前'] || '', target['端末'] || ''],
+          { '市区町村': target['市区町村'] || '', '支払い方法': target['支払い方法'] || '', '返金額': String(refund) });
+        msg = 'cancel_ok';
+      }
     }
     res.statusCode = 302;
-    res.setHeader('Location', '/dashboard?key=' + encodeURIComponent(key));
+    res.setHeader('Location', '/dashboard?key=' + encodeURIComponent(key) + '&msg=' + msg);
+    res.end();
+    return;
+  }
+
+  // ---- 一部返金（キャンセルはせず、一部だけ返した場合）：入力画面 ----（2026-11-03追加）
+  if (url === '/confirm-refund' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    const q = new URLSearchParams(req.url.split('?')[1] || '');
+    const id = q.get('id') || '';
+    const key = q.get('key') || '';
+    const keyQS = 'key=' + encodeURIComponent(key);
+    const rows = loadAnalyticsRows();
+    const target = rows.find(r => r['セッションID'] === id && r['段階'] === '③決済完了');
+    if (!target) {
+      res.end(simpleConfirmPage('見つかりませんでした', '<p>対象の予約データが見つかりませんでした。</p>', '', '', '/dashboard?' + keyQS));
+      return;
+    }
+    let current = null;
+    rows.forEach(r => { if (r['セッションID'] === id && r['段階'] === '⑥一部返金') current = parseInt(r['返金額'] || '0', 10) || 0; });
+    res.end(refundFormPage('partial', target, id, key, current));
+    return;
+  }
+
+  // ---- 一部返金：記録（一番新しい記録が今の金額。0を入れると「なし」に戻る） ----
+  if (url === '/do-refund' && req.method === 'GET') {
+    const q = new URLSearchParams(req.url.split('?')[1] || '');
+    const id = q.get('id') || '';
+    const key = q.get('key') || '';
+    const rows = loadAnalyticsRows();
+    const target = rows.find(r => r['セッションID'] === id && r['段階'] === '③決済完了');
+    let msg = 'refund_ng';
+    if (target) {
+      const refund = readRefund(q, parseInt(target['金額'] || '0', 10) || 0);
+      if (refund !== null) {
+        logEvent([jstNow(), '⑥一部返金', target['プラン'] || '', target['部屋'] || '', target['人数'] || '',
+          target['予約日'] || '', target['予約時刻'] || '', target['曜日区分'] || '',
+          target['都道府県'] || '', target['金額'] || '', id,
+          target['新規/リピーター'] || '', target['流入元'] || '', target['何日前'] || '', target['端末'] || ''],
+          { '市区町村': target['市区町村'] || '', '支払い方法': target['支払い方法'] || '', '返金額': String(refund) });
+        msg = 'refund_ok';
+      }
+    }
+    res.statusCode = 302;
+    res.setHeader('Location', '/dashboard?key=' + encodeURIComponent(key) + '&msg=' + msg);
     res.end();
     return;
   }
