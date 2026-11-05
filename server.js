@@ -936,20 +936,24 @@ setTimeout(sweepPending, 10 * 1000);  // 起動直後にも1回
 //   visits.json = { "2026-10-06": { "Instagram": 12, "Googleマップ": 3 }, ... }
 // ==========================================================================
 const VISITS_PATH = path.join(__dirname, 'visits.json');
-function loadVisits() { try { return JSON.parse(fs.readFileSync(VISITS_PATH, 'utf8')) || {}; } catch (e) { return {}; } }
-function addVisit(src) {
+// 1日1人として数えた「来た人」（2026-11追加）。同じ人が同じ日に何回来ても1人。形は visits.json と同じ
+//   見分けはお客様の端末に残した「最後に数えた日付」だけで行い、サーバーには個人を記録しない
+const VISITORS_PATH = path.join(__dirname, 'visitors.json');
+function loadVisits(p) { try { return JSON.parse(fs.readFileSync(p || VISITS_PATH, 'utf8')) || {}; } catch (e) { return {}; } }
+function addVisit(src, p) {
   try {
-    const v = loadVisits();
+    const file = p || VISITS_PATH;
+    const v = loadVisits(file);
     const d = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
     const day = v[d] || (v[d] = {});
     if (!(src in day) && Object.keys(day).length >= 300) src = 'その他';  // いたずらで種類が増えすぎないように
     day[src] = (day[src] || 0) + 1;
-    fs.writeFileSync(VISITS_PATH, JSON.stringify(v));
+    fs.writeFileSync(file, JSON.stringify(v));
   } catch (e) {}
 }
 // 期間内の合計（from/to は 'YYYY-MM-DD'、空なら制限なし）
-function sumVisits(from, to) {
-  const v = loadVisits(), m = {};
+function sumVisits(from, to, p) {
+  const v = loadVisits(p), m = {};
   Object.keys(v).forEach(d => {
     if (from && d < from) return;
     if (to && d > to) return;
@@ -990,7 +994,7 @@ function sumViews(from, to) {
 }
 const BOT_UA = /bot|crawl|spider|slurp|preview|headless|lighthouse|facebookexternalhit|embedly|curl|wget|python|monitor/i;
 
-function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visitCounts, viewCounts) {
+function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visitCounts, viewCounts, uniqueCounts) {
   period = period || 'all';
   from = from || '';
   to = to || '';
@@ -1110,16 +1114,21 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   const srcClick   = countBy(clicks, '流入元');
   // サイトに来た人 × 時間を選んだ人 × 予約した人 を、流入元ごとに並べる
   const vc = visitCounts || {};
+  const uc = uniqueCounts || {};
+  const uTotal = Object.values(uc).reduce((a, b) => a + b, 0);
+  const uStart = Object.keys(loadVisits(VISITORS_PATH)).sort()[0] || '';   // 1日1人で数え始めた日
   const clickMap = Object.fromEntries(srcClick), paidMap = Object.fromEntries(countBy(paid, '流入元'));
-  const srcKeys = Array.from(new Set([].concat(Object.keys(vc), Object.keys(clickMap), Object.keys(paidMap))))
+  const srcKeys = Array.from(new Set([].concat(Object.keys(vc), Object.keys(uc), Object.keys(clickMap), Object.keys(paidMap))))
     .sort((a, b) => ((vc[b] || 0) - (vc[a] || 0)) || ((clickMap[b] || 0) - (clickMap[a] || 0)));
   const vTotal = Object.values(vc).reduce((a, b) => a + b, 0);
   const visitTableHtml = srcKeys.length ? `<div class="card" style="overflow-x:auto;margin-bottom:26px;"><table>
-    <tr><th>どこから来たか</th><th style="text-align:right;">サイトに来た人</th><th style="text-align:right;">時間を選んだ人</th><th style="text-align:right;">予約した人</th></tr>
-    ${srcKeys.map(k => `<tr><td>${esc(k)}</td><td style="text-align:right;">${vc[k] || 0}人</td><td style="text-align:right;">${clickMap[k] || 0}人</td><td style="text-align:right;">${paidMap[k] || 0}件</td></tr>`).join('')}
-    <tr style="font-weight:700;"><td>合計</td><td style="text-align:right;">${vTotal}人</td><td style="text-align:right;">${clicks.length}人</td><td style="text-align:right;">${paid.length}件</td></tr>
+    <tr><th>どこから来たか</th><th style="text-align:right;">訪問の回数</th><th style="text-align:right;">来た人（1日1人）</th><th style="text-align:right;">時間を選んだ人</th><th style="text-align:right;">予約した人</th></tr>
+    ${srcKeys.map(k => `<tr><td>${esc(k)}</td><td style="text-align:right;">${vc[k] || 0}回</td><td style="text-align:right;">${uc[k] || 0}人</td><td style="text-align:right;">${clickMap[k] || 0}人</td><td style="text-align:right;">${paidMap[k] || 0}件</td></tr>`).join('')}
+    <tr style="font-weight:700;"><td>合計</td><td style="text-align:right;">${vTotal}回</td><td style="text-align:right;">${uTotal}人</td><td style="text-align:right;">${clicks.length}人</td><td style="text-align:right;">${paid.length}件</td></tr>
   </table>
-  <p class="fnote" style="margin-top:10px;">※「サイトに来た人」は、1回の訪問で1人として数えています（同じ人が日を変えて来た場合は、また1人と数えます）。2026年10月6日から数え始めました。電話予約は「電話」として、予約した人にだけ入ります。2026年10月18日から、リンクの印を30日間覚えるようにしました（一度閉じて後日ほかの所から予約した人も、30日以内に押したリンク（いちばん新しいもの）の方に入ります。インフルエンサーの印〈pr_〜〉は、ほかのリンクでは上書きしません）。</p></div>`
+  <p class="fnote" style="margin-top:10px;">※「訪問の回数」は、画面を開いてから閉じるまでを1回として数えています（同じ人でも、開き直せばまた1回）。2026年10月6日から数え始めました。<br>
+  ※「来た人（1日1人）」は、同じ人が同じ日に何回来ても1人として数えます（日が変われば、また1人）。${uStart ? esc(uStart.replace(/^(\d+)-0?(\d+)-0?(\d+)$/, '$1年$2月$3日')) + 'から数え始めました。数え始めた日は、古いページと新しいページが混ざるため、少なめに出ます。' : 'まだデータがありません。'}スマホとパソコン、アプリの中の画面と普通のブラウザなど、見る場所が違うと別の人として数えます。どこから来たかは、その日に最初に来たときの入口で数えます。<br>
+  ※電話予約は「電話」として、予約した人にだけ入ります。2026年10月18日から、リンクの印を30日間覚えるようにしました（一度閉じて後日ほかの所から予約した人も、30日以内に押したリンク（いちばん新しいもの）の方に入ります。インフルエンサーの印〈pr_〜〉は、ほかのリンクでは上書きしません）。</p></div>`
     : '<div class="card" style="margin-bottom:26px;"><p class="empty">まだデータがありません</p></div>';
   // 予約ページの中で見られたもの（ふだんは閉じておき、押したら開く）
   const vw = viewCounts || {};
@@ -1562,7 +1571,10 @@ const server = http.createServer((req, res) => {
   if (url === '/visit' && (req.method === 'GET' || req.method === 'POST')) {
     const q = new URLSearchParams(req.url.split('?')[1] || '');
     if (!BOT_UA.test(String(req.headers['user-agent'] || '')) && !isCheckoutReturn(q.get('ref'))) {
-      addVisit(sourceLabel(q.get('ref') || '', q.get('utm')));
+      const src = sourceLabel(q.get('ref') || '', q.get('utm'));
+      // s=0 は「この画面ではもう数えたが、今日の1人目はまだ」の合図。古いページ（s・uなし）は今まで通り訪問の回数だけ数える
+      if (q.get('s') !== '0') addVisit(src);
+      if (q.get('u') === '1') addVisit(src, VISITORS_PATH);
     }
     res.statusCode = 204; res.end(); return;
   }
@@ -1895,7 +1907,7 @@ const server = http.createServer((req, res) => {
     else if (period === 'yesterday') { vFrom = vTo = yesterdayStr; }
     else if (period === 'week') { vFrom = mondayStr; }
     else if (period === 'month') { vFrom = monthStr + '-01'; }
-    res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr, dashKey, allRows, dq.get('msg') || '', sumVisits(vFrom, vTo), sumViews(vFrom, vTo)));
+    res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr, dashKey, allRows, dq.get('msg') || '', sumVisits(vFrom, vTo), sumViews(vFrom, vTo), sumVisits(vFrom, vTo, VISITORS_PATH)));
     return;
   }
 
