@@ -995,7 +995,7 @@ function sumViews(from, to) {
 const BOT_UA = /bot|crawl|spider|slurp|preview|headless|lighthouse|facebookexternalhit|embedly|curl|wget|python|monitor/i;
 
 function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visitCounts, viewCounts, uniqueCounts) {
-  period = period || 'all';
+  period = period || 'day';   // 2026-11：開いたときは「今日」を表示
   from = from || '';
   to = to || '';
   key = key || '';
@@ -1093,6 +1093,7 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   };
 
   // 棒グラフのHTMLを作る
+  const box = (title, data, unit) => (data.length ? '<div class="card"><h3>' + title + '</h3>' + bars(data, unit) + '</div>' : '');
   const bars = (data, unit) => {
     if (!data.length) return '<p class="empty">まだデータがありません</p>';
     const max = data[0][1];
@@ -1126,9 +1127,9 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     ${srcKeys.map(k => `<tr><td>${esc(k)}</td><td style="text-align:right;">${vc[k] || 0}回</td><td style="text-align:right;">${uc[k] || 0}人</td><td style="text-align:right;">${clickMap[k] || 0}人</td><td style="text-align:right;">${paidMap[k] || 0}件</td></tr>`).join('')}
     <tr style="font-weight:700;"><td>合計</td><td style="text-align:right;">${vTotal}回</td><td style="text-align:right;">${uTotal}人</td><td style="text-align:right;">${clicks.length}人</td><td style="text-align:right;">${paid.length}件</td></tr>
   </table>
-  <p class="fnote" style="margin-top:10px;">※「訪問の回数」は、画面を開いてから閉じるまでを1回として数えています（同じ人でも、開き直せばまた1回）。2026年10月6日から数え始めました。<br>
+  <details class="help"><summary>数え方の説明</summary><p class="fnote">※「訪問の回数」は、画面を開いてから閉じるまでを1回として数えています（同じ人でも、開き直せばまた1回）。2026年10月6日から数え始めました。<br>
   ※「来た人（1日1人）」は、同じ人が同じ日に何回来ても1人として数えます（日が変われば、また1人）。${uStart ? esc(uStart.replace(/^(\d+)-0?(\d+)-0?(\d+)$/, '$1年$2月$3日')) + 'から数え始めました。数え始めた日は、古いページと新しいページが混ざるため、少なめに出ます。' : 'まだデータがありません。'}スマホとパソコン、アプリの中の画面と普通のブラウザなど、見る場所が違うと別の人として数えます。どこから来たかは、その日に最初に来たときの入口で数えます。<br>
-  ※電話予約は「電話」として、予約した人にだけ入ります。2026年10月18日から、リンクの印を30日間覚えるようにしました（一度閉じて後日ほかの所から予約した人も、30日以内に押したリンク（いちばん新しいもの）の方に入ります。インフルエンサーの印〈pr_〜〉は、ほかのリンクでは上書きしません）。</p></div>`
+  ※電話予約は「電話」として、予約した人にだけ入ります。2026年10月18日から、リンクの印を30日間覚えるようにしました（一度閉じて後日ほかの所から予約した人も、30日以内に押したリンク（いちばん新しいもの）の方に入ります。インフルエンサーの印〈pr_〜〉は、ほかのリンクでは上書きしません）。</p></details></div>`
     : '<div class="card" style="margin-bottom:26px;"><p class="empty">まだデータがありません</p></div>';
   // 予約ページの中で見られたもの（ふだんは閉じておき、押したら開く）
   const vw = viewCounts || {};
@@ -1137,7 +1138,7 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     <tr><th>見たもの</th><th style="text-align:right;">数</th></tr>
     ${Object.keys(VIEW_KEYS).map(k => `<tr${VIEW_CLICK[k] && !VIEW_CLICK[Object.keys(VIEW_KEYS)[Object.keys(VIEW_KEYS).indexOf(k) - 1]] ? ' style="border-top:2px solid #cbbd9c;"' : ''}><td>${VIEW_KEYS[k]}</td><td style="text-align:right;">${vw[k] || 0}${VIEW_CLICK[k] ? '回' : '人'}</td></tr>`).join('')}
     </table>
-    <p class="fnote" style="margin-top:10px;">※ 上の5つは予約ページ（通常）で数えています。「180分旅館とは？」は開いた人。部屋の写真＝スワイプして写真を1枚以上見た人、動画＝▶を押して再生した人（部屋は、開いただけで閉じた人は入りません）。1回の訪問で、同じものは1人として数えます。下の「詳しく見る」は、トップページと180分旅館ページで押された回数です（同じ人が2回押したら2回）。2026年10月17日から数え始めました。</p>
+    <details class="help"><summary>数え方の説明</summary><p class="fnote">※ 上の5つは予約ページ（通常）で数えています。「180分旅館とは？」は開いた人。部屋の写真＝スワイプして写真を1枚以上見た人、動画＝▶を押して再生した人（部屋は、開いただけで閉じた人は入りません）。1回の訪問で、同じものは1人として数えます。下の「詳しく見る」は、トップページと180分旅館ページで押された回数です（同じ人が2回押したら2回）。2026年10月17日から数え始めました。</p></details>
   </details>`;
   const srcPaid    = countBy(paid, '流入元');
   const repeatData = countBy(paid, '新規/リピーター');
@@ -1185,26 +1186,52 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     return '<a class="cancel-link" href="/confirm-cancel?id=' + idq + '">キャンセルにする</a><br>'
       + '<a class="uncancel-link" href="/confirm-refund?id=' + idq + '">' + (partialOf(r) ? '（一部返金を直す）' : '（一部返金を記録）') + '</a>';
   };
-  const paidListHtml = paidAll.slice().sort((a, b) => (a['記録日時(JST)'] < b['記録日時(JST)'] ? 1 : -1)).map(r => {
+  const SHOW_FIRST = 20;   // 長い一覧は最初に20件だけ出し、残りは「もっと見る」で出す
+  const moreCls = i => (i >= SHOW_FIRST ? ' class="more"' : '');
+  const moreBtn = n => (n > SHOW_FIRST ? '<button type="button" class="more-btn">もっと見る（残り' + (n - SHOW_FIRST) + '件）</button>' : '');
+  const paidSorted = paidAll.slice().sort((a, b) => (a['記録日時(JST)'] < b['記録日時(JST)'] ? 1 : -1));
+  const paidListHtml = paidSorted.map((r, i) => {
     const cancelled = isCancelledRow(r);
     const action = actionHtml(r);
+    const st = cancelled ? 'opacity:' + (cancelFeeOf(r) ? '.75' : '.5') + ';' : '';
     return `
-    <tr${cancelled ? ' style="opacity:' + (cancelFeeOf(r) ? '.75' : '.5') + ';"' : ''}>
-      <td>${esc(r['記録日時(JST)'] || '')}</td>
-      <td>${esc(r['予約日'] || '')} ${esc(r['予約時刻'] || '')}</td>
-      <td>${esc(r['プラン'] || '')} ${esc(r['部屋'] || '')}</td>
-      <td>${esc(r['人数'] || '')}${r['人数'] ? '名' : ''}</td>
-      <td>${amountHtml(r)}</td>
-      <td>${esc(r['流入元'] || '')}${srcPath(r)}</td>
-      <td>${esc((r['都道府県'] || '') + (r['市区町村'] || ''))}</td>
-      <td>${action}</td>
+    <tr${moreCls(i)}${st ? ' style="' + st + '"' : ''}>
+      <td data-label="支払日時">${esc(r['記録日時(JST)'] || '')}</td>
+      <td data-label="利用日時">${esc(r['予約日'] || '')} ${esc(r['予約時刻'] || '')}</td>
+      <td data-label="プラン">${esc(r['プラン'] || '')} ${esc(r['部屋'] || '')}</td>
+      <td data-label="人数">${esc(r['人数'] || '')}${r['人数'] ? '名' : ''}</td>
+      <td data-label="金額">${amountHtml(r)}</td>
+      <td data-label="流入元">${esc(r['流入元'] || '')}${srcPath(r)}</td>
+      <td data-label="地域">${esc((r['都道府県'] || '') + (r['市区町村'] || ''))}</td>
+      <td data-label="操作" class="act">${action}</td>
     </tr>`;
   }).join('');
+
+  // これからの予約（期間に関係なく、利用日が今日以降のもの。利用日が近い順。キャンセル済みは出さない）（2026-11追加）
+  const tomorrowJ = new Date(Date.now() + 33 * 3600000).toISOString().slice(0, 10);
+  const upcoming = stateRows.filter(r => r['段階'] === '③決済完了' && (r['予約日'] || '') >= todayJ && !isCancelledRow(r))
+    .sort((a, b) => ((a['予約日'] || '') + (a['予約時刻'] || '') < (b['予約日'] || '') + (b['予約時刻'] || '') ? -1 : 1));
+  const WD = ['日', '月', '火', '水', '木', '金', '土'];
+  const dayBadge = d => d === todayJ ? '<span class="badge today">今日</span>' : d === tomorrowJ ? '<span class="badge tmr">明日</span>' : '';
+  const dateJa = d => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); if (!m) return esc(d || ''); return (+m[2]) + '/' + (+m[3]) + '（' + WD[new Date(d + 'T00:00:00Z').getUTCDay()] + '）'; };
+  const upcomingHtml = upcoming.map((r, i) => `
+    <tr class="${[r['予約日'] === todayJ ? 'is-today' : '', i >= SHOW_FIRST ? 'more' : ''].join(' ').trim()}">
+      <td data-label="利用日時">${dayBadge(r['予約日'])}${dateJa(r['予約日'])} ${esc(r['予約時刻'] || '')}</td>
+      <td data-label="プラン">${esc(r['プラン'] || '')} ${esc(r['部屋'] || '')}</td>
+      <td data-label="人数">${esc(r['人数'] || '')}${r['人数'] ? '名' : ''}</td>
+      <td data-label="金額">${amountHtml(r)}</td>
+      <td data-label="流入元">${esc(r['流入元'] || '')}</td>
+      <td data-label="支払日時" class="dim">${esc(r['記録日時(JST)'] || '')}</td>
+      <td data-label="操作" class="act">${actionHtml(r)}</td>
+    </tr>`).join('');
+  const todayCount = upcoming.filter(r => r['予約日'] === todayJ).length;
+  const tmrCount = upcoming.filter(r => r['予約日'] === tomorrowJ).length;
 
   // 最近の動き（新しい順に200件。③決済完了の行にはキャンセル操作のリンクを付ける）
   const RECENT_COUNT = 200;
   //   ※ 2026-09-30：「×入力画面で中断」は数が多く大事な行が埋もれるため一覧には出さない（人数は「どこまで進んだか」に表示）
-  const recent = rows.filter(r => r['段階'] !== '×入力画面で中断').slice(-RECENT_COUNT).reverse().map(r => {
+  const recentRows = rows.filter(r => r['段階'] !== '×入力画面で中断').slice(-RECENT_COUNT).reverse();
+  const recent = recentRows.map((r, i) => {
     const stage = r['段階'] || '';
     const sid = r['セッションID'] || '';
     let actionCell = '';
@@ -1228,7 +1255,7 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     if (stage === '⑤追加売上取消' && amt) amountCell = '<span style="color:#a33;">−¥' + amt.toLocaleString() + '</span>';
     if (stage === '③決済完了' && sid) actionCell = actionHtml(r);
     return `
-    <tr>
+    <tr${moreCls(i)}>
       <td>${esc(r['記録日時(JST)'] || '')}</td>
       <td><span class="stage s${esc(stage.charAt(0))}">${esc(stage)}</span></td>
       <td>${stage.charAt(0) === '⑤' ? esc((r['予約日'] || '') + '分') : esc(r['プラン'] || '') + ' ' + esc(r['部屋'] || '')}</td>
@@ -1310,6 +1337,60 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   .uncancel-link{font-size:11px;color:#83795f;}
   .scroll{overflow-x:auto;}
 
+  /* ---- 2026-11 見やすく整理 ---- */
+  .tabs{display:flex;gap:6px;margin:0 0 20px;border-bottom:2px solid var(--line);}
+  .tabs button{flex:1;padding:11px 8px;border:none;background:none;font-family:inherit;font-size:14px;font-weight:800;color:var(--sub);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;}
+  .tabs button.on{color:var(--ink);border-bottom-color:var(--ember);}
+  .tab{display:none;} .tab.on{display:block;}
+  .periods{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;}
+  .periods a{padding:8px 16px;border-radius:100px;text-decoration:none;font-size:13px;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--ink);}
+  .periods a.on{border-color:var(--ember);background:var(--ember);color:#fff;}
+  details.range{text-align:center;margin-bottom:18px;font-size:12.5px;color:var(--sub);}
+  details.range summary{cursor:pointer;display:inline-block;}
+  details.range form{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:10px;}
+  details.range input{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;}
+  details.range button{padding:8px 18px;border:none;border-radius:100px;background:#2b2620;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+  details.help{margin-top:10px;}
+  details.help summary{cursor:pointer;font-size:11.5px;color:var(--sub);display:inline-block;list-style:none;}
+  details.help summary::-webkit-details-marker{display:none;}
+  details.help summary::before{content:"？";display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--sub);font-size:10px;margin-right:5px;font-weight:800;}
+  details.help[open] summary{margin-bottom:4px;}
+  details.help .fnote,details.help .hint{margin-top:0;}
+  details.more-kpi{margin:-14px 0 26px;}
+  details.more-kpi > summary{cursor:pointer;font-size:12.5px;color:var(--sub);font-weight:700;text-align:center;list-style:none;}
+  details.more-kpi > summary::-webkit-details-marker{display:none;}
+  details.more-kpi > summary::after{content:" ▼";font-size:10px;}
+  details.more-kpi[open] > summary::after{content:" ▲";}
+  details.more-kpi .kpis{margin:12px 0 0;}
+  .kpi.sm .value{font-size:20px;}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:100px;overflow:hidden;margin:0 0 12px;}
+  .seg button{padding:7px 14px;border:none;background:#fff;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--sub);cursor:pointer;}
+  .seg button.on{background:var(--ink);color:#fff;}
+  .listpane{display:none;} .listpane.on{display:block;}
+  .summary-line{font-size:13px;margin:0 0 10px;color:var(--ink);}
+  .summary-line b{color:var(--ember);font-size:15px;}
+  .badge{display:inline-block;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:100px;margin-right:6px;vertical-align:1px;}
+  .badge.today{background:var(--ember);color:#fff;} .badge.tmr{background:#f5eee0;color:#a8611f;}
+  tr.is-today td{background:#fff7f0;}
+  td.dim{color:var(--sub);font-size:11px;}
+  tr.more{display:none;} .showall tr.more{display:table-row;}
+  .more-btn{display:block;margin:12px auto 0;padding:8px 20px;border:1px solid var(--line);border-radius:100px;background:#fff;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--ink);cursor:pointer;}
+  .showall .more-btn{display:none;}
+  /* スマホ：一覧は1件ずつのカードにする */
+  @media (max-width:640px){
+    .cards table, .cards tbody{display:block;}
+    .cards tr:first-child{display:none;}
+    .cards tr{display:block;border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-bottom:10px;background:#fff;}
+    .cards tr.more{display:none;} .showall.cards tr.more{display:block;}
+    .cards td{display:block;position:relative;border:none;padding:3px 0 3px 76px;white-space:normal;text-align:right;min-height:24px;}
+    .cards td::before{content:attr(data-label);position:absolute;left:0;top:4px;color:var(--sub);font-size:11px;font-weight:700;}
+    .cards td.dim{display:none;}
+    .cards td.act{border-top:1px dashed var(--line);margin-top:4px;padding-top:7px;}
+    .cards td.act::before{top:8px;}
+    .cards td.act a{display:inline-block;margin:2px 0;}
+    .cards tr.is-today td{background:none;} .cards tr.is-today{border-color:var(--ember);}
+    .kpi .value{font-size:22px;}
+  }
   .actions{text-align:center;margin:26px 0 0;}
   .actions a{display:inline-block;padding:11px 20px;border-radius:100px;background:var(--ember);
              color:#fff;text-decoration:none;font-size:13px;font-weight:800;margin:0 4px;}
@@ -1336,61 +1417,90 @@ ${(failures && failures.length) ? `
 
   <header>
     <h1>NOGIKU 予約データ</h1>
-    <p>${new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} 現在（${periodLabel}）</p>
-    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
-      <a href="/dashboard?${(from || to) ? 'from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to) : 'period=' + encodeURIComponent(period)}&${keyQS}" style="padding:8px 20px;border-radius:100px;text-decoration:none;font-size:13.5px;font-weight:700;background:#2b2620;color:#fff;">↻ 最新に更新</a>
-      <a href="/analytics.csv?${keyQS}" style="padding:8px 20px;border-radius:100px;text-decoration:none;font-size:13.5px;font-weight:700;border:1px solid #d9cfae;background:#fff;color:#2b2620;">CSVでダウンロード</a>
-    </div>
+    <p>${new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} 現在（${periodLabel}）
+      <a href="/dashboard?${(from || to) ? 'from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to) : 'period=' + encodeURIComponent(period)}&${keyQS}" class="keep-tab" style="margin-left:8px;color:#2b2620;font-weight:700;">↻ 更新</a></p>
   </header>
 
   ${flash ? '<div class="flash ' + flash[0] + '">' + esc(flash[1]) + '</div>' : ''}
-  <div style="display:flex;gap:8px;justify-content:center;margin-bottom:22px;flex-wrap:wrap;">
+  <div class="periods">
     ${[['day','今日'],['yesterday','昨日'],['week','今週'],['month','今月'],['all','全期間']].map(function(p){
-      var v = p[0], l = p[1], on = !(from || to) && (period === v);
-      return '<a href="/dashboard?period=' + v + '&' + keyQS + '" style="padding:9px 20px;border-radius:100px;text-decoration:none;font-size:13.5px;font-weight:700;border:1px solid ' + (on ? '#df571d' : '#d9cfae') + ';background:' + (on ? '#df571d' : '#fff') + ';color:' + (on ? '#fff' : '#2b2620') + ';">' + l + '</a>';
+      var on = !(from || to) && (period === p[0]);
+      return '<a class="keep-tab' + (on ? ' on' : '') + '" href="/dashboard?period=' + p[0] + '&' + keyQS + '">' + p[1] + '</a>';
     }).join('')}
   </div>
+  <details class="range"${(from || to) ? ' open' : ''}>
+    <summary>期間を指定して見る</summary>
+    <form method="get" action="/dashboard">
+      <input type="hidden" name="key" value="${esc(key)}">
+      <input type="date" name="from" value="${esc(from)}"><span>〜</span><input type="date" name="to" value="${esc(to)}">
+      <button type="submit">表示</button>
+    </form>
+  </details>
 
-  <form method="get" action="/dashboard" style="display:flex;gap:8px;justify-content:center;align-items:center;margin-bottom:24px;flex-wrap:wrap;font-size:13px;color:#83795f;">
-    <input type="hidden" name="key" value="${esc(key)}">
-    <span>期間を指定：</span>
-    <input type="date" name="from" value="${esc(from)}" style="padding:7px 10px;border:1px solid #d9cfae;border-radius:8px;font-size:13px;font-family:inherit;">
-    <span>〜</span>
-    <input type="date" name="to" value="${esc(to)}" style="padding:7px 10px;border:1px solid #d9cfae;border-radius:8px;font-size:13px;font-family:inherit;">
-    <button type="submit" style="padding:8px 18px;border:none;border-radius:100px;background:#2b2620;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">表示</button>
-  </form>
+  <nav class="tabs">
+    <button type="button" data-tab="yoyaku" class="on">予約</button>
+    <button type="button" data-tab="bunseki">分析</button>
+    <button type="button" data-tab="nyuryoku">入力</button>
+  </nav>
 
+  <!-- ================= 予約 ================= -->
+  <section class="tab on" id="tab-yoyaku">
   <div class="kpis">
     <div class="kpi"><div class="label">予約件数</div><div class="value">${paid.length}<span class="unit">件</span></div>
-      <div class="note">${phoneCount ? 'うち電話予約 ' + phoneCount + '件' : 'キャンセル分を除く'}</div></div>
-    <div class="kpi"><div class="label">予約の売上</div><div class="value">¥${sales.toLocaleString()}</div>
-      <div class="note">${refundTotal ? '返金 ¥' + refundTotal.toLocaleString() + ' を除く' + (cancelFeeSales ? '（キャンセル料 ¥' + cancelFeeSales.toLocaleString() + ' を含む）' : '') : 'キャンセル分を除く'}</div></div>
-    <div class="kpi"><div class="label">追加売上</div><div class="value">${showCust ? '¥' + extraSales.toLocaleString() : '—'}</div>
-      <div class="note">${showCust ? 'レンタル品・ドリンクなど（月ごとの合計）' : '「今月」か月単位の期間で表示'}</div></div>
+      ${phoneCount ? '<div class="note">うち電話予約 ' + phoneCount + '件</div>' : ''}</div>
     <div class="kpi"><div class="label">合計の売上</div><div class="value">¥${totalSales.toLocaleString()}</div>
-      <div class="note">予約の売上＋追加売上</div></div>
-    <div class="kpi"><div class="label">成約率</div><div class="value">${cvr}<span class="unit">%</span></div>
-      <div class="note">ネット予約のみ</div></div>
-    <div class="kpi"><div class="label">平均単価（予約のみ）</div><div class="value">¥${avg.toLocaleString()}</div>
-      <div class="note">キャンセル料を除いた予約の売上 ÷ 予約件数</div></div>
-    <div class="kpi"><div class="label">客単価（追加売上込み）</div><div class="value">${showCust ? '¥' + custAvg.toLocaleString() : '—'}</div>
-      <div class="note">${showCust ? '合計の売上 ÷ 予約件数' : '「今月」か月単位の期間で表示'}</div></div>
-    <div class="kpi"><div class="label">キャンセル件数</div><div class="value" style="color:#a33;">${cancelledList.length}<span class="unit">件</span></div></div>
-    <div class="kpi"><div class="label">キャンセル率</div><div class="value" style="color:#a33;">${cancelRate}<span class="unit">%</span></div></div>
+      ${refundTotal ? '<div class="note">返金 ¥' + refundTotal.toLocaleString() + ' を除く</div>' : ''}</div>
+    <div class="kpi"><div class="label">${showCust ? '客単価' : '平均単価'}</div><div class="value">¥${(showCust ? custAvg : avg).toLocaleString()}</div></div>
+    <div class="kpi"><div class="label">キャンセル率</div><div class="value" style="color:#a33;">${cancelRate}<span class="unit">%</span></div>
+      ${cancelledList.length ? '<div class="note">' + cancelledList.length + '件</div>' : ''}</div>
   </div>
+  <details class="more-kpi">
+    <summary>くわしい数字を見る</summary>
+    <div class="kpis">
+      <div class="kpi sm"><div class="label">予約の売上</div><div class="value">¥${sales.toLocaleString()}</div>
+        ${cancelFeeSales ? '<div class="note">キャンセル料 ¥' + cancelFeeSales.toLocaleString() + ' を含む</div>' : ''}</div>
+      <div class="kpi sm"><div class="label">追加売上</div><div class="value">${showCust ? '¥' + extraSales.toLocaleString() : '—'}</div></div>
+      <div class="kpi sm"><div class="label">成約率</div><div class="value">${cvr}<span class="unit">%</span></div></div>
+      <div class="kpi sm"><div class="label">平均単価（予約のみ）</div><div class="value">¥${avg.toLocaleString()}</div></div>
+      <div class="kpi sm"><div class="label">客単価（追加売上込み）</div><div class="value">${showCust ? '¥' + custAvg.toLocaleString() : '—'}</div></div>
+      <div class="kpi sm"><div class="label">キャンセル件数</div><div class="value" style="color:#a33;">${cancelledList.length}<span class="unit">件</span></div></div>
+    </div>
+    <details class="help"><summary>数字の説明</summary><p class="fnote">
+      合計の売上＝予約の売上＋追加売上。予約の売上は、返金した分を引き、キャンセル料として残った分を含みます。<br>
+      追加売上と客単価（追加売上込み）は、追加売上を月ごとに入力する仕組みのため、「今月」「全期間」「期間指定」のときだけ表示します。それ以外の期間では、上の「平均単価」は予約の売上 ÷ 予約件数です。<br>
+      成約率は、ネット予約で「時間を選んだ人」のうち、決済まで進んだ割合です（電話予約は含みません）。
+    </p></details>
+  </details>
 
-  <h2>決済完了の予約一覧（支払いがあった新しい順・${esc(periodLabel)}）</h2>
-  <div class="card scroll" style="margin-bottom:26px;max-height:520px;overflow-y:auto;">
-    ${paidAll.length ? `<table>
-      <tr><th>支払日時</th><th>利用日時</th><th>プラン</th><th>人数</th><th>金額</th><th>流入元</th><th>地域</th><th>状態・操作</th></tr>
-      ${paidListHtml}
-    </table>
-    <p class="hint">※ 電話予約は、利用日時を支払日時として表示しています。キャンセル済みの予約は薄い色で表示し、残ったキャンセル料だけを売上に含めます。一部返金した予約は、返した金額を引いて売上に含めます。<br>
-    ※ ここで記録しても、お客様への返金は行われません。返金はSquareで行ってください。</p>`
-    : '<p class="empty">この期間の決済完了の予約はありません</p>'}
+  <div class="card">
+    <div class="seg">
+      <button type="button" data-list="upcoming" class="on">これからの予約（${upcoming.length}件）</button>
+      <button type="button" data-list="paid">支払いがあった順（${esc(periodLabel)}・${paidAll.length}件）</button>
+    </div>
+    <div class="listpane on cards" id="list-upcoming">
+      <p class="summary-line">今日 <b>${todayCount}</b>組 ／ 明日 <b>${tmrCount}</b>組</p>
+      ${upcoming.length ? `<table>
+        <tr><th>利用日時</th><th>プラン</th><th>人数</th><th>金額</th><th>流入元</th><th>支払日時</th><th>操作</th></tr>
+        ${upcomingHtml}
+      </table>${moreBtn(upcoming.length)}` : '<p class="empty">これからの予約はありません</p>'}
+    </div>
+    <div class="listpane cards" id="list-paid">
+      ${paidAll.length ? `<table>
+        <tr><th>支払日時</th><th>利用日時</th><th>プラン</th><th>人数</th><th>金額</th><th>流入元</th><th>地域</th><th>操作</th></tr>
+        ${paidListHtml}
+      </table>${moreBtn(paidAll.length)}` : '<p class="empty">この期間に支払いがあった予約はありません</p>'}
+    </div>
+    <details class="help"><summary>この一覧について</summary><p class="hint">
+      「これからの予約」は、期間のボタンに関係なく、利用日が今日以降の予約を、利用日が近い順に表示します（キャンセル済みは出しません）。<br>
+      「支払いがあった順」は、上で選んだ期間に支払いがあった予約です。電話予約は、利用日時を支払日時として表示しています。キャンセル済みの予約は薄い色で表示し、残ったキャンセル料だけを売上に含めます。一部返金した予約は、返した金額を引いて売上に含めます。<br>
+      ここで記録しても、お客様への返金は行われません。返金はSquareで行ってください。
+    </p></details>
   </div>
+  </section>
 
-  <h2>サイトに来た人（どこから来たか・${esc(periodLabel)}）</h2>
+  <!-- ================= 分析 ================= -->
+  <section class="tab" id="tab-bunseki">
+  <h2>サイトに来た人（${esc(periodLabel)}）</h2>
   ${visitTableHtml}
   ${viewsHtml}
 
@@ -1411,33 +1521,27 @@ ${(failures && failures.length) ? `
       <div class="ftrack"><div class="ffill" style="width:${clicks.length ? Math.min(100, paidOnline.length / clicks.length * 100) : 0}%"></div></div>
       <div class="fnum">${paidOnline.length} 人</div>
     </div>
-    <p class="fnote">
-      入力画面で離脱：${dropForm.length}人 ／ 決済ページで離脱（10分切れ）：${dropTime.length}人${phoneCount ? ' ／ 電話予約：' + phoneCount + '件（この表には含みません）' : ''}<br>
-      ※ ②が①より大きく減っていれば「入力が面倒」、③が②より大きく減っていれば「決済で迷っている」サインです。
-    </p>
+    <p class="fnote">入力画面で離脱：${dropForm.length}人 ／ 決済ページで離脱（10分切れ）：${dropTime.length}人${phoneCount ? ' ／ 電話予約：' + phoneCount + '件（この表には含みません）' : ''}</p>
+    <details class="help"><summary>見方</summary><p class="fnote">②が①より大きく減っていれば「入力が面倒」、③が②より大きく減っていれば「決済で迷っている」サインです。</p></details>
   </div>
 
-  <h2>お客様のこと</h2>
-  <div class="grid">
-    <div class="card"><h3>新規 / リピーター</h3>${bars(repeatData)}</div>
-    <div class="card"><h3>どこから来たか（流入元・予約した人）</h3>${bars(srcPaid)}</div>
-    <div class="card"><h3>どこから来たか（流入元・時間を選んだ人）</h3>${bars(srcClick, '人')}</div>
-    <div class="card"><h3>都道府県</h3>${bars(prefData)}</div>
-    <div class="card"><h3>市区町村（ご記入いただいた方のみ）</h3>${bars(cityData)}</div>
-    <div class="card"><h3>端末（時間を選んだ人）</h3>${bars(devData, '人')}</div>
-    <div class="card"><h3>何日前に予約したか</h3>${bars(aheadData)}</div>
-  </div>
+  ${(() => { const h = [box('新規 / リピーター', repeatData), box('どこから来たか（予約した人）', srcPaid), box('どこから来たか（時間を選んだ人）', srcClick, '人'), box('都道府県', prefData), box('市区町村（ご記入いただいた方のみ）', cityData), box('端末（時間を選んだ人）', devData, '人'), box('何日前に予約したか', aheadData)].join('');
+    return h ? '<h2>お客様のこと</h2><div class="grid">' + h + '</div>' : ''; })()}
 
-  <h2>売れ方のこと</h2>
-  <div class="grid">
-    <div class="card"><h3>プラン別</h3>${bars(planData)}</div>
-    <div class="card"><h3>部屋別（天照 / 月読）</h3>${bars(roomData)}</div>
-    <div class="card"><h3>人数別</h3>${bars(peopleData)}</div>
-    <div class="card"><h3>人気の時間帯</h3>${bars(timeData)}</div>
-    <div class="card"><h3>平日 / 土日祝</h3>${bars(wdData)}</div>
-  </div>
+  ${(() => { const h = [box('プラン別', planData), box('部屋別（天照 / 月読）', roomData), box('人数別', peopleData), box('人気の時間帯', timeData), box('平日 / 土日祝', wdData)].join('');
+    return h ? '<h2>売れ方のこと</h2><div class="grid">' + h + '</div>' : ''; })()}
 
-  <h2>手入力（電話予約・追加売上）</h2>
+  <h2>最近の動き（新しい順・入力画面での中断は除く）</h2>
+  <div class="card scroll">
+    ${recentRows.length ? `<table>
+      <tr><th>記録日時</th><th>段階</th><th>プラン</th><th>人数</th><th>予約日時</th><th>流入元</th><th>地域</th><th>金額</th><th>操作</th></tr>
+      ${recent}
+    </table>${moreBtn(recentRows.length)}` : '<p class="empty">まだデータがありません</p>'}
+  </div>
+  </section>
+
+  <!-- ================= 入力 ================= -->
+  <section class="tab" id="tab-nyuryoku">
   <div class="grid">
     <div class="card">
       <h3>電話予約を追加する</h3>
@@ -1454,9 +1558,9 @@ ${(failures && failures.length) ? `
         <label>市区町村（任意）<input type="text" name="city" placeholder="由布市" style="width:90px;"></label>
         <button type="submit">追加する</button>
       </form>
-      <p class="hint">※ 流入元は「電話」、支払い方法は「当日現地払い」として記録し、利用日の売上として数えます。<br>
-      ※ ここに入力しても、Squareのカレンダーには登録されません。カレンダーへの登録はSquareで行ってください。<br>
-      ※ 間違えた場合は、上の「決済完了の予約一覧」から「キャンセルにする」→「全額を返した」で取り消せます。</p>
+      <details class="help"><summary>入力について</summary><p class="hint">流入元は「電話」、支払い方法は「当日現地払い」として記録し、利用日の売上として数えます。<br>
+      ここに入力しても、Squareのカレンダーには登録されません。カレンダーへの登録はSquareで行ってください。<br>
+      間違えた場合は、「予約」の一覧から「キャンセルにする」→「全額を返した」で取り消せます。</p></details>
     </div>
     <div class="card">
       <h3>追加売上（レンタル品・ドリンクなど）を入力する</h3>
@@ -1466,25 +1570,46 @@ ${(failures && failures.length) ? `
         <label>合計金額（円）<input type="number" name="amount" min="1" step="1" required style="width:130px;"></label>
         <button type="submit">追加する</button>
       </form>
-      <p class="hint">※ 月末に、その月の合計をまとめて入力してください。同じ月に何回か分けて入力すると、合算されます。</p>
+      <details class="help"><summary>入力について</summary><p class="hint">月末に、その月の合計をまとめて入力してください。同じ月に何回か分けて入力すると、合算されます。</p></details>
       ${extraAll.length ? '<table style="margin-top:10px;"><tr><th>月</th><th>金額</th><th></th></tr>' + extraAll.slice(0, 12).map(r =>
         '<tr><td>' + esc(r['予約日']) + '分</td><td>¥' + yen(r['金額']).toLocaleString() + '</td><td><a class="uncancel-link" href="/cancel-extra?id=' + encodeURIComponent(r['セッションID']) + '&' + keyQS + '">取り消す</a></td></tr>').join('') + '</table>'
         : '<p class="empty" style="margin-top:10px;">まだ入力はありません</p>'}
     </div>
   </div>
-
-  <h2>最近の動き（新しい順に200件・入力画面での中断は除く）</h2>
-  <div class="card scroll">
-    ${rows.length ? `<table>
-      <tr><th>記録日時</th><th>段階</th><th>プラン</th><th>人数</th><th>予約日時</th><th>流入元</th><th>地域</th><th>金額</th><th>操作</th></tr>
-      ${recent}
-    </table>` : '<p class="empty">まだデータがありません</p>'}
-  </div>
+  </section>
 
   <div class="actions">
-    <a href="/analytics.csv?${keyQS}">CSVでダウンロード</a>
+    <a class="sub" href="/analytics.csv?${keyQS}">CSVでダウンロード</a>
   </div>
 
+<script>
+(function(){
+  // タブ：選んだタブはURLの#に残し、期間を変えても同じタブのまま開く
+  var tabs = document.querySelectorAll('.tabs button');
+  function show(name){
+    if (!document.getElementById('tab-' + name)) name = 'yoyaku';
+    tabs.forEach(function(b){ b.classList.toggle('on', b.dataset.tab === name); });
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('on', t.id === 'tab-' + name); });
+    try { history.replaceState(null, '', name === 'yoyaku' ? location.pathname + location.search : '#' + name); } catch (e) {}
+  }
+  tabs.forEach(function(b){ b.addEventListener('click', function(){ show(b.dataset.tab); }); });
+  show((location.hash || '').slice(1) || 'yoyaku');
+  document.querySelectorAll('a.keep-tab').forEach(function(a){
+    a.addEventListener('click', function(){ var h = location.hash; if (h) a.href = a.href.split('#')[0] + h; });
+  });
+  // 予約一覧の切り替え（これからの予約／支払いがあった順）
+  document.querySelectorAll('.seg button').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.seg button').forEach(function(x){ x.classList.toggle('on', x === b); });
+      document.querySelectorAll('.listpane').forEach(function(p){ p.classList.toggle('on', p.id === 'list-' + b.dataset.list); });
+    });
+  });
+  // もっと見る
+  document.querySelectorAll('.more-btn').forEach(function(b){
+    b.addEventListener('click', function(){ b.parentNode.classList.add('showall'); });
+  });
+})();
+</script>
 </div></body></html>`;
 }
 
@@ -1873,7 +1998,7 @@ const server = http.createServer((req, res) => {
     // ---- 期間の絞り込み（今日／今週／今月／全期間） ----
     const dq = new URLSearchParams(req.url.split('?')[1] || '');
     const dashKey = dq.get('key') || '';
-    const period = dq.get('period') || 'all';
+    const period = dq.get('period') || 'day';
     const nowJ = new Date(Date.now() + 9 * 3600000);
     const todayStr = nowJ.toISOString().slice(0, 10);
     const monthStr = nowJ.toISOString().slice(0, 7);
