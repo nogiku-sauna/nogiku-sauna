@@ -155,23 +155,41 @@ async function searchAvailability(startAt, endAt, locId, variation, teamIds) {
 
 
 // ==========================================================================
-// 予約率（2026-11追加）
-//   その日に「売れる枠」＝ Squareの予約済みの枠 ＋ まだ空いている枠（休館日はどちらも0なので自動で外れる）
-//   ・予約済みの枠：Squareのカレンダーの予約（電話予約をSquareに入れた分も含む）。部屋（予約できる担当者）の予約だけ数える
-//     長い予約（2枠プランなど）は、時間の長さに応じて2枠と数える
-//   ・空いている枠：天照・月読の120分メニューでSquareに空きを聞いた数
-//   ・過ぎた日は空きが分からないので、その日になる前に覚えておいた「売れる枠」を使う（capacity.json）
-//     覚えていない日：予約か空きが1つでもあれば標準の8枠、どちらもなければ休館日とみなす
-//   ・予約を受け付ける前の先の日（空きがまだ出ない日）は、標準の8枠として「見込み」で数える
-//   30分ごとにSquareから取り直し、管理画面は覚えておいた結果を表示するだけ（開くたびにSquareに聞かない）
+// 予約率（2026-11追加・11/8 数え方を変更）
+//   売れる枠 ＝ 営業日 × 8枠 − 売り止めの枠
+//     ・休館日：管理画面の「入力」タブで入れた日。8枠すべてを外す
+//     ・休館日明けの月読9:30：自動で外す（入力タブで「売る」に戻すこともできる）
+//     ・そのほか前もって売らないと決めた枠：入力タブで自由に入れた枠を外す
+//     ・前日20時までに予約がなく、当日の9:30を売り止めにした枠は入力しない（＝売れなかった枠として分母に残す）
+//   予約が入った枠 ＝ Squareのカレンダーの予約（電話予約をSquareに入れた分も含む。キャンセルは除く）
+//     部屋（予約できる担当者）の予約だけ数え、長い予約（2枠プランなど）は時間の長さに応じて2枠と数える
+//   Squareの予約は30分ごとに読み込み、管理画面は覚えておいた結果を表示するだけ
 // ==========================================================================
-const CAPACITY_PATH = path.join(__dirname, 'capacity.json');
-const SLOTS_PER_DAY = 8;          // 天照4枠＋月読4枠
+const SLOT_DEFS = [   // 1日の8枠（部屋・開始時刻）
+  { room: '天照', time: '11:00' }, { room: '天照', time: '13:30' }, { room: '天照', time: '16:00' }, { room: '天照', time: '18:30' },
+  { room: '月読', time: '09:30' }, { room: '月読', time: '12:00' }, { room: '月読', time: '14:30' }, { room: '月読', time: '17:00' }
+];
+const SLOTS_PER_DAY = SLOT_DEFS.length;
 const SLOT_UNIT_MIN = 150;        // 1枠＝2時間＋準備30分。予約の長さをこれで割って何枠分かを決める
-let occCache = { booked: {}, avail: {}, horizon: '', at: 0, error: '' };
-function loadCapacity() { try { return JSON.parse(fs.readFileSync(CAPACITY_PATH, 'utf8')) || {}; } catch (e) { return {}; } }
+const AUTO_BLOCK = { room: '月読', time: '09:30' };   // 休館日明けに自動で外す枠
+const CALENDAR_PATH = path.join(__dirname, 'calendar.json');   // { closed:[日付], blocked:["日付|部屋|時刻"], unblocked:[同] }
+let occCache = { booked: {}, at: 0, error: '' };
+function loadCalendar() {
+  try { const c = JSON.parse(fs.readFileSync(CALENDAR_PATH, 'utf8')) || {}; return { closed: c.closed || [], blocked: c.blocked || [], unblocked: c.unblocked || [] }; }
+  catch (e) { return { closed: [], blocked: [], unblocked: [] }; }
+}
+function saveCalendar(c) { fs.writeFileSync(CALENDAR_PATH, JSON.stringify(c)); }
 function jstToday() { return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10); }
 function addDaysStr(ds, n) { return new Date(new Date(ds + 'T00:00:00Z').getTime() + n * 86400000).toISOString().slice(0, 10); }
+const slotKey = (d, room, time) => d + '|' + room + '|' + time;
+// その枠が売り止めか（kind：'manual' 入力した／'auto' 休館日明け／'' 売る）
+function slotBlock(cal, closedSet, d, room, time) {
+  const k = slotKey(d, room, time);
+  if (cal.blocked.indexOf(k) !== -1) return 'manual';
+  if (room === AUTO_BLOCK.room && time === AUTO_BLOCK.time && closedSet.has(addDaysStr(d, -1)) && !closedSet.has(d)
+      && cal.unblocked.indexOf(k) === -1) return 'auto';
+  return '';
+}
 
 async function listRoomBookings(fromIso, toIso, locId, rooms) {
   const out = [];
@@ -212,42 +230,11 @@ async function refreshOccupancy() {
     const locId = await getLocationId();
     const rooms = await getBookableTeam();
     const today = jstToday();
-    // 予約済みの枠：70日前〜40日先
     const booked = {};
-    const bks = await listRoomBookings(new Date(addDaysStr(today, -70) + 'T00:00:00+09:00').toISOString(),
-                                       new Date(addDaysStr(today, 41) + 'T00:00:00+09:00').toISOString(), locId, rooms);
+    const bks = await listRoomBookings(new Date(addDaysStr(today, -100) + 'T00:00:00+09:00').toISOString(),
+                                       new Date(addDaysStr(today, 70) + 'T00:00:00+09:00').toISOString(), locId, rooms);
     bks.forEach(x => { booked[x.date] = (booked[x.date] || 0) + x.slots; });
-    // 空いている枠：今〜31日先（天照・月読の120分メニューで聞く）
-    const avail = {};
-    const startAt = new Date(Date.now() + 60000).toISOString();
-    const endAt = new Date(Date.now() + 31 * 86400000).toISOString();
-    for (const plan of ['amaterasu120', 'tsukuyomi120']) {
-      const variation = MENU[plan].weekday[2];
-      const seen = new Set();
-      for (let i = 0; i < 2; i++) {   // 結果のぶれ対策で2回聞いて合わせる
-        const r = await searchAvailability(startAt, endAt, locId, variation, [...rooms]);
-        (r.data.availabilities || []).forEach(av => (av.appointment_segments || []).forEach(sg => {
-          if (!rooms.has(sg.team_member_id)) return;
-          const k = sg.team_member_id + '|' + av.start_at;
-          if (seen.has(k)) return;
-          seen.add(k);
-          const d = jstDateStr(av.start_at);
-          avail[d] = (avail[d] || 0) + 1;
-        }));
-      }
-    }
-    // 空きが出ている一番先の日（＝予約を受け付けている範囲の端）
-    const horizon = Object.keys(avail).sort().pop() || today;
-    // 明日以降・受付範囲内の日は、「売れる枠」を覚えておく（その日が過ぎたあとも使えるように）
-    const cap = loadCapacity();
-    for (let d = addDaysStr(today, 1); d <= horizon; d = addDaysStr(d, 1)) {
-      cap[d] = { total: (booked[d] || 0) + (avail[d] || 0), at: new Date().toISOString() };
-    }
-    // 古すぎる記録は捨てる（400日より前）
-    const cut = addDaysStr(today, -400);
-    Object.keys(cap).forEach(k => { if (k < cut) delete cap[k]; });
-    fs.writeFileSync(CAPACITY_PATH, JSON.stringify(cap));
-    occCache = { booked, avail, horizon, at: Date.now(), error: '' };
+    occCache = { booked, at: Date.now(), error: '' };
   } catch (e) {
     occCache.error = String(e && e.message ? e.message : e);
     console.error('予約率の更新に失敗:', occCache.error);
@@ -256,27 +243,23 @@ async function refreshOccupancy() {
 setTimeout(refreshOccupancy, 15 * 1000);
 setInterval(refreshOccupancy, 30 * 60 * 1000);
 
-// 1日分の「売れる枠」と「予約済みの枠」（kind：実績／見込み／推定）
-function occDay(d, cap, today) {
-  const booked = occCache.booked[d] || 0;
-  const avail = occCache.avail[d] || 0;
-  if (d > today && d <= occCache.horizon) return { total: booked + avail, booked, kind: 'live' };
-  if (cap[d]) return { total: Math.max(cap[d].total, booked), booked, kind: d < today ? 'past' : 'live' };
-  if (d > occCache.horizon) return { total: SLOTS_PER_DAY, booked, kind: 'future' };   // まだ受付前の日：標準の8枠で見込み
-  return { total: (booked || avail) ? SLOTS_PER_DAY : 0, booked, kind: 'guess' };      // 覚えていない過去の日
-}
+// 期間の予約率
 function occRange(from, to) {
-  const cap = loadCapacity();
-  const today = jstToday();
-  let total = 0, booked = 0, open = 0, closed = 0, future = 0, guess = 0;
+  const cal = loadCalendar();
+  const closedSet = new Set(cal.closed);
+  let total = 0, booked = 0;
+  const closedDays = [], blockedSlots = [];
   for (let d = from; d <= to; d = addDaysStr(d, 1)) {
-    const x = occDay(d, cap, today);
-    total += x.total; booked += Math.min(x.booked, x.total || x.booked);
-    if (x.total > 0) open++; else closed++;
-    if (x.kind === 'future') future++;
-    if (x.kind === 'guess') guess++;
+    if (closedSet.has(d)) { closedDays.push(d); continue; }
+    let cap = 0;
+    SLOT_DEFS.forEach(sd => {
+      const b = slotBlock(cal, closedSet, d, sd.room, sd.time);
+      if (b) blockedSlots.push({ d, room: sd.room, time: sd.time, kind: b }); else cap++;
+    });
+    total += cap;
+    booked += Math.min(occCache.booked[d] || 0, SLOTS_PER_DAY);
   }
-  return { total, booked, open, closed, future, guess, rate: total ? Math.round(booked / total * 1000) / 10 : 0 };
+  return { total, booked, closedDays, blockedSlots, rate: total ? Math.round(booked / total * 1000) / 10 : 0 };
 }
 
 // ---- 正しい Location ID を Square から取得（入力ミス対策・キャッシュ） ----
@@ -1120,7 +1103,7 @@ function sumViews(from, to) {
 }
 const BOT_UA = /bot|crawl|spider|slurp|preview|headless|lighthouse|facebookexternalhit|embedly|curl|wget|python|monitor/i;
 
-function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visitCounts, viewCounts, uniqueCounts) {
+function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visitCounts, viewCounts, uniqueCounts, calParam) {
   period = period || 'day';   // 2026-11：開いたときは「今日」を表示
   from = from || '';
   to = to || '';
@@ -1201,7 +1184,9 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     cancel_ok: ['ok', 'キャンセルを記録しました。'],
     cancel_ng: ['ng', 'キャンセルを記録できませんでした。返金した金額を確認してください。'],
     refund_ok: ['ok', '一部返金を記録しました。'],
-    refund_ng: ['ng', '一部返金を記録できませんでした。返金した金額を確認してください。']
+    refund_ng: ['ng', '一部返金を記録できませんでした。返金した金額を確認してください。'],
+    cal_ok: ['ok', '休館日・売り止めを更新しました。'],
+    cal_ng: ['ng', '休館日・売り止めを更新できませんでした。']
   };
   const flash = MSGS[msg];
   const thisMonth = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 7);
@@ -1354,9 +1339,8 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   const occRow = (label, sub, from, to) => {
     const o = occRange(from, to);
     const notes = [];
-    if (o.closed) notes.push('休館' + o.closed + '日');
-    if (o.future) notes.push('受付前' + o.future + '日（8枠で見込み）');
-    if (o.guess) notes.push('推定' + o.guess + '日');
+    if (o.closedDays.length) notes.push('休館' + o.closedDays.length + '日');
+    if (o.blockedSlots.length) notes.push('売り止め' + o.blockedSlots.length + '枠');
     const w = Math.min(100, o.rate);
     return `<tr><td class="occ-l">${label}<br><span class="dim">${sub}</span></td>
       <td class="occ-b"><div class="occ-track"><div class="occ-fill" style="width:${w}%"></div></div><span class="dim">${o.booked} / ${o.total}枠${notes.length ? '・' + notes.join('・') : ''}</span></td>
@@ -1375,17 +1359,59 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     const a = monthStart(ty, tm + mm[1]), b = addDaysStr(monthStart(ty, tm + mm[1] + 1), -1);
     return occRow(mm[0], (+a.slice(5, 7)) + '月', a, b);
   }).join('');
+  // 今月・来月の休館日と売り止めを一覧で見せる（入力が正しいかの確認用）
+  const calSummary = [0, 1].map(k => {
+    const a = monthStart(ty, tm + k), b = addDaysStr(monthStart(ty, tm + k + 1), -1);
+    const o = occRange(a, b);
+    const cl = o.closedDays.map(md).join('・') || 'なし';
+    const bl = o.blockedSlots.map(x => md(x.d) + ' ' + x.room + x.time + (x.kind === 'auto' ? '（休館日明け）' : '')).join('、') || 'なし';
+    return '<p class="cal-sum"><b>' + (+a.slice(5, 7)) + '月</b>　休館日：' + esc(cl) + '　／　売り止め：' + esc(bl) + '</p>';
+  }).join('');
+  // 入力タブ：休館日・売り止めのカレンダー（月ごと）
+  const calMonth = /^\d{4}-\d{2}$/.test(calParam || '') ? calParam : todayJ.slice(0, 7);
+  const cy = +calMonth.slice(0, 4), cm = +calMonth.slice(5, 7) - 1;
+  const prevM = monthStart(cy, cm - 1).slice(0, 7), nextM = monthStart(cy, cm + 1).slice(0, 7);
+  const calNow = loadCalendar(), closedNow = new Set(calNow.closed);
+  const WDJ = ['日', '月', '火', '水', '木', '金', '土'];
+  const setLink = (q) => '/set-calendar?' + q + '&cal=' + calMonth + '&' + keyQS;
+  let calRows = '';
+  for (let d = monthStart(cy, cm); d < monthStart(cy, cm + 1); d = addDaysStr(d, 1)) {
+    const wd = new Date(d + 'T00:00:00Z').getUTCDay();
+    const isClosed = closedNow.has(d);
+    const dayCls = isClosed ? 'closed' : (wd === 0 || wd === 6 || HOLIDAYS_2026.has(d)) ? 'hol' : '';
+    const slots = isClosed ? '<span class="cal-off">休館日（8枠すべて計算から外れます）</span>' : ['天照', '月読'].map(room =>
+      '<span class="cal-grp"><span class="cal-room">' + room + '</span>' + SLOT_DEFS.filter(x => x.room === room).map(x => {
+        const b = slotBlock(calNow, closedNow, d, x.room, x.time);
+        const act = b === 'manual' ? 'unblock' : b === 'auto' ? 'unblock' : 'block';
+        const t = b === 'auto' ? '休館日明けのため自動で売り止め。押すと売る' : b ? '売り止め中。押すと売る' : '押すと売り止め';
+        return '<a class="slot ' + b + '" title="' + t + '" href="' + setLink('date=' + d + '&room=' + encodeURIComponent(x.room) + '&time=' + x.time + '&act=' + act) + '">' + x.time.replace(/^0/, '') + '</a>';
+      }).join('') + '</span>').join('');
+    calRows += '<div class="cal-row ' + dayCls + '"><div class="cal-d">' + (+d.slice(8, 10)) + '日（' + WDJ[wd] + '）</div>'
+      + '<a class="cal-close' + (isClosed ? ' on' : '') + '" href="' + setLink('date=' + d + '&act=' + (isClosed ? 'open' : 'close')) + '">' + (isClosed ? '休館日' : '営業') + '</a>'
+      + '<div class="cal-slots">' + slots + '</div></div>';
+  }
+  const calendarHtml = `<div class="card" id="cal" style="margin-bottom:18px;">
+    <div class="occ-head"><h3 style="margin:0;">休館日・売り止め（予約率の計算用）</h3>
+      <div class="cal-nav"><a href="/dashboard?cal=${prevM}&${keyQS}#nyuryoku">← 前の月</a><b>${cy}年${cm + 1}月</b><a href="/dashboard?cal=${nextM}&${keyQS}#nyuryoku">次の月 →</a></div></div>
+    <div class="cal-list">${calRows}</div>
+    <details class="help"><summary>入力のしかた</summary><p class="hint">
+      「営業」を押すと、その日が休館日になります（もう一度押すと営業に戻ります）。休館日の翌日の月読9:30は、自動で売り止め（斜線）になります。<br>
+      時刻を押すと、その枠が売り止めになります（濃い色）。もう一度押すと売る枠に戻ります。休館日明けの9:30も、押せば売る枠に戻せます。<br>
+      前日20時までに予約がなく、当日の9:30を売り止めにした場合は、入力しないでください（売れなかった枠として予約率に入れます）。<br>
+      ここでの入力は予約率の計算だけに使います。Squareの予約の受付は変わりません。
+    </p></details>
+  </div>`;
   const occUpdated = occCache.at ? new Date(occCache.at + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ').replace('-', '/') : '';
   const occHtml = `<div class="card" style="margin-bottom:18px;">
     <div class="occ-head"><h3 style="margin:0;">予約率</h3>
       <div class="seg" style="margin:0;"><button type="button" data-occ="week" class="on">週ごと</button><button type="button" data-occ="month">月ごと</button></div></div>
     ${occCache.error && !occCache.at ? '<p class="empty">Squareから予約率を読み込めませんでした：' + esc(occCache.error) + '</p>'
       : !occCache.at ? '<p class="empty">予約率を準備中です（サーバーを起動してから1分ほどかかります）</p>'
-      : `<table class="occ occ-pane on" id="occ-week">${weekRows}</table><table class="occ occ-pane" id="occ-month">${monthRows}</table>`}
+      : `<table class="occ occ-pane on" id="occ-week">${weekRows}</table><table class="occ occ-pane" id="occ-month">${monthRows}</table>${calSummary}`}
     <details class="help"><summary>予約率の数え方</summary><p class="hint">
-      予約率＝予約が入っている枠 ÷ 売れる枠。売れる枠は、Squareの「予約済みの枠」と「まだ空いている枠」を合わせた数です。休館日やSquareで止めた枠は、どちらにも入らないので自動で外れます。<br>
+      予約率＝予約が入っている枠 ÷ 売れる枠。売れる枠＝営業日 × 8枠 − 売り止めの枠です。<br>
+      休館日と売り止めの枠は「入力」タブで入れます。休館日明けの月読9:30は自動で売り止めになります。前日20時までに予約がなく当日の9:30を売り止めにした枠は入力しません（売れなかった枠として数えます）。<br>
       予約はSquareのカレンダーの予約で数えます（電話予約もSquareに入れていれば含みます。キャンセルは除きます）。2枠分の長さの予約は2枠と数えます。<br>
-      過ぎた日は、その日の前に覚えておいた「売れる枠」を使います。覚えていない日は、予約か空きがあれば8枠、なければ休館日として数えます（「推定」）。まだ予約を受け付けていない先の日は、8枠として見込みで数えます（「受付前」）。<br>
       ${occUpdated ? 'Squareから読み込んだ時刻：' + esc(occUpdated) + '（30分ごとに更新）' : ''}${occCache.error ? '<br>前回の更新でエラー：' + esc(occCache.error) : ''}
     </p></details>
   </div>`;
@@ -1564,6 +1590,29 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   .occ-track{height:12px;border-radius:100px;background:#f2ebdc;overflow:hidden;margin-bottom:4px;}
   .occ-fill{height:100%;background:var(--ember);border-radius:100px;}
   .occ-pane{display:none;} .occ-pane.on{display:table;width:100%;}
+  .cal-sum{font-size:12px;color:var(--sub);margin:10px 0 0;}
+  .cal-nav{display:flex;gap:14px;align-items:center;font-size:13px;}
+  .cal-nav a{color:var(--sub);text-decoration:none;font-weight:700;}
+  .cal-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line);flex-wrap:wrap;}
+  .cal-row.hol .cal-d{color:#a33;}
+  .cal-row.closed{background:#f3efe6;}
+  .cal-d{width:74px;font-size:13px;font-weight:700;}
+  .cal-close{font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:100px;border:1px solid var(--line);text-decoration:none;color:var(--sub);background:#fff;}
+  .cal-close.on{background:#6b6f77;color:#fff;border-color:#6b6f77;}
+  .cal-slots{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex:1;}
+  .cal-room{font-size:11px;color:var(--sub);margin:0 2px 0 4px;}
+  .cal-grp{display:inline-flex;align-items:center;gap:4px;margin-right:10px;}
+  .cal-off{font-size:12px;color:var(--sub);}
+  @media (max-width:640px){
+    .cal-row{gap:6px 10px;}
+    .cal-slots{flex-basis:100%;flex-direction:column;align-items:stretch;gap:5px;}
+    .cal-grp{display:flex;margin:0;}
+    .cal-grp .slot{flex:1;text-align:center;}
+    .cal-room{width:28px;margin:0;}
+  }
+  .slot{font-size:11.5px;padding:3px 7px;border-radius:6px;border:1px solid var(--line);text-decoration:none;color:var(--ink);background:#fff;}
+  .slot.manual{background:var(--ember);color:#fff;border-color:var(--ember);}
+  .slot.auto{background:repeating-linear-gradient(45deg,#f3d6c4,#f3d6c4 4px,#fff 4px,#fff 8px);color:#a8611f;border-color:#f3d6c4;}
   .actions{text-align:center;margin:26px 0 0;}
   .actions a{display:inline-block;padding:11px 20px;border-radius:100px;background:var(--ember);
              color:#fff;text-decoration:none;font-size:13px;font-weight:800;margin:0 4px;}
@@ -1717,6 +1766,7 @@ ${(failures && failures.length) ? `
 
   <!-- ================= 入力 ================= -->
   <section class="tab" id="tab-nyuryoku">
+  ${calendarHtml}
   <div class="grid">
     <div class="card">
       <h3>電話予約を追加する</h3>
@@ -1862,7 +1912,7 @@ const server = http.createServer((req, res) => {
   const ADMIN_KEY = config.ADMIN_KEY || '';
   const CLOSED_PATHS = ['/setup', '/inspect', '/cancel-booking', '/complete-orders', '/paylink', '/availability', '/quote'];
   const SECRET_PATHS = ['/notifications', '/failures', '/dashboard', '/confirm-cancel', '/do-cancel', '/confirm-uncancel', '/do-uncancel',
-    '/analytics', '/analytics.csv', '/add-phone', '/add-extra', '/cancel-extra', '/confirm-refund', '/do-refund'];
+    '/analytics', '/analytics.csv', '/add-phone', '/add-extra', '/cancel-extra', '/confirm-refund', '/do-refund', '/set-calendar'];
   function notFound() {
     res.statusCode = 404;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -2214,7 +2264,7 @@ const server = http.createServer((req, res) => {
     else if (period === 'yesterday') { vFrom = vTo = yesterdayStr; }
     else if (period === 'week') { vFrom = mondayStr; }
     else if (period === 'month') { vFrom = monthStr + '-01'; }
-    res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr, dashKey, allRows, dq.get('msg') || '', sumVisits(vFrom, vTo), sumViews(vFrom, vTo), sumVisits(vFrom, vTo, VISITORS_PATH)));
+    res.end(dashboardPage(rows, loadFailures(), period, fromStr, toStr, dashKey, allRows, dq.get('msg') || '', sumVisits(vFrom, vTo), sumViews(vFrom, vTo), sumVisits(vFrom, vTo, VISITORS_PATH), dq.get('cal') || ''));
     return;
   }
 
@@ -2248,6 +2298,44 @@ const server = http.createServer((req, res) => {
 
   // ---- 追加売上（レンタル品・ドリンクなど）の月ごとの合計を入力 ----
   //   記録日時はその月の末日にする（「今月」「期間指定」で、その月の売上として数えるため）
+  // ---- 休館日・売り止めの入力（2026-11追加。予約率の計算だけに使う） ----
+  if (url === '/set-calendar' && req.method === 'GET') {
+    const q = new URLSearchParams(req.url.split('?')[1] || '');
+    const key = q.get('key') || '';
+    const date = q.get('date') || '';
+    const act = q.get('act') || '';
+    const cal = (q.get('cal') || '').slice(0, 7);
+    const room = q.get('room') || '', time = q.get('time') || '';
+    let msg = 'cal_ng';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const c = loadCalendar();
+      const without = (arr, v) => arr.filter(x => x !== v);
+      if (act === 'close' || act === 'open') {
+        c.closed = without(c.closed, date);
+        if (act === 'close') c.closed.push(date);
+        c.closed.sort();
+        msg = 'cal_ok';
+      } else if ((act === 'block' || act === 'unblock') && SLOT_DEFS.some(x => x.room === room && x.time === time)) {
+        const k = slotKey(date, room, time);
+        c.blocked = without(c.blocked, k);
+        c.unblocked = without(c.unblocked, k);
+        if (act === 'block') {
+          c.blocked.push(k);
+        } else {
+          // 休館日明けの自動の売り止めを「売る」に戻すときは、そのことを覚えておく
+          const closedSet = new Set(c.closed);
+          if (room === AUTO_BLOCK.room && time === AUTO_BLOCK.time && closedSet.has(addDaysStr(date, -1)) && !closedSet.has(date)) c.unblocked.push(k);
+        }
+        msg = 'cal_ok';
+      }
+      if (msg === 'cal_ok') saveCalendar(c);
+    }
+    res.statusCode = 302;
+    res.setHeader('Location', '/dashboard?key=' + encodeURIComponent(key) + (/^\d{4}-\d{2}$/.test(cal) ? '&cal=' + cal : '') + '&msg=' + msg + '#nyuryoku');
+    res.end();
+    return;
+  }
+
   if (url === '/add-extra' && req.method === 'GET') {
     const q = new URLSearchParams(req.url.split('?')[1] || '');
     const key = q.get('key') || '';
