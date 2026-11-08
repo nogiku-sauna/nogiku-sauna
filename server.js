@@ -1584,10 +1584,12 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     .kpi .value{font-size:22px;}
   }
   .occ-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
-  table.occ td{border:none;padding:8px 6px;vertical-align:middle;}
+  table.occ{width:100%;table-layout:fixed;}
+  table.occ td{border:none;padding:8px 6px;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;}
   table.occ tr+tr td{border-top:1px solid var(--line);}
-  .occ-l{width:90px;font-weight:700;white-space:nowrap;}
-  .occ-r{width:60px;text-align:right;font-size:18px;font-weight:800;color:var(--ember);}
+  .occ-l{width:90px;font-weight:700;}
+  .occ-r{width:68px;text-align:right;font-size:18px;font-weight:800;color:var(--ember);white-space:nowrap !important;overflow-wrap:normal !important;}
+  @media (max-width:640px){ .occ-l{width:64px;font-size:12.5px;} .occ-r{width:56px;font-size:16px;} }
   .occ-track{height:12px;border-radius:100px;background:#f2ebdc;overflow:hidden;margin-bottom:4px;}
   .occ-fill{height:100%;background:var(--ember);border-radius:100px;}
   .occ-pane{display:none;} .occ-pane.on{display:table;width:100%;}
