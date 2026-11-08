@@ -1390,9 +1390,10 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
       + '<a class="cal-close' + (isClosed ? ' on' : '') + '" href="' + setLink('date=' + d + '&act=' + (isClosed ? 'open' : 'close')) + '">' + (isClosed ? '休館日' : '営業') + '</a>'
       + '<div class="cal-slots">' + slots + '</div></div>';
   }
-  const calendarHtml = `<div class="card" id="cal" style="margin-bottom:18px;">
-    <div class="occ-head"><h3 style="margin:0;">休館日・売り止め（予約率の計算用）</h3>
-      <div class="cal-nav"><a href="/dashboard?cal=${prevM}&${keyQS}#nyuryoku">← 前の月</a><b>${cy}年${cm + 1}月</b><a href="/dashboard?cal=${nextM}&${keyQS}#nyuryoku">次の月 →</a></div></div>
+  const calendarHtml = `<details class="card cal-fold" id="cal" style="margin-top:18px;"${calParam ? ' open' : ''}>
+    <summary class="cal-sumbar"><span>休館日・売り止めを入力する</span><span class="dim">（予約率の計算用）</span></summary>
+    <div class="occ-head" style="margin-top:14px;"><b>${cy}年${cm + 1}月</b>
+      <div class="cal-nav"><a href="/dashboard?cal=${prevM}&${keyQS}#nyuryoku">← 前の月</a><a href="/dashboard?cal=${nextM}&${keyQS}#nyuryoku">次の月 →</a></div></div>
     <div class="cal-list">${calRows}</div>
     <details class="help"><summary>入力のしかた</summary><p class="hint">
       「営業」を押すと、その日が休館日になります（もう一度押すと営業に戻ります）。休館日の翌日の月読9:30は、自動で売り止め（斜線）になります。<br>
@@ -1400,7 +1401,7 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
       前日20時までに予約がなく、当日の9:30を売り止めにした場合は、入力しないでください（売れなかった枠として予約率に入れます）。<br>
       ここでの入力は予約率の計算だけに使います。Squareの予約の受付は変わりません。
     </p></details>
-  </div>`;
+  </details>`;
   const occUpdated = occCache.at ? new Date(occCache.at + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ').replace('-', '/') : '';
   const occHtml = `<div class="card" style="margin-bottom:18px;">
     <div class="occ-head"><h3 style="margin:0;">予約率</h3>
@@ -1590,6 +1591,10 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
   .occ-track{height:12px;border-radius:100px;background:#f2ebdc;overflow:hidden;margin-bottom:4px;}
   .occ-fill{height:100%;background:var(--ember);border-radius:100px;}
   .occ-pane{display:none;} .occ-pane.on{display:table;width:100%;}
+  details.cal-fold > summary.cal-sumbar{cursor:pointer;list-style:none;display:flex;gap:8px;align-items:baseline;font-weight:800;font-size:14px;}
+  details.cal-fold > summary.cal-sumbar::-webkit-details-marker{display:none;}
+  details.cal-fold > summary.cal-sumbar::after{content:"▼";font-size:10px;color:var(--sub);margin-left:auto;}
+  details.cal-fold[open] > summary.cal-sumbar::after{content:"▲";}
   .cal-sum{font-size:12px;color:var(--sub);margin:10px 0 0;}
   .cal-nav{display:flex;gap:14px;align-items:center;font-size:13px;}
   .cal-nav a{color:var(--sub);text-decoration:none;font-weight:700;}
@@ -1766,7 +1771,6 @@ ${(failures && failures.length) ? `
 
   <!-- ================= 入力 ================= -->
   <section class="tab" id="tab-nyuryoku">
-  ${calendarHtml}
   <div class="grid">
     <div class="card">
       <h3>電話予約を追加する</h3>
@@ -1801,6 +1805,7 @@ ${(failures && failures.length) ? `
         : '<p class="empty" style="margin-top:10px;">まだ入力はありません</p>'}
     </div>
   </div>
+  ${calendarHtml}
   </section>
 
   <div class="actions">
