@@ -153,6 +153,132 @@ async function searchAvailability(startAt, endAt, locId, variation, teamIds) {
   return r;
 }
 
+
+// ==========================================================================
+// 予約率（2026-11追加）
+//   その日に「売れる枠」＝ Squareの予約済みの枠 ＋ まだ空いている枠（休館日はどちらも0なので自動で外れる）
+//   ・予約済みの枠：Squareのカレンダーの予約（電話予約をSquareに入れた分も含む）。部屋（予約できる担当者）の予約だけ数える
+//     長い予約（2枠プランなど）は、時間の長さに応じて2枠と数える
+//   ・空いている枠：天照・月読の120分メニューでSquareに空きを聞いた数
+//   ・過ぎた日は空きが分からないので、その日になる前に覚えておいた「売れる枠」を使う（capacity.json）
+//     覚えていない日：予約か空きが1つでもあれば標準の8枠、どちらもなければ休館日とみなす
+//   ・予約を受け付ける前の先の日（空きがまだ出ない日）は、標準の8枠として「見込み」で数える
+//   30分ごとにSquareから取り直し、管理画面は覚えておいた結果を表示するだけ（開くたびにSquareに聞かない）
+// ==========================================================================
+const CAPACITY_PATH = path.join(__dirname, 'capacity.json');
+const SLOTS_PER_DAY = 8;          // 天照4枠＋月読4枠
+const SLOT_UNIT_MIN = 150;        // 1枠＝2時間＋準備30分。予約の長さをこれで割って何枠分かを決める
+let occCache = { booked: {}, avail: {}, horizon: '', at: 0, error: '' };
+function loadCapacity() { try { return JSON.parse(fs.readFileSync(CAPACITY_PATH, 'utf8')) || {}; } catch (e) { return {}; } }
+function jstToday() { return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10); }
+function addDaysStr(ds, n) { return new Date(new Date(ds + 'T00:00:00Z').getTime() + n * 86400000).toISOString().slice(0, 10); }
+
+async function listRoomBookings(fromIso, toIso, locId, rooms) {
+  const out = [];
+  // Squareの予約一覧は1回で31日分まで。区切って取る
+  let a = new Date(fromIso).getTime();
+  const end = new Date(toIso).getTime();
+  while (a < end) {
+    const b = Math.min(end, a + 30 * 86400000);
+    let cursor = '';
+    for (let page = 0; page < 20; page++) {
+      const qs = new URLSearchParams({ limit: '100', location_id: locId, start_at_min: new Date(a).toISOString(), start_at_max: new Date(b).toISOString() });
+      if (cursor) qs.set('cursor', cursor);
+      const r = await sq('GET', '/v2/bookings?' + qs.toString());
+      if (!r.ok) throw new Error('予約一覧の取得に失敗（' + r.status + '）' + JSON.stringify(r.data.errors || '').slice(0, 200));
+      (r.data.bookings || []).forEach(bk => out.push(bk));
+      cursor = r.data.cursor || '';
+      if (!cursor) break;
+    }
+    a = b;
+  }
+  const seen = new Set();
+  const res = [];
+  out.forEach(bk => {
+    if (!bk || seen.has(bk.id)) return;
+    seen.add(bk.id);
+    if (['ACCEPTED', 'PENDING', 'NO_SHOW'].indexOf(bk.status) === -1) return;   // キャンセル・お断りは数えない
+    const segs = (bk.appointment_segments || []).filter(sg => rooms.has(sg.team_member_id));
+    if (!segs.length) return;
+    const minutes = segs.reduce((t, sg) => t + (sg.duration_minutes || 120), 0);
+    res.push({ date: jstDateStr(bk.start_at), slots: Math.max(1, Math.round(minutes / SLOT_UNIT_MIN)) });
+  });
+  return res;
+}
+
+async function refreshOccupancy() {
+  if (!isConfigured()) return;
+  try {
+    const locId = await getLocationId();
+    const rooms = await getBookableTeam();
+    const today = jstToday();
+    // 予約済みの枠：70日前〜40日先
+    const booked = {};
+    const bks = await listRoomBookings(new Date(addDaysStr(today, -70) + 'T00:00:00+09:00').toISOString(),
+                                       new Date(addDaysStr(today, 41) + 'T00:00:00+09:00').toISOString(), locId, rooms);
+    bks.forEach(x => { booked[x.date] = (booked[x.date] || 0) + x.slots; });
+    // 空いている枠：今〜31日先（天照・月読の120分メニューで聞く）
+    const avail = {};
+    const startAt = new Date(Date.now() + 60000).toISOString();
+    const endAt = new Date(Date.now() + 31 * 86400000).toISOString();
+    for (const plan of ['amaterasu120', 'tsukuyomi120']) {
+      const variation = MENU[plan].weekday[2];
+      const seen = new Set();
+      for (let i = 0; i < 2; i++) {   // 結果のぶれ対策で2回聞いて合わせる
+        const r = await searchAvailability(startAt, endAt, locId, variation, [...rooms]);
+        (r.data.availabilities || []).forEach(av => (av.appointment_segments || []).forEach(sg => {
+          if (!rooms.has(sg.team_member_id)) return;
+          const k = sg.team_member_id + '|' + av.start_at;
+          if (seen.has(k)) return;
+          seen.add(k);
+          const d = jstDateStr(av.start_at);
+          avail[d] = (avail[d] || 0) + 1;
+        }));
+      }
+    }
+    // 空きが出ている一番先の日（＝予約を受け付けている範囲の端）
+    const horizon = Object.keys(avail).sort().pop() || today;
+    // 明日以降・受付範囲内の日は、「売れる枠」を覚えておく（その日が過ぎたあとも使えるように）
+    const cap = loadCapacity();
+    for (let d = addDaysStr(today, 1); d <= horizon; d = addDaysStr(d, 1)) {
+      cap[d] = { total: (booked[d] || 0) + (avail[d] || 0), at: new Date().toISOString() };
+    }
+    // 古すぎる記録は捨てる（400日より前）
+    const cut = addDaysStr(today, -400);
+    Object.keys(cap).forEach(k => { if (k < cut) delete cap[k]; });
+    fs.writeFileSync(CAPACITY_PATH, JSON.stringify(cap));
+    occCache = { booked, avail, horizon, at: Date.now(), error: '' };
+  } catch (e) {
+    occCache.error = String(e && e.message ? e.message : e);
+    console.error('予約率の更新に失敗:', occCache.error);
+  }
+}
+setTimeout(refreshOccupancy, 15 * 1000);
+setInterval(refreshOccupancy, 30 * 60 * 1000);
+
+// 1日分の「売れる枠」と「予約済みの枠」（kind：実績／見込み／推定）
+function occDay(d, cap, today) {
+  const booked = occCache.booked[d] || 0;
+  const avail = occCache.avail[d] || 0;
+  if (d > today && d <= occCache.horizon) return { total: booked + avail, booked, kind: 'live' };
+  if (cap[d]) return { total: Math.max(cap[d].total, booked), booked, kind: d < today ? 'past' : 'live' };
+  if (d > occCache.horizon) return { total: SLOTS_PER_DAY, booked, kind: 'future' };   // まだ受付前の日：標準の8枠で見込み
+  return { total: (booked || avail) ? SLOTS_PER_DAY : 0, booked, kind: 'guess' };      // 覚えていない過去の日
+}
+function occRange(from, to) {
+  const cap = loadCapacity();
+  const today = jstToday();
+  let total = 0, booked = 0, open = 0, closed = 0, future = 0, guess = 0;
+  for (let d = from; d <= to; d = addDaysStr(d, 1)) {
+    const x = occDay(d, cap, today);
+    total += x.total; booked += Math.min(x.booked, x.total || x.booked);
+    if (x.total > 0) open++; else closed++;
+    if (x.kind === 'future') future++;
+    if (x.kind === 'guess') guess++;
+  }
+  return { total, booked, open, closed, future, guess, rate: total ? Math.round(booked / total * 1000) / 10 : 0 };
+}
+
 // ---- 正しい Location ID を Square から取得（入力ミス対策・キャッシュ） ----
 let cachedLocationId = null;
 async function getLocationId() {
@@ -1224,6 +1350,45 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
       <td data-label="支払日時" class="dim">${esc(r['記録日時(JST)'] || '')}</td>
       <td data-label="操作" class="act">${actionHtml(r)}</td>
     </tr>`).join('');
+  // 予約率（週ごと・月ごと）
+  const occRow = (label, sub, from, to) => {
+    const o = occRange(from, to);
+    const notes = [];
+    if (o.closed) notes.push('休館' + o.closed + '日');
+    if (o.future) notes.push('受付前' + o.future + '日（8枠で見込み）');
+    if (o.guess) notes.push('推定' + o.guess + '日');
+    const w = Math.min(100, o.rate);
+    return `<tr><td class="occ-l">${label}<br><span class="dim">${sub}</span></td>
+      <td class="occ-b"><div class="occ-track"><div class="occ-fill" style="width:${w}%"></div></div><span class="dim">${o.booked} / ${o.total}枠${notes.length ? '・' + notes.join('・') : ''}</span></td>
+      <td class="occ-r">${o.total ? o.rate + '%' : '—'}</td></tr>`;
+  };
+  const md = ds => (+ds.slice(5, 7)) + '/' + (+ds.slice(8, 10));
+  const dowJ = new Date(todayJ + 'T00:00:00Z').getUTCDay();
+  const monJ = addDaysStr(todayJ, -((dowJ + 6) % 7));          // 今週の月曜
+  const weekRows = [['先週', -7], ['今週', 0], ['来週', 7], ['再来週', 14]].map(w => {
+    const a = addDaysStr(monJ, w[1]), b = addDaysStr(a, 6);
+    return occRow(w[0], md(a) + '〜' + md(b), a, b);
+  }).join('');
+  const monthStart = (y, m) => new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+  const ty = +todayJ.slice(0, 4), tm = +todayJ.slice(5, 7) - 1;
+  const monthRows = [['先月', -1], ['今月', 0], ['来月', 1]].map(mm => {
+    const a = monthStart(ty, tm + mm[1]), b = addDaysStr(monthStart(ty, tm + mm[1] + 1), -1);
+    return occRow(mm[0], (+a.slice(5, 7)) + '月', a, b);
+  }).join('');
+  const occUpdated = occCache.at ? new Date(occCache.at + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ').replace('-', '/') : '';
+  const occHtml = `<div class="card" style="margin-bottom:18px;">
+    <div class="occ-head"><h3 style="margin:0;">予約率</h3>
+      <div class="seg" style="margin:0;"><button type="button" data-occ="week" class="on">週ごと</button><button type="button" data-occ="month">月ごと</button></div></div>
+    ${occCache.error && !occCache.at ? '<p class="empty">Squareから予約率を読み込めませんでした：' + esc(occCache.error) + '</p>'
+      : !occCache.at ? '<p class="empty">予約率を準備中です（サーバーを起動してから1分ほどかかります）</p>'
+      : `<table class="occ occ-pane on" id="occ-week">${weekRows}</table><table class="occ occ-pane" id="occ-month">${monthRows}</table>`}
+    <details class="help"><summary>予約率の数え方</summary><p class="hint">
+      予約率＝予約が入っている枠 ÷ 売れる枠。売れる枠は、Squareの「予約済みの枠」と「まだ空いている枠」を合わせた数です。休館日やSquareで止めた枠は、どちらにも入らないので自動で外れます。<br>
+      予約はSquareのカレンダーの予約で数えます（電話予約もSquareに入れていれば含みます。キャンセルは除きます）。2枠分の長さの予約は2枠と数えます。<br>
+      過ぎた日は、その日の前に覚えておいた「売れる枠」を使います。覚えていない日は、予約か空きがあれば8枠、なければ休館日として数えます（「推定」）。まだ予約を受け付けていない先の日は、8枠として見込みで数えます（「受付前」）。<br>
+      ${occUpdated ? 'Squareから読み込んだ時刻：' + esc(occUpdated) + '（30分ごとに更新）' : ''}${occCache.error ? '<br>前回の更新でエラー：' + esc(occCache.error) : ''}
+    </p></details>
+  </div>`;
   const todayCount = upcoming.filter(r => r['予約日'] === todayJ).length;
   const tmrCount = upcoming.filter(r => r['予約日'] === tomorrowJ).length;
 
@@ -1391,6 +1556,14 @@ function dashboardPage(rows, failures, period, from, to, key, allRows, msg, visi
     .cards tr.is-today td{background:none;} .cards tr.is-today{border-color:var(--ember);}
     .kpi .value{font-size:22px;}
   }
+  .occ-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  table.occ td{border:none;padding:8px 6px;vertical-align:middle;}
+  table.occ tr+tr td{border-top:1px solid var(--line);}
+  .occ-l{width:90px;font-weight:700;white-space:nowrap;}
+  .occ-r{width:60px;text-align:right;font-size:18px;font-weight:800;color:var(--ember);}
+  .occ-track{height:12px;border-radius:100px;background:#f2ebdc;overflow:hidden;margin-bottom:4px;}
+  .occ-fill{height:100%;background:var(--ember);border-radius:100px;}
+  .occ-pane{display:none;} .occ-pane.on{display:table;width:100%;}
   .actions{text-align:center;margin:26px 0 0;}
   .actions a{display:inline-block;padding:11px 20px;border-radius:100px;background:var(--ember);
              color:#fff;text-decoration:none;font-size:13px;font-weight:800;margin:0 4px;}
@@ -1471,6 +1644,8 @@ ${(failures && failures.length) ? `
       成約率は、ネット予約で「時間を選んだ人」のうち、決済まで進んだ割合です（電話予約は含みません）。
     </p></details>
   </details>
+
+  ${occHtml}
 
   <div class="card">
     <div class="seg">
@@ -1598,10 +1773,17 @@ ${(failures && failures.length) ? `
     a.addEventListener('click', function(){ var h = location.hash; if (h) a.href = a.href.split('#')[0] + h; });
   });
   // 予約一覧の切り替え（これからの予約／支払いがあった順）
-  document.querySelectorAll('.seg button').forEach(function(b){
+  document.querySelectorAll('.seg button[data-list]').forEach(function(b){
     b.addEventListener('click', function(){
-      document.querySelectorAll('.seg button').forEach(function(x){ x.classList.toggle('on', x === b); });
+      document.querySelectorAll('.seg button[data-list]').forEach(function(x){ x.classList.toggle('on', x === b); });
       document.querySelectorAll('.listpane').forEach(function(p){ p.classList.toggle('on', p.id === 'list-' + b.dataset.list); });
+    });
+  });
+  // 予約率の切り替え（週ごと／月ごと）
+  document.querySelectorAll('[data-occ]').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('[data-occ]').forEach(function(x){ x.classList.toggle('on', x === b); });
+      document.querySelectorAll('.occ-pane').forEach(function(p){ p.classList.toggle('on', p.id === 'occ-' + b.dataset.occ); });
     });
   });
   // もっと見る
